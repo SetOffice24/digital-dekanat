@@ -41,9 +41,9 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader title="Уведомления" action={tab !== "news" && unread > 0 ? <MarkAllRead /> : undefined} />
-      <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4" role="tablist">
+      <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]" role="tablist">
         {tabs.map((t) => (
-          <Link key={t.k} href={`/notifications?tab=${t.k}`} role="tab" aria-selected={tab === t.k} className={cn("shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-semibold", tab === t.k ? "border-primary bg-primary text-primary-fg" : "border-border bg-surface text-muted")}>
+          <Link key={t.k} href={`/notifications?tab=${t.k}`} role="tab" aria-selected={tab === t.k} className={cn("shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-semibold", tab === t.k ? "border-ink bg-ink text-ink-fg" : "border-border bg-surface text-muted")}>
             {t.l}
           </Link>
         ))}

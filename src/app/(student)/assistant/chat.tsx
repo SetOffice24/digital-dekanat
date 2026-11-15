@@ -14,7 +14,11 @@ export function Chat({ firstName, initial, typeTitles }: { firstName: string; in
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [msgs]);
+  // Фигурные скобки обязательны: в новых Chrome scrollIntoView возвращает Promise,
+  // и React принимает его за функцию очистки эффекта → падение страницы.
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [msgs]);
 
   async function send(text: string) {
     const t = text.trim();
@@ -96,7 +100,7 @@ export function Chat({ firstName, initial, typeTitles }: { firstName: string; in
 
       <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] mt-4 bg-bg pt-2 lg:bottom-4">
         {msgs.length < 2 && (
-          <div className="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4 pb-1">
+          <div className="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] pb-1">
             {suggestions.map((s) => (
               <button key={s} onClick={() => send(s)} disabled={busy} className="shrink-0 rounded-full border border-border bg-surface px-3 py-1.5 text-sm font-medium hover:border-primary/50">
                 {s}
@@ -109,7 +113,7 @@ export function Chat({ firstName, initial, typeTitles }: { firstName: string; in
             e.preventDefault();
             send(input);
           }}
-          className="flex items-end gap-2 rounded-2xl border border-border bg-surface p-1.5 focus-within:border-primary"
+          className="flex items-end gap-2 rounded-[22px] bg-surface shadow-[0_1px_2px_rgba(20,24,40,0.04)] ring-1 ring-border/70 p-1.5 focus-within:border-primary"
         >
           <label htmlFor="ai-input" className="sr-only">Сообщение помощнику</label>
           <textarea

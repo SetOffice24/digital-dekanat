@@ -17,7 +17,7 @@ export function Checkin({ initial }: { initial: number | null }) {
   const [mood, setMood] = useState<number | null>(initial);
   const [pending, start] = useTransition();
   return (
-    <div className="rounded-2xl border border-border bg-surface p-4">
+    <div className="rounded-[22px] bg-surface shadow-[0_1px_2px_rgba(20,24,40,0.04)] ring-1 ring-border/70 p-4">
       <div className="flex justify-between gap-1" role="radiogroup" aria-label="Самочувствие на этой неделе">
         {moods.map((m) => (
           <button

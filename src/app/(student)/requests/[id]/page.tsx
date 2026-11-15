@@ -70,7 +70,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
                 <li key={s} className="flex flex-col items-center text-center">
                   <div className="relative flex w-full items-center justify-center">
                     {i > 0 && <span className={cn("absolute right-1/2 top-1/2 h-0.5 w-full -translate-y-1/2", i <= stepIndex ? "bg-primary" : "bg-border")} />}
-                    <span className={cn("relative z-10 flex size-8 items-center justify-center rounded-full border-2 text-xs font-bold", done ? "border-primary bg-primary text-primary-fg" : "border-border bg-surface text-muted", currentStep && "ring-4 ring-primary-soft")}>
+                    <span className={cn("relative z-10 flex size-8 items-center justify-center rounded-full border-2 text-xs font-bold", done ? "border-ink bg-ink text-ink-fg" : "border-border bg-surface text-muted", currentStep && "ring-4 ring-primary-soft")}>
                       {done ? <Check size={15} /> : i + 1}
                     </span>
                   </div>
@@ -102,10 +102,10 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
               <p className="text-sm text-muted">Справка подписана электронно. Получатель может проверить подлинность по QR-коду.</p>
               <p className="mt-1 text-xs text-muted">Действительна до {fmtDate(r.certificate.validUntil)}</p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <a href={`/api/certificates/${r.id}/pdf`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-fg">
+                <a href={`/api/certificates/${r.id}/pdf`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-ink px-5 text-sm font-semibold text-ink-fg">
                   <Download size={17} /> Скачать PDF
                 </a>
-                <a href={`/verify/${r.certificate.verifyCode}`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold">
+                <a href={`/verify/${r.certificate.verifyCode}`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-surface-2 px-5 text-sm font-semibold">
                   <ExternalLink size={16} /> Страница проверки
                 </a>
               </div>

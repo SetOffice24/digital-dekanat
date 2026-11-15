@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <!-- Пастельный пейзаж «Универа»: небо, солнце, горы, дюны. Нарисовано вручную (SVG), без сторонних изображений. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a9c4df"/>
+      <stop offset="0.45" stop-color="#d9d6e4"/>
+      <stop offset="0.7" stop-color="#f1dcd4"/>
+      <stop offset="1" stop-color="#f6e6dc"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.62" r="0.45">
+      <stop offset="0" stop-color="#ffe3cc" stop-opacity="0.95"/>
+      <stop offset="0.4" stop-color="#ffd9c2" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#ffd9c2" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="m1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cfb3c8"/>
+      <stop offset="1" stop-color="#e6d3dc"/>
+    </linearGradient>
+    <linearGradient id="m2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b59bbd"/>
+      <stop offset="1" stop-color="#d8c6d8"/>
+    </linearGradient>
+    <linearGradient id="d1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#dfe6f0"/>
+      <stop offset="1" stop-color="#c3d1e3"/>
+    </linearGradient>
+    <linearGradient id="d2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef2f8"/>
+      <stop offset="1" stop-color="#cfdbea"/>
+    </linearGradient>
+    <filter id="soft" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="2.5"/></filter>
+    <filter id="haze"><feGaussianBlur stdDeviation="30"/></filter>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <rect width="1600" height="1000" fill="url(#sun)"/>
+  <!-- облака -->
+  <g fill="#ffffff" opacity="0.45" filter="url(#haze)">
+    <ellipse cx="300" cy="180" rx="320" ry="60"/>
+    <ellipse cx="1250" cy="140" rx="380" ry="70"/>
+    <ellipse cx="820" cy="300" rx="260" ry="40"/>
+  </g>
+  <!-- дальние горы -->
+  <path filter="url(#soft)" opacity="0.75" fill="url(#m1)" d="M0 610 L140 520 L230 560 L360 430 L470 520 L560 470 L700 560 L820 500 L930 580 L1060 440 L1180 530 L1300 470 L1440 560 L1600 500 L1600 760 L0 760 Z"/>
+  <!-- ближние горы -->
+  <path filter="url(#soft)" opacity="0.8" fill="url(#m2)" d="M0 690 L120 600 L260 660 L420 520 L560 640 L640 600 L760 680 L1000 690 L1150 560 L1260 620 L1340 580 L1480 650 L1600 610 L1600 800 L0 800 Z"/>
+  <!-- дымка у подножия -->
+  <rect y="640" width="1600" height="200" fill="#f3e6e4" opacity="0.55" filter="url(#haze)"/>
+  <!-- дюны -->
+  <path fill="url(#d1)" d="M0 770 C220 700 420 720 640 780 C860 840 1080 760 1300 740 C1440 728 1530 740 1600 760 L1600 1000 L0 1000 Z"/>
+  <path fill="url(#d2)" d="M0 860 C260 800 520 820 760 880 C1000 940 1260 860 1600 840 L1600 1000 L0 1000 Z"/>
+</svg>

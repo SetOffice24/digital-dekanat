@@ -84,9 +84,9 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
 
       {/* Семестры */}
       <SectionTitle>Дисциплины</SectionTitle>
-      <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1" role="tablist">
+      <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] pb-1" role="tablist">
         {semesters.map((s) => (
-          <Link key={s} href={`/grades?sem=${s}`} role="tab" aria-selected={s === sem} className={cn("shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition", s === sem ? "border-primary bg-primary text-primary-fg" : "border-border bg-surface text-muted hover:text-fg")}>
+          <Link key={s} href={`/grades?sem=${s}`} role="tab" aria-selected={s === sem} className={cn("shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition", s === sem ? "border-ink bg-ink text-ink-fg" : "border-border bg-surface text-muted hover:text-fg")}>
             {s} семестр{s === curSem ? " · сейчас" : ""}
           </Link>
         ))}

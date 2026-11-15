@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import useSWR from "swr";
 import { Bell, CalendarDays, FileText, GraduationCap, House, Menu, Sparkles, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Logo } from "./logo";
+import { Wordmark } from "./logo";
 import { university } from "@/config/university";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; match?: (p: string) => boolean };
@@ -32,21 +32,19 @@ export function StudentShell({ children, name, group }: { children: React.ReactN
   const path = usePathname();
   const unread = useUnread();
   return (
+    <div className="sky-glow min-h-dvh">
     <div className="mx-auto flex min-h-dvh max-w-6xl">
       {/* Сайдбар для десктопа */}
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-border px-3 py-5 lg:flex">
-        <Link href="/" className="mb-6 flex items-center gap-2.5 px-2">
-          <Logo size={34} />
-          <div className="leading-tight">
-            <div className="font-extrabold">{university.product}</div>
-            <div className="text-xs text-muted">{university.fullName}</div>
-          </div>
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col px-3 py-6 lg:flex">
+        <Link href="/" className="mb-8 block px-3" aria-label="На главную">
+          <Wordmark className="text-[22px]" />
+          <div className="mt-1.5 text-xs font-medium text-muted">{university.product}</div>
         </Link>
         <nav className="flex flex-col gap-1" aria-label="Основная навигация">
           {[...studentNav.slice(0, 4), { href: "/notifications", label: "Уведомления", icon: Bell }, { href: "/assistant", label: "Помощник", icon: Sparkles }, { href: "/more", label: "Ещё", icon: Menu, match: (p: string) => ["/more", "/profile"].some((x) => p.startsWith(x)) }].map((item) => {
             const active = isActive(item, path);
             return (
-              <Link key={item.href} href={item.href} className={cn("flex min-h-11 items-center gap-3 rounded-xl px-3 text-[15px] font-semibold transition", active ? "bg-primary-soft text-primary" : "text-muted hover:bg-surface-2 hover:text-fg")} aria-current={active ? "page" : undefined}>
+              <Link key={item.href} href={item.href} className={cn("flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-[15px] font-semibold transition", active ? "bg-ink text-ink-fg shadow-sm" : "text-muted hover:bg-surface/70 hover:text-fg")} aria-current={active ? "page" : undefined}>
                 <item.icon size={20} />
                 <span className="flex-1">{item.label}</span>
                 {item.href === "/notifications" && unread > 0 && <span className="rounded-full bg-danger px-1.5 text-xs font-bold text-white">{unread}</span>}
@@ -54,7 +52,7 @@ export function StudentShell({ children, name, group }: { children: React.ReactN
             );
           })}
         </nav>
-        <div className="mt-auto rounded-xl bg-surface-2 p-3 text-xs text-muted">
+        <div className="mt-auto rounded-2xl bg-surface/80 p-3.5 text-xs text-muted shadow-sm">
           <div className="font-semibold text-fg">{name}</div>
           <div>{group}</div>
         </div>
@@ -62,10 +60,9 @@ export function StudentShell({ children, name, group }: { children: React.ReactN
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Шапка для телефона */}
-        <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-border/60 bg-bg/85 px-4 py-2.5 backdrop-blur lg:hidden">
-          <Link href="/" className="flex items-center gap-2" aria-label="На главную">
-            <Logo size={28} />
-            <span className="font-extrabold tracking-tight">{university.name}</span>
+        <header className="sticky top-0 z-20 flex items-center gap-2 bg-bg/70 px-4 py-3 backdrop-blur-md lg:hidden">
+          <Link href="/" className="flex items-center" aria-label="На главную">
+            <Wordmark className="text-[18px]" />
           </Link>
           <div className="flex-1" />
           <Link href="/assistant" className="flex size-10 items-center justify-center rounded-xl text-primary hover:bg-surface-2" aria-label="ИИ-помощник">
@@ -77,19 +74,19 @@ export function StudentShell({ children, name, group }: { children: React.ReactN
           </Link>
         </header>
 
-        <main className="flex-1 px-4 pb-28 pt-4 lg:px-8 lg:pb-10 lg:pt-8">{children}</main>
+        <main className="flex-1 px-4 pb-32 pt-3 lg:px-8 lg:pb-10 lg:pt-8">{children}</main>
 
         <footer className="hidden px-8 pb-6 text-xs text-muted lg:block">{university.disclaimer}</footer>
 
         {/* Нижняя навигация для телефона */}
-        <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur lg:hidden" aria-label="Основная навигация">
-          <ul className="mx-auto grid max-w-lg grid-cols-5">
+        <nav className="pb-safe fixed inset-x-3 bottom-3 z-30 rounded-[26px] bg-surface/95 shadow-[0_10px_30px_-10px_rgba(20,24,40,0.25)] ring-1 ring-border backdrop-blur lg:hidden" aria-label="Основная навигация">
+          <ul className="mx-auto grid max-w-lg grid-cols-5 px-1">
             {studentNav.map((item) => {
               const active = isActive(item, path);
               return (
                 <li key={item.href}>
-                  <Link href={item.href} className={cn("flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold transition", active ? "text-primary" : "text-muted")} aria-current={active ? "page" : undefined}>
-                    <span className={cn("flex h-7 w-12 items-center justify-center rounded-full transition", active && "bg-primary-soft")}>
+                  <Link href={item.href} className={cn("flex min-h-16 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold transition", active ? "text-ink" : "text-muted")} aria-current={active ? "page" : undefined}>
+                    <span className={cn("flex h-8 w-12 items-center justify-center rounded-full transition", active && "bg-ink text-ink-fg")}>
                       <item.icon size={20} strokeWidth={active ? 2.4 : 2} />
                     </span>
                     {item.label}
@@ -100,6 +97,7 @@ export function StudentShell({ children, name, group }: { children: React.ReactN
           </ul>
         </nav>
       </div>
+    </div>
     </div>
   );
 }

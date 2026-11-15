@@ -1,48 +1,61 @@
 @import "tailwindcss";
 @import "@fontsource-variable/manrope";
+@import "@fontsource-variable/unbounded";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Дизайн-система «Универа»: пастельное небо (голубой → сиреневый → персик),
+ * белые карточки с крупным скруглением, поля без рамок на светло-сером, тёмные кнопки.
+ */
 :root {
-  --bg: #f4f6f8;
+  --bg: #eef1f6;
   --surface: #ffffff;
-  --surface-2: #eef2f5;
-  --fg: #0f172a;
-  --muted: #5b6676;
-  --border: #e2e8f0;
-  --primary: #0f766e;
+  --surface-2: #f3f4f7;
+  --fg: #1f1f24;
+  --muted: #6b7180;
+  --border: #e6e8ee;
+  --ink: #26262b;
+  --ink-fg: #ffffff;
+  --primary: #4b6bd6;
   --primary-fg: #ffffff;
-  --primary-soft: #e6f4f2;
-  --info: #2563eb;
-  --info-soft: #e8efff;
-  --warning: #b45309;
-  --warning-soft: #fdf3e2;
-  --success: #15803d;
-  --success-soft: #e7f6ec;
-  --danger: #c2410c;
-  --danger-soft: #fdece6;
-  --ring: #0f766e66;
+  --primary-soft: #eceffd;
+  --peach: #f4b393;
+  --info: #3c74c8;
+  --info-soft: #e7f0fb;
+  --warning: #b2560f;
+  --warning-soft: #fdf0e4;
+  --success: #1f8a4c;
+  --success-soft: #e5f5ec;
+  --danger: #c43d2b;
+  --danger-soft: #fdebe8;
+  --ring: #4b6bd633;
+  --hero: linear-gradient(135deg, #a9c4df 0%, #cdc4e2 50%, #f3cdb8 100%);
 }
 
 .dark {
-  --bg: #0b1114;
-  --surface: #121a1f;
-  --surface-2: #1a242b;
-  --fg: #e7edf0;
-  --muted: #94a3ad;
-  --border: #23313a;
-  --primary: #2dd4bf;
-  --primary-fg: #04201d;
-  --primary-soft: #0f2e2b;
-  --info: #7aa2ff;
-  --info-soft: #17233f;
-  --warning: #fbbf24;
-  --warning-soft: #33270f;
-  --success: #4ade80;
-  --success-soft: #12301d;
-  --danger: #fb923c;
-  --danger-soft: #3a1d12;
-  --ring: #2dd4bf66;
+  --bg: #111318;
+  --surface: #191c23;
+  --surface-2: #222631;
+  --fg: #eceef3;
+  --muted: #9aa1b2;
+  --border: #2a2f3b;
+  --ink: #eceef3;
+  --ink-fg: #15171c;
+  --primary: #93a8ff;
+  --primary-fg: #10142a;
+  --primary-soft: #1f2540;
+  --peach: #f4b393;
+  --info: #8fb4f0;
+  --info-soft: #172338;
+  --warning: #f5b26b;
+  --warning-soft: #33240f;
+  --success: #6fd49a;
+  --success-soft: #12301f;
+  --danger: #ff8f7d;
+  --danger-soft: #3a1a15;
+  --ring: #93a8ff44;
+  --hero: linear-gradient(135deg, #3a4e72 0%, #4f4870 50%, #6e4c4a 100%);
 }
 
 @theme inline {
@@ -52,9 +65,12 @@
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-ink-fg: var(--ink-fg);
   --color-primary: var(--primary);
   --color-primary-fg: var(--primary-fg);
   --color-primary-soft: var(--primary-soft);
+  --color-accent-peach: var(--peach);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
   --color-warning: var(--warning);
@@ -64,6 +80,7 @@
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Unbounded Variable", "Manrope Variable", ui-sans-serif, sans-serif;
 }
 
 html {
@@ -75,6 +92,24 @@ body {
   color: var(--fg);
   font-family: var(--font-sans);
   font-feature-settings: "tnum" 1;
+}
+
+/* мягкое «небо» сверху страницы кабинета */
+.sky-glow {
+  background:
+    radial-gradient(1200px 380px at 20% -120px, #c9d9ee 0%, transparent 70%),
+    radial-gradient(900px 340px at 90% -140px, #f6d9c8 0%, transparent 70%),
+    var(--bg);
+}
+.dark .sky-glow {
+  background:
+    radial-gradient(1200px 380px at 20% -120px, #22324d 0%, transparent 70%),
+    radial-gradient(900px 340px at 90% -140px, #3a2a2a 0%, transparent 70%),
+    var(--bg);
+}
+
+.hero {
+  background: var(--hero);
 }
 
 :focus-visible {
@@ -93,7 +128,7 @@ body {
   background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
-  border-radius: 12px;
+  border-radius: 14px;
 }
 @keyframes shimmer {
   from { background-position: 200% 0; }

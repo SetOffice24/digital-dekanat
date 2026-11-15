@@ -15,7 +15,7 @@ export default async function RequestsPage() {
   const archive = requests.filter((r) => ["DONE", "REJECTED"].includes(r.status));
 
   const Row = ({ r }: { r: (typeof requests)[number] }) => (
-    <Link href={`/requests/${r.id}`} className="group flex items-center gap-3 rounded-2xl border border-border bg-surface p-3.5 transition hover:border-primary/40">
+    <Link href={`/requests/${r.id}`} className="group flex items-center gap-3 rounded-[22px] bg-surface shadow-[0_1px_2px_rgba(20,24,40,0.04)] ring-1 ring-border/70 p-3.5 transition hover:border-primary/40">
       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-muted">
         <FileText size={20} />
       </span>
