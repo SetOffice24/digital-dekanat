@@ -9,19 +9,31 @@ export type Row = { enrollmentId: string; name: string; subgroup: number; grades
 
 const initial: GradeState = {};
 
-function Chip({ g }: { g: RowGrade }) {
+// короткие подписи видов работ — чтобы под каждой цифрой было видно, за что она
+const SHORT: Record<string, string> = { "Лабораторная работа": "Лаб.", "Контрольная точка": "КТ", "Практическое задание": "Практика", "Контрольная работа": "Контр.", "Самостоятельная работа": "Самост." };
+const shortNote = (n: string | null) => (n ? (SHORT[n] ?? n) : "Оценка");
+
+function Chip({ g, max }: { g: RowGrade; max: number }) {
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const label = `${g.note ?? "Оценка"} · ${g.date}`;
   return (
-    <span title={err ?? label} className={`inline-flex items-center gap-0.5 rounded-full bg-surface-2 py-1 pl-3 text-sm font-bold ${g.kind === "CURRENT" ? "pr-1" : "pr-3"} ${pending ? "opacity-50" : ""} ${err ? "ring-2 ring-danger/50" : ""}`}>
-      <span aria-label={label}>{g.points ?? g.value}</span>
+    <span title={err ?? label} className={`inline-flex items-center gap-1 rounded-2xl bg-surface-2 py-1.5 pl-3 ${g.kind === "CURRENT" ? "pr-1" : "pr-3"} ${pending ? "opacity-50" : ""} ${err ? "ring-2 ring-danger/50" : ""}`}>
+      <span aria-label={`${g.points ?? g.value} из ${max}, ${label}`} className="leading-tight">
+        <span className="block text-[11px] font-medium text-muted">
+          {shortNote(g.note)} · {g.date}
+        </span>
+        <span className="block text-[15px] font-bold tabular-nums">
+          {g.points ?? g.value}
+          {g.points != null && <span className="text-xs font-medium text-muted">/{max}</span>}
+        </span>
+      </span>
       {g.kind === "CURRENT" && (
         <button
           type="button"
           disabled={pending}
           aria-label={`Удалить оценку ${g.points ?? g.value} (${label})`}
-          className="flex size-6 items-center justify-center rounded-full text-muted hover:bg-danger-soft hover:text-danger"
+          className="flex size-7 items-center justify-center rounded-full text-muted hover:bg-danger-soft hover:text-danger"
           onClick={() => {
             // защита от случайного нажатия: оценка исчезнет у студента
             if (!window.confirm(`Удалить оценку ${g.points ?? g.value} (${label})? Студент её больше не увидит.`)) return;
@@ -50,11 +62,11 @@ export function GradebookRow({ row, kinds, max }: { row: Row; kinds: readonly st
         <div className="mt-0.5 text-xs text-muted">подгруппа {row.subgroup}</div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5 md:mt-0">
-        {row.grades.length === 0 ? <span className="text-sm text-muted">Оценок пока нет</span> : row.grades.map((g) => <Chip key={g.id} g={g} />)}
+        {row.grades.length === 0 ? <span className="text-sm text-muted">Оценок пока нет</span> : row.grades.map((g) => <Chip key={g.id} g={g} max={max} />)}
       </div>
       <div className="mt-3 flex items-center justify-between gap-3 md:contents">
         <div className="md:text-center" title="Сумма баллов за семестр">
-          <span className="text-xs text-muted md:hidden">Сумма: </span>
+          <span className="text-xs text-muted md:hidden">Сумма баллов: </span>
           <span className="font-head text-xl font-semibold">{row.total}</span>
         </div>
         <Button variant={open ? "secondary" : "primary"} className="min-h-11 px-4" aria-expanded={open} onClick={() => setOpen((o) => !o)}>

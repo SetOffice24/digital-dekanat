@@ -3,7 +3,7 @@ import { requireStaff } from "@/server/auth";
 import { listGroups, listLessons } from "@/server/repos/staff";
 import { Badge, Button, Card, EmptyState, Input, PageHeader, Select } from "@/components/ui";
 import { lessonKindLabel } from "@/lib/labels";
-import { addDays, fmtDay, isoDate, moscowToday, parseIsoDate } from "@/lib/utils";
+import { addDays, fmtDay, isoDate, moscowToday, parseIsoDate, roomLabel } from "@/lib/utils";
 import { CancelForm, MoveForm } from "./forms";
 
 export const metadata = { title: "Расписание" };
@@ -43,7 +43,7 @@ export default async function StaffSchedule({ searchParams }: { searchParams: Pr
                 <div className="min-w-0">
                   <p className="font-bold">{l.course.name}</p>
                   <p className="text-sm text-muted">
-                    {l.startTime}–{l.endTime} · {lessonKindLabel[l.kind]} · ауд. {l.room}, {l.building}
+                    {l.startTime}–{l.endTime} · {lessonKindLabel[l.kind]} · {roomLabel(l.room)}, {l.building}
                   </p>
                   <p className="text-sm text-muted">
                     {l.teacher.fullName}

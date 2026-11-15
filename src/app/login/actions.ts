@@ -34,6 +34,20 @@ export async function loginAction(_: LoginState, form: FormData): Promise<LoginS
   redirect(homeFor(user.role));
 }
 
+/** Демо-доступ для жюри: вход в один из четырёх вымышленных аккаунтов без ввода пароля.
+ *  Список логинов жёстко ограничен; на сервере можно выключить через DEMO_LOGIN=0. */
+const DEMO_LOGINS = ["anna.lesnova", "petr.ozerov", "dekanat", "teacher"] as const;
+
+export async function demoLoginAction(form: FormData) {
+  if (process.env.DEMO_LOGIN === "0") redirect("/login");
+  const login = String(form.get("login") ?? "");
+  if (!(DEMO_LOGINS as readonly string[]).includes(login)) redirect("/login");
+  const user = await prisma.user.findUnique({ where: { login } });
+  if (!user) redirect("/login");
+  await createSession(user.id);
+  redirect(homeFor(user.role));
+}
+
 export async function logoutAction() {
   await destroySession();
   redirect("/login");

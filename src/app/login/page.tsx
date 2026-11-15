@@ -4,6 +4,7 @@ import { getCurrentUser, homeFor } from "@/server/auth";
 import { university } from "@/config/university";
 import { Wordmark } from "@/components/logo";
 import { LoginForm } from "./login-form";
+import { DemoLogin } from "./demo-login";
 
 export const metadata = { title: "Вход" };
 
@@ -30,6 +31,12 @@ export default async function LoginPage() {
               <LoginForm />
             </div>
           </div>
+
+          {process.env.DEMO_LOGIN !== "0" && (
+            <div className="mt-3">
+              <DemoLogin />
+            </div>
+          )}
 
           <div className="mt-4 flex items-center justify-between gap-2 text-[13px] font-semibold text-white">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#2a3150]/35 px-3 py-1.5 backdrop-blur-md">

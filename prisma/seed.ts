@@ -117,7 +117,7 @@ const structure = [
   },
 ] as const;
 
-const rooms = ["101", "105", "112", "204", "215", "301", "306", "312", "401", "418", "Ауд. А-1", "Лаб. 3"];
+const rooms = ["101", "105", "112", "204", "215", "301", "306", "312", "401", "418", "А-1", "Лаб. 3"];
 const buildings = ["Главный корпус", "Корпус Б", "Корпус В"];
 
 async function reset() {
@@ -204,7 +204,7 @@ async function main() {
         const course = g.current[(day * 3 + k) % g.current.length];
         const kind: LessonKind = k === 0 ? "LECTURE" : rng() > 0.5 ? "PRACTICE" : "LAB";
         const sub = kind === "LAB" ? (rng() > 0.5 ? 1 : 2) : null;
-        template.push({ day, pair: startPair + k, course, kind, sub, room: kind === "LECTURE" ? pick(["Ауд. А-1", "101", "301"]) : pick(rooms), building: pick(buildings) });
+        template.push({ day, pair: startPair + k, course, kind, sub, room: kind === "LECTURE" ? pick(["А-1", "101", "301"]) : pick(rooms), building: pick(buildings) });
       }
     }
     for (let w = -2; w <= 6; w++) {
@@ -220,6 +220,10 @@ async function main() {
   }
   await prisma.lesson.createMany({ data: lessonRows });
 
+  const RU_DAY = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+  const dm = (d: Date) => `${RU_DAY[d.getUTCDay()]} ${String(d.getUTCDate()).padStart(2, "0")}.${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const changes: Record<string, { moved?: { title: string; body: string; link: string }; cancelled?: { title: string; body: string; link: string } }> = {};
   /* Изменения в расписании: в каждой неделе 0..+2 у демонстрационных групп — перенос и отмена */
   for (const gName of ["ИВТ-24-1", "ЭК-23-2"]) {
     const g = groups[gName];
@@ -227,6 +231,7 @@ async function main() {
       const weekLessons = await prisma.lesson.findMany({
         where: { groupId: g.id, date: { gte: addDays(monday, w * 7), lt: addDays(monday, w * 7 + 6) }, subgroup: null },
         orderBy: [{ date: "asc" }, { startTime: "asc" }],
+        include: { course: true },
       });
       const future = weekLessons.filter((l) => l.date >= todayUTC);
       const pool = future.length >= 2 ? future : weekLessons;
@@ -246,6 +251,13 @@ async function main() {
         where: { id: cancelled.id },
         data: { status: "CANCELLED", changeNote: "Занятие отменено: аудитория занята под олимпиаду", changedAt: addDays(todayUTC, -1) },
       });
+      // для уведомлений берём ближайшую неделю, где изменения ещё впереди
+      if (!changes[gName] && future.length >= 2) {
+        changes[gName] = {
+          moved: { title: `Перенос: ${moved.course.name}`, body: `Занятие ${dm(moved.date)} в ${moved.startTime} перенесено на ${dm(newDate)}, 15:40–17:10, ауд. 418.`, link: `/schedule?date=${iso(newDate)}` },
+          cancelled: { title: `Отмена: ${cancelled.course.name}`, body: `Занятие ${dm(cancelled.date)} в ${cancelled.startTime} отменено: аудитория занята под олимпиаду.`, link: `/schedule?date=${iso(cancelled.date)}` },
+        };
+      }
       // смена аудитории без переноса
       const roomChange = pool.find((l) => l.id !== moved.id && l.id !== cancelled.id);
       if (roomChange) {
@@ -261,10 +273,15 @@ async function main() {
   const sessionStart = new Date(Date.UTC(now.getFullYear(), 11, 22));
   for (const [, g] of Object.entries(groups)) {
     let i = 0;
+    const used = new Set<string>();
     for (const def of g.current) {
       if (def.assessment === "COURSEWORK") continue;
       const isExam = def.assessment === "EXAM";
-      const date = isExam ? addDays(sessionStart, 7 + i * 3) : addDays(sessionStart, i);
+      // не ставим экзамены на воскресенья и новогодние праздники (1–8 января)
+      let date = isExam ? addDays(sessionStart, 7 + i * 3) : addDays(sessionStart, i);
+      // и не ставим два испытания группе в один день
+      while (date.getUTCDay() === 0 || (date.getUTCMonth() === 0 && date.getUTCDate() <= 8) || used.has(date.toISOString())) date = addDays(date, 1);
+      used.add(date.toISOString());
       await prisma.exam.create({
         data: { courseId: await courseId(def), groupId: g.id, date: at(date, isExam ? "09:00" : "12:00"), room: pick(rooms), kind: isExam ? "EXAM" : "CREDIT", teacher: pick(teacherNames) },
       });
@@ -441,15 +458,15 @@ async function main() {
       data: items.map((n) => ({ userId, kind: n.kind, title: n.title, body: n.body, link: n.link, createdAt: new Date(now.getTime() - n.hoursAgo * 3600000), readAt: n.read ? now : null })),
     });
   await notes(anna.userId, [
-    { kind: "SCHEDULE_CHANGE", title: "Перенос занятия", body: "Одно из занятий этой недели перенесено. Проверьте расписание.", link: "/schedule", hoursAgo: 20 },
+    { kind: "SCHEDULE_CHANGE", ...(changes["ИВТ-24-1"]?.moved ?? { title: "Перенос занятия", body: "Одно из занятий этой недели перенесено.", link: "/schedule" }), hoursAgo: 20 },
     { kind: "REQUEST_STATUS", title: "Заявка взята в работу", body: "«Уважительная причина пропуска» — деканат проверяет документы.", link: `/requests/${annaAbsence.id}`, hoursAgo: 46 },
     { kind: "ANNOUNCEMENT", title: "Хакатон ФИТ: регистрация открыта", body: "Регистрация — до пятницы.", link: "/notifications?tab=news", hoursAgo: 24, read: true },
     { kind: "REQUEST_STATUS", title: "Справка готова", body: "«Справка об обучении» готова — скачайте PDF.", link: "/requests", hoursAgo: 260, read: true },
   ]);
   await notes(petr.userId, [
     { kind: "REQUEST_STATUS", title: "Нужно уточнение по заявке", body: "Деканат задал вопрос по заявлению на пересдачу.", link: `/requests/${petrRetake.id}`, hoursAgo: 90 },
-    { kind: "GRADE", title: "Назначена пересдача", body: "«Методы оптимальных решений» — через 5 дней, ауд. 306.", link: "/grades", hoursAgo: 30 },
-    { kind: "SCHEDULE_CHANGE", title: "Занятие отменено", body: "Одно из занятий на этой неделе отменено.", link: "/schedule", hoursAgo: 18 },  ]);
+    { kind: "GRADE", title: "Назначена пересдача", body: `«Методы оптимальных решений» — ${dm(addDays(todayUTC, 5))} в 15:40, ауд. 306.`, link: "/grades", hoursAgo: 30 },
+    { kind: "SCHEDULE_CHANGE", ...(changes["ЭК-23-2"]?.cancelled ?? { title: "Занятие отменено", body: "Одно из занятий на этой неделе отменено.", link: "/schedule" }), hoursAgo: 18 },  ]);
 
   console.log("Seed OK:", { lessons: lessonRows.length, students: 2 + fillers.length, staff: 1 });
 }

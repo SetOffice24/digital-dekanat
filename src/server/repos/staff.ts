@@ -6,7 +6,7 @@ import "server-only";
 import { customAlphabet } from "nanoid";
 import type { Prisma, RequestStatus, Staff } from "@prisma/client";
 import { prisma } from "../db";
-import { addDays } from "@/lib/utils";
+import { addDays, dueDate } from "@/lib/utils";
 import { audienceUserIds, groupUserIds, notify } from "../notify";
 import { requestStatusLabel } from "@/lib/labels";
 
@@ -30,7 +30,7 @@ export type StaffRequestRow = Prisma.RequestGetPayload<{ include: typeof listInc
 
 export function isOverdue(r: { status: RequestStatus; createdAt: Date; type: { slaDays: number } }, now = new Date()) {
   // «Ждём ответа студента» не считается просрочкой деканата
-  return (r.status === "NEW" || r.status === "IN_REVIEW") && addDays(r.createdAt, r.type.slaDays).getTime() < now.getTime();
+  return (r.status === "NEW" || r.status === "IN_REVIEW") && dueDate(r.createdAt, r.type.slaDays).getTime() < now.getTime();
 }
 
 export async function getDashboard(staff: SessionStaff) {

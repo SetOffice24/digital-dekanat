@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, CalendarRange, CheckCircle2, Clock, FilePlus2, GraduationCap, PartyPopper } from "lucide-react";
+import { AlertTriangle, ArrowRight, ArrowUpRight, CalendarRange, CheckCircle2, Clock, FilePlus2, GraduationCap, PartyPopper } from "lucide-react";
 import { requireStudent } from "@/server/auth";
 import { getEnrollments, getExams, getLessons, listDeadlines, listRequests, currentSemester, summarize } from "@/server/repos/student";
 import { remindDeadlines } from "@/server/notify";
 import { Countdown } from "@/components/countdown";
 import { EmptyState } from "@/components/ui";
-import { addDays, fmtDateTime, fmtDay, fmtShort, isoDate, minutesOf, moscowTime, moscowToday, plural } from "@/lib/utils";
+import { addDays, fmtDateTime, fmtDay, fmtShort, isoDate, minutesOf, moscowTime, moscowToday, plural, roomLabel } from "@/lib/utils";
 import { requestStatusLabel } from "@/lib/labels";
 import { AttentionList, type AttentionItem } from "./attention-list";
 
@@ -65,7 +65,7 @@ export default async function TodayPage() {
       href: `/requests/${r.id}`,
     });
   for (const e of retakes)
-    items.push({ key: "e" + e.id, kind: "retake", tone: "bg-danger-soft text-danger", title: `Пересдача: ${e.course.name}`, text: `${fmtDateTime(e.date)}, ауд. ${e.room}`, href: "/grades" });
+    items.push({ key: "e" + e.id, kind: "retake", tone: "bg-danger-soft text-danger", title: `Пересдача: ${e.course.name}`, text: `${fmtDateTime(e.date)}, ${roomLabel(e.room)}`, href: "/grades" });
   for (const d of deadlines)
     items.push({ key: "d" + d.id, kind: "deadline", tone: "bg-p-sky text-[#0e0e10]", title: d.title, text: `до ${fmtDateTime(d.dueAt)}`, href: d.link ?? "/notifications" });
   if (debts.length && !retakes.length)
@@ -130,7 +130,7 @@ export default async function TodayPage() {
             <p className="relative mt-3 text-[15px] opacity-75">
               {next.startTime}–{next.endTime} · {next.room}, {next.building}
             </p>
-            {next.status === "MOVED" && <p className="relative mt-2 text-sm text-p-yellow">⚠ {next.changeNote}</p>}
+            {next.status === "MOVED" && <p className="relative mt-2 flex items-center gap-1.5 text-sm text-p-yellow"><AlertTriangle size={15} className="shrink-0" /> {next.changeNote}</p>}
             <div className="relative mt-auto flex items-end justify-between gap-3 pt-6">
               <span className="text-sm opacity-60">{restToday > 0 ? `Сегодня ещё ${restToday} ${plural(restToday, "пара", "пары", "пар")}` : "Всё расписание"}</span>
               <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-white/15 transition group-hover:bg-white group-hover:text-[#0e0e10]">

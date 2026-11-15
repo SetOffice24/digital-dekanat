@@ -8,7 +8,7 @@ import { Card, SectionTitle } from "@/components/ui";
 import { StatusBadge } from "@/components/status-badge";
 import { parseFields } from "@/lib/request-fields";
 import { requestStatusLabel } from "@/lib/labels";
-import { cn, fmtDate, fmtDateTime } from "@/lib/utils";
+import { cn, dueDate, fmtDate, fmtDateTime } from "@/lib/utils";
 import { AnswerForm } from "./answer-form";
 
 export const metadata = { title: "Заявка" };
@@ -46,7 +46,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
         <div>
           <h1 className="font-display text-[22px] font-semibold leading-tight tracking-tight sm:text-2xl">{r.type.title}</h1>
           <p className="mt-0.5 text-sm text-muted">
-            № {r.number} · от {fmtDate(r.createdAt)} · срок до {r.type.slaDays} раб. дн.
+            № {r.number} · от {fmtDate(r.createdAt)} · срок — до {fmtDate(dueDate(r.createdAt, r.type.slaDays))}
           </p>
         </div>
         <StatusBadge status={r.status} />

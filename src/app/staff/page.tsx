@@ -3,7 +3,7 @@ import { ArrowUpRight, Inbox } from "lucide-react";
 import type { RequestStatus } from "@prisma/client";
 import { requireStaff } from "@/server/auth";
 import { countByStatus, isOverdue, listRequests } from "@/server/repos/staff";
-import { addDays, cn, fmtShort, plural } from "@/lib/utils";
+import { cn, dueDate, fmtShort, plural } from "@/lib/utils";
 import { QuickAction } from "./quick-action";
 
 export const metadata = { title: "Заявки" };
@@ -46,12 +46,13 @@ export default async function StaffInbox({ searchParams }: { searchParams: Promi
       </p>
 
       {/* Шаги работы */}
-      <nav className="-mx-4 mt-6 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" aria-label="Статусы заявок">
+      {/* Вкладки переносятся на новую строку — на телефоне видны все пять, ничего не прячется за краем */}
+      <nav className="mt-6 flex flex-wrap gap-2" aria-label="Статусы заявок">
         {tabs.map((t) => {
           const active = t.key === tab.key;
           const n = count(t);
           return (
-            <Link key={t.key} href={`/staff?tab=${t.key}`} aria-current={active ? "page" : undefined} className={cn("inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-[15px] font-medium transition", active ? "border-ink bg-ink text-ink-fg" : "border-transparent bg-surface hover:border-border")}>
+            <Link key={t.key} href={`/staff?tab=${t.key}`} aria-current={active ? "page" : undefined} className={cn("inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition sm:min-h-11 sm:px-4 sm:text-[15px]", active ? "border-ink bg-ink text-ink-fg" : "border-transparent bg-surface hover:border-border")}>
               {t.label}
               {n > 0 && <span className={cn("rounded-full px-2 text-xs font-semibold leading-5", active ? "bg-white/20" : t.key === "new" ? "bg-p-yellow text-[#0e0e10]" : "bg-surface-2 text-muted")}>{n}</span>}
             </Link>
@@ -71,7 +72,7 @@ export default async function StaffInbox({ searchParams }: { searchParams: Promi
       ) : (
         <ul className="overflow-hidden rounded-[28px] border border-border/70 bg-surface">
           {rows.map((r, i) => {
-            const due = addDays(r.createdAt, r.type.slaDays);
+            const due = dueDate(r.createdAt, r.type.slaDays);
             const overdue = isOverdue(r, now);
             const days = Math.ceil((now.getTime() - due.getTime()) / 86400000);
             const initials = `${r.student.lastName[0]}${r.student.firstName[0]}`;

@@ -1,19 +1,24 @@
 import Link from "next/link";
 import { AlertTriangle, BookOpen, CalendarCheck, CheckCircle2, MapPin, TrendingUp } from "lucide-react";
 import { requireStudent } from "@/server/auth";
-import { currentSemester, getEnrollments, getExams, summarize } from "@/server/repos/student";
+import { currentSemester, getEnrollments, getExams, listRequests, summarize } from "@/server/repos/student";
 import { Badge, ButtonLink, Card, EmptyState, PageHeader, Progress, SectionTitle } from "@/components/ui";
 import { assessmentLabel, gradeText } from "@/lib/labels";
-import { cn, fmtDateTime, plural } from "@/lib/utils";
+import { cn, fmtDateTime, plural, roomLabel } from "@/lib/utils";
 
 export const metadata = { title: "Учёба" };
+
+const dayMonth = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", timeZone: "Europe/Moscow" });
+const fmtDayMonth = (d: Date) => dayMonth.format(d);
 
 const gradeTone = (v: string) => (v === "5" || v === "PASS" ? "success" : v === "4" ? "primary" : v === "3" ? "warning" : "danger") as "success" | "primary" | "warning" | "danger";
 
 export default async function GradesPage({ searchParams }: { searchParams: Promise<{ sem?: string }> }) {
   const { student } = await requireStudent();
   const sp = await searchParams;
-  const [enrollments, exams] = await Promise.all([getEnrollments(student), getExams(student)]);
+  const [enrollments, exams, requests] = await Promise.all([getEnrollments(student), getExams(student), listRequests(student)]);
+  // активное заявление на пересдачу — вместо «подать ещё одно» ведём к нему
+  const retakeRequest = requests.find((r) => r.type.code === "APP_RETAKE" && !["DONE", "REJECTED"].includes(r.status));
   const curSem = currentSemester(student);
   const { avg, debts, current, risky } = summarize(enrollments, curSem);
   const semesters = [...new Set(enrollments.map((e) => e.semester))].sort((a, b) => b - a);
@@ -56,7 +61,17 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
             <div className="text-[11px] font-semibold text-muted">дн до сессии</div>
           </div>
         </div>
-        {debts.length > 0 && (
+        {debts.length > 0 && retakeRequest?.status === "NEED_INFO" && (
+          <ButtonLink href={`/requests/${retakeRequest.id}`} variant="danger" className="mt-4 w-full">
+            Деканат ждёт ответа по заявлению — ответить
+          </ButtonLink>
+        )}
+        {debts.length > 0 && retakeRequest && retakeRequest.status !== "NEED_INFO" && (
+          <ButtonLink href={`/requests/${retakeRequest.id}`} variant="secondary" className="mt-4 w-full">
+            Заявление на пересдачу уже подано — посмотреть статус
+          </ButtonLink>
+        )}
+        {debts.length > 0 && !retakeRequest && retakes.length === 0 && (
           <ButtonLink href="/requests/new?type=APP_RETAKE" variant="danger" className="mt-4 w-full">
             Подать заявление на пересдачу
           </ButtonLink>
@@ -72,7 +87,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="font-bold">{e.course.name}</div>
-                    <div className="mt-1 text-sm text-muted">{fmtDateTime(e.date)} · ауд. {e.room} · {e.teacher}</div>
+                    <div className="mt-1 text-sm text-muted">{fmtDateTime(e.date)} · {roomLabel(e.room)} · {e.teacher}</div>
                   </div>
                   <Badge tone="danger">Пересдача</Badge>
                 </div>
@@ -114,8 +129,9 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {e.grades.map((g) => (
-                    <span key={g.id} className="rounded-lg bg-surface-2 px-2 py-0.5 text-xs" title={g.note ?? undefined}>
-                      {g.note}: <b>{g.value}</b>
+                    <span key={g.id} className="rounded-lg bg-surface-2 px-2 py-0.5 text-xs" title={`${g.note ?? "Оценка"}, ${fmtDayMonth(g.date)}`}>
+                      {g.note} · {fmtDayMonth(g.date)}: <b>{g.points ?? g.value}</b>
+                      {g.points != null && <span className="text-muted">/20</span>}
                     </span>
                   ))}
                 </div>
@@ -157,7 +173,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
               <div className="min-w-0">
                 <div className="font-semibold leading-snug">{e.course.name}</div>
                 <div className="mt-0.5 flex items-center gap-1 text-xs text-muted">
-                  <MapPin size={12} /> ауд. {e.room} · {e.teacher}
+                  <MapPin size={12} /> {roomLabel(e.room)} · {e.teacher}
                 </div>
               </div>
               <div className="shrink-0 text-right">

@@ -43,11 +43,12 @@ export function StaffShell({ children, name, position }: { children: React.React
             </button>
           </form>
         </div>
-        <nav className="mx-auto flex w-full max-w-[100rem] gap-1 overflow-x-auto px-3 pb-2.5 [scrollbar-width:none] sm:px-5 md:px-7 lg:hidden" aria-label="Разделы кабинета">
+        {/* На телефоне и планшете — три равные вкладки: все разделы видны сразу, без прокрутки вбок */}
+        <nav className="mx-auto grid w-full max-w-[100rem] grid-cols-3 gap-1 px-3 pb-2.5 sm:px-5 md:px-7 lg:hidden" aria-label="Разделы кабинета">
           {nav.map((n) => (
-            <Link key={n.href} href={n.href} aria-current={active(n) ? "page" : undefined} className={cn("flex min-h-10 shrink-0 items-center gap-2 rounded-2xl px-3.5 text-sm font-semibold transition", active(n) ? "bg-ink text-ink-fg" : "text-muted hover:bg-surface/70 hover:text-fg")}>
-              <n.icon size={18} />
-              {n.label}
+            <Link key={n.href} href={n.href} aria-current={active(n) ? "page" : undefined} className={cn("flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-2xl px-2 text-[13px] font-semibold transition sm:text-sm", active(n) ? "bg-ink text-ink-fg" : "text-muted hover:bg-surface/70 hover:text-fg")}>
+              <n.icon size={17} className="shrink-0 max-[379px]:hidden" />
+              <span className="truncate">{n.label}</span>
             </Link>
           ))}
         </nav>

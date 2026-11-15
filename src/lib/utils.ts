@@ -71,3 +71,20 @@ export function minutesOf(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
 }
+
+/** «301» → «ауд. 301»; «Лаб. 3», «А-1» и прочие названия — без приставки. */
+export function roomLabel(room: string) {
+  return /^\d/.test(room) ? `ауд. ${room}` : room;
+}
+
+/** Срок заявки: дата подачи + N рабочих дней (сб и вс не считаются). Один расчёт для студента и деканата. */
+export function dueDate(createdAt: Date, slaDays: number) {
+  const d = new Date(createdAt);
+  let left = slaDays;
+  while (left > 0) {
+    d.setDate(d.getDate() + 1);
+    const wd = d.getDay();
+    if (wd !== 0 && wd !== 6) left--;
+  }
+  return d;
+}

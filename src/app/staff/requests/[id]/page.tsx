@@ -5,7 +5,7 @@ import { requireStaff } from "@/server/auth";
 import { getRequest, isOverdue } from "@/server/repos/staff";
 import { Badge, ButtonLink, Card, SectionTitle } from "@/components/ui";
 import { requestStatusLabel, requestStatusTone } from "@/lib/labels";
-import { fmtDate, fmtDateTime } from "@/lib/utils";
+import { dueDate, fmtDate, fmtDateTime } from "@/lib/utils";
 import { AssignForm, DecisionForm } from "./forms";
 
 export const metadata = { title: "Заявка" };
@@ -55,7 +55,7 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
             <SectionTitle>Данные заявки</SectionTitle>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
               <dt className="text-muted">Подана</dt><dd>{fmtDateTime(r.createdAt)}</dd>
-              <dt className="text-muted">Срок</dt><dd>{r.type.slaDays} раб. дн.</dd>
+              <dt className="text-muted">Срок</dt><dd>до {fmtDate(dueDate(r.createdAt, r.type.slaDays))} · {r.type.slaDays} раб. дн.</dd>
               <dt className="text-muted">Исполнитель</dt><dd>{r.assignee?.fullName ?? "не назначен"}</dd>
               {r.wantsPaper && (<><dt className="text-muted">Бумажная копия</dt><dd>нужна</dd></>)}
               {fields.map((f) => (
