@@ -78,7 +78,7 @@ export default async function TodayPage() {
 
   const tiles = [
     { href: "/requests/new", label: "Заказать справку", hint: "PDF с QR за 1 день", icon: <FilePlus2 size={22} />, tone: "bg-p-mint" },
-    { href: "/schedule?view=week", label: "Неделя", hint: "Все пары и переносы", icon: <CalendarRange size={22} />, tone: "bg-p-sky" },
+    { href: "/schedule", label: "Расписание", hint: "Пары и переносы", icon: <CalendarRange size={22} />, tone: "bg-p-sky" },
     { href: "/grades", label: "Оценки", hint: "Баллы и сессия", icon: <GraduationCap size={22} />, tone: "bg-p-lilac" },
   ];
 

@@ -29,7 +29,8 @@ const listInclude = {
 export type StaffRequestRow = Prisma.RequestGetPayload<{ include: typeof listInclude }>;
 
 export function isOverdue(r: { status: RequestStatus; createdAt: Date; type: { slaDays: number } }, now = new Date()) {
-  return OPEN.includes(r.status) && addDays(r.createdAt, r.type.slaDays).getTime() < now.getTime();
+  // «Ждём ответа студента» не считается просрочкой деканата
+  return (r.status === "NEW" || r.status === "IN_REVIEW") && addDays(r.createdAt, r.type.slaDays).getTime() < now.getTime();
 }
 
 export async function getDashboard(staff: SessionStaff) {
@@ -225,4 +226,12 @@ export function getCertificateForStaff(staff: SessionStaff, requestId: string) {
     where: { requestId, revoked: false, request: { student: studentScope(staff) } },
     include: { request: { include: { type: true, student: { include: { faculty: true, program: true, group: true } } } } },
   });
+}
+
+/** Количество заявок по статусам — для вкладок «входящих». */
+export async function countByStatus(staff: SessionStaff) {
+  const rows = await prisma.request.groupBy({ by: ["status"], where: { student: studentScope(staff) }, _count: { _all: true } });
+  const out: Partial<Record<RequestStatus, number>> = {};
+  for (const r of rows) out[r.status] = r._count._all;
+  return out;
 }

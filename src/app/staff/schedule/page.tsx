@@ -3,7 +3,7 @@ import { requireStaff } from "@/server/auth";
 import { listGroups, listLessons } from "@/server/repos/staff";
 import { Badge, Button, Card, EmptyState, Input, PageHeader, Select } from "@/components/ui";
 import { lessonKindLabel } from "@/lib/labels";
-import { fmtDay, isoDate, moscowToday, parseIsoDate } from "@/lib/utils";
+import { addDays, fmtDay, isoDate, moscowToday, parseIsoDate } from "@/lib/utils";
 import { CancelForm, MoveForm } from "./forms";
 
 export const metadata = { title: "Расписание" };
@@ -12,8 +12,10 @@ export default async function StaffSchedule({ searchParams }: { searchParams: Pr
   const { staff } = await requireStaff();
   const sp = await searchParams;
   const groups = await listGroups(staff);
-  const group = groups.find((g) => g.id === sp.group) ?? groups[0];
-  const date = parseIsoDate(sp.date) ?? moscowToday();
+  // по умолчанию — первая группа с занятиями (ИВТ-24-1 в демо) и ближайший учебный день
+  const group = groups.find((g) => g.id === sp.group) ?? groups.find((g) => g.name === "ИВТ-24-1") ?? groups[0];
+  const today = moscowToday();
+  const date = parseIsoDate(sp.date) ?? (today.getUTCDay() === 0 ? addDays(today, 1) : today);
   const lessons = group ? await listLessons(staff, group.id, date) : [];
 
   return (

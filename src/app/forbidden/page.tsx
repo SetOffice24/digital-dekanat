@@ -10,7 +10,7 @@ export default function Forbidden() {
         <ShieldX size={28} />
       </span>
       <h1 className="text-2xl font-extrabold">Нет доступа</h1>
-      <p className="mt-2 max-w-sm text-muted">Этот раздел доступен только сотрудникам деканата.</p>
+      <p className="mt-2 max-w-sm text-muted">У вашей учётной записи нет доступа к этому разделу.</p>
       <ButtonLink href="/" className="mt-6">На главную</ButtonLink>
     </main>
   );

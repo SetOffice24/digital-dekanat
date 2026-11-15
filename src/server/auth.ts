@@ -82,7 +82,7 @@ export const getCurrentUser = cache(async () => {
   if (!id) return null;
   const session = await prisma.session.findUnique({
     where: { id },
-    include: { user: { include: { student: true, staff: true } } },
+    include: { user: { include: { student: true, staff: true, teacher: true } } },
   });
   if (!session || session.expiresAt < new Date()) return null;
   return session.user;
@@ -92,8 +92,21 @@ export const getCurrentUser = cache(async () => {
 export async function requireStudent() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (user.role !== "STUDENT" || !user.student) redirect("/staff");
+  if (user.role !== "STUDENT" || !user.student) redirect(homeFor(user.role));
   return { user, student: user.student };
+}
+
+/** Стартовая страница для роли. */
+export function homeFor(role: "STUDENT" | "STAFF" | "TEACHER") {
+  return role === "STAFF" ? "/staff" : role === "TEACHER" ? "/teacher" : "/";
+}
+
+/** Для страниц и действий преподавателя: преподаватель берётся только из сессии. */
+export async function requireTeacher() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.role !== "TEACHER" || !user.teacher) redirect("/forbidden");
+  return { user, teacher: user.teacher };
 }
 
 /** Для страниц и действий сотрудника деканата. */

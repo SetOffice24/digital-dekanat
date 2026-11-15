@@ -1,122 +1,107 @@
 import Link from "next/link";
-import { CalendarPlus, ChevronLeft, ChevronRight, PartyPopper, TriangleAlert } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, PartyPopper } from "lucide-react";
 import { requireStudent } from "@/server/auth";
 import { getLessons } from "@/server/repos/student";
 import { LessonItem } from "@/components/lesson-item";
-import { EmptyState, PageHeader } from "@/components/ui";
-import { addDays, cn, fmtDay, fmtShort, fmtWeekdayShort, isoDate, mondayOf, moscowToday, parseIsoDate, plural } from "@/lib/utils";
+import { addDays, cn, fmtDay, fmtShort, fmtWeekdayShort, isoDate, minutesOf, mondayOf, moscowTime, moscowToday, parseIsoDate, plural } from "@/lib/utils";
 import { OfflineCache } from "./offline-cache";
 
 export const metadata = { title: "Расписание" };
 
-export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ date?: string; view?: string }> }) {
+/**
+ * Простое расписание: один выбор дня (с числом пар под датой) и список пар этого дня.
+ * По умолчанию — сегодня, а если сегодня воскресенье — понедельник.
+ */
+export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const { student } = await requireStudent();
   const sp = await searchParams;
   const today = moscowToday();
-  const selected = parseIsoDate(sp.date) ?? today;
-  const view = sp.view === "week" ? "week" : "day";
+  let selected = parseIsoDate(sp.date) ?? today;
+  if (!sp.date && selected.getUTCDay() === 0) selected = addDays(selected, 1);
   const weekStart = mondayOf(selected);
   const lessons = await getLessons(student, weekStart, addDays(weekStart, 7));
   const days = Array.from({ length: 6 }, (_, i) => addDays(weekStart, i));
-  const changes = lessons.filter((l) => l.status !== "SCHEDULED");
   const byDay = (d: Date) => lessons.filter((l) => l.date.getTime() === d.getTime());
-  const href = (d: Date, v = view) => `/schedule?date=${isoDate(d)}${v === "week" ? "&view=week" : ""}`;
-
-  const weekLabel = `${fmtShort(weekStart)} – ${fmtShort(addDays(weekStart, 5))}`;
+  const changes = lessons.filter((l) => l.status !== "SCHEDULED").length;
+  const dayLessons = byDay(selected);
+  const nowMin = minutesOf(moscowTime());
+  const isToday = selected.getTime() === today.getTime();
 
   return (
-    <div className="w-full">
-      <PageHeader
-        title="Расписание"
-        subtitle={weekLabel}
-        action={
-          <a href="/api/schedule/ics" className="inline-flex min-h-12 items-center gap-2 rounded-full border border-ink px-5 text-sm font-semibold transition hover:bg-ink hover:text-ink-fg" download>
-            <CalendarPlus size={17} /> <span className="hidden sm:inline">В календарь</span>
-          </a>
-        }
-      />
-
-      {/* Переключатель вида */}
-      <div className="mb-4 grid max-w-sm grid-cols-2 rounded-full bg-surface-2 p-1 text-sm font-semibold" role="tablist">
-        {(["day", "week"] as const).map((v) => (
-          <Link key={v} href={href(selected, v)} role="tab" aria-selected={view === v} className={cn("rounded-full py-2.5 text-center transition", view === v ? "bg-ink text-ink-fg" : "text-muted")}>
-            {v === "day" ? "День" : "Неделя"}
-          </Link>
-        ))}
+    <div className="mx-auto w-full max-w-4xl">
+      <div className="mb-6 flex items-end justify-between gap-3">
+        <div>
+          <h1 className="font-head text-[34px] font-semibold leading-[1.05] tracking-[-0.02em] sm:text-5xl">Расписание</h1>
+          <p className="mt-2 text-[15px] text-muted sm:text-lg">
+            {fmtShort(weekStart)} – {fmtShort(addDays(weekStart, 5))}
+            {changes > 0 && (
+              <>
+                {" "}· <span className="font-medium text-fg">{changes} {plural(changes, "изменение", "изменения", "изменений")}</span>
+              </>
+            )}
+          </p>
+        </div>
+        <a href="/api/schedule/ics" download className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-medium text-muted hover:bg-surface hover:text-fg" title="Скачать расписание для календаря телефона">
+          <CalendarPlus size={18} /> <span className="hidden sm:inline">В календарь</span>
+        </a>
       </div>
 
-      {/* Навигация по неделе */}
-      <div className="mb-4 flex items-center gap-1">
-        <Link href={href(addDays(weekStart, -7))} className="flex size-10 shrink-0 items-center justify-center rounded-xl hover:bg-surface-2" aria-label="Предыдущая неделя">
+      {/* Выбор дня */}
+      <div className="mb-8 flex items-center gap-1.5 sm:gap-2">
+        <Link href={`/schedule?date=${isoDate(addDays(weekStart, -7))}`} className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-surface" aria-label="Предыдущая неделя">
           <ChevronLeft size={20} />
         </Link>
-        <div className="grid flex-1 grid-cols-6 gap-1">
+        <div className="grid flex-1 grid-cols-6 gap-1.5 sm:gap-2">
           {days.map((d) => {
-            const isSel = d.getTime() === selected.getTime();
-            const isToday = d.getTime() === today.getTime();
-            const hasChange = byDay(d).some((l) => l.status !== "SCHEDULED");
-            const count = byDay(d).filter((l) => l.status !== "CANCELLED").length;
+            const sel = d.getTime() === selected.getTime();
+            const items = byDay(d);
+            const count = items.filter((l) => l.status !== "CANCELLED").length;
+            const changed = items.some((l) => l.status !== "SCHEDULED");
+            const todayMark = d.getTime() === today.getTime();
             return (
-              <Link key={d.toISOString()} href={href(d, "day")} className={cn("relative flex flex-col items-center rounded-[18px] py-2 transition", isSel && view === "day" ? "bg-ink text-ink-fg" : "bg-surface hover:bg-surface-2")} aria-label={fmtDay(d)}>
-                <span className={cn("text-[11px] font-semibold uppercase", isSel && view === "day" ? "opacity-90" : "text-muted")}>{fmtWeekdayShort(d)}</span>
-                <span className={cn("text-[17px] font-extrabold", isToday && !(isSel && view === "day") && "text-danger")}>{d.getUTCDate()}</span>
-                <span className="flex h-1.5 gap-0.5">
-                  {hasChange ? <span className="size-1.5 rounded-full bg-warning" /> : count > 0 ? <span className={cn("size-1.5 rounded-full", isSel && view === "day" ? "bg-ink-fg/70" : "bg-border")} /> : null}
-                </span>
+              <Link key={d.toISOString()} href={`/schedule?date=${isoDate(d)}`} aria-current={sel ? "date" : undefined} aria-label={`${fmtDay(d)}: ${count ? `${count} ${plural(count, "пара", "пары", "пар")}` : "пар нет"}`} className={cn("relative flex flex-col items-center rounded-[20px] py-2.5 transition sm:py-3", sel ? "bg-ink text-ink-fg" : "bg-surface hover:bg-surface-2")}>
+                <span className={cn("text-[11px] font-medium uppercase", sel ? "opacity-70" : "text-muted")}>{fmtWeekdayShort(d)}</span>
+                <span className="text-lg font-semibold leading-tight sm:text-xl">{d.getUTCDate()}</span>
+                <span className={cn("mt-0.5 hidden text-[11px] sm:block", sel ? "opacity-70" : "text-muted")}>{count ? `${count} ${plural(count, "пара", "пары", "пар")}` : "—"}</span>
+                <span className={cn("mt-0.5 text-[11px] sm:hidden", sel ? "opacity-70" : "text-muted")}>{count || "—"}</span>
+                {changed && <span className="absolute right-2 top-2 size-2 rounded-full bg-[#f2b705]" aria-hidden />}
+                {todayMark && !sel && <span className="absolute bottom-1 size-1 rounded-full bg-ink" aria-hidden />}
               </Link>
             );
           })}
         </div>
-        <Link href={href(addDays(weekStart, 7))} className="flex size-10 shrink-0 items-center justify-center rounded-xl hover:bg-surface-2" aria-label="Следующая неделя">
+        <Link href={`/schedule?date=${isoDate(addDays(weekStart, 7))}`} className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-surface" aria-label="Следующая неделя">
           <ChevronRight size={20} />
         </Link>
       </div>
 
-      {changes.length > 0 && (
-        <div className="mb-5 flex items-start gap-2.5 rounded-[24px] bg-p-yellow p-4 text-sm text-[#0e0e10]">
-          <TriangleAlert size={18} className="mt-0.5 shrink-0" />
-          <p>
-            <b>
-              {changes.length} {plural(changes.length, "изменение", "изменения", "изменений")} на этой неделе.
-            </b>{" "}
-            Переносы и отмены отмечены цветом.
-          </p>
-        </div>
-      )}
+      <h2 className="mb-4 font-head text-xl font-semibold sm:text-2xl">
+        {fmtDay(selected)}
+        {isToday && <span className="ml-2 text-base font-medium text-muted">сегодня</span>}
+      </h2>
 
-      {view === "day" ? (
-        <section aria-label={fmtDay(selected)}>
-          <h2 className="mb-2 text-[15px] font-bold">
-            {fmtDay(selected)}
-            {selected.getTime() === today.getTime() && <span className="ml-2 font-medium text-primary">сегодня</span>}
-          </h2>
-          {byDay(selected).length ? (
-            <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">{byDay(selected).map((l) => <LessonItem key={l.id} lesson={l} />)}</div>
-          ) : (
-            <EmptyState icon={<PartyPopper size={22} />} title="Пар нет" text="В этот день занятий не запланировано." />
-          )}
-        </section>
-      ) : (
-        <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2 2xl:grid-cols-3">
-          {days.map((d) => (
-            <section key={d.toISOString()} aria-label={fmtDay(d)}>
-              <h2 className={cn("mb-2 text-[15px] font-bold", d.getTime() === today.getTime() && "text-primary")}>
-                {fmtDay(d)} {d.getTime() === today.getTime() && "· сегодня"}
-              </h2>
-              {byDay(d).length ? (
-                <div className="space-y-2">{byDay(d).map((l) => <LessonItem key={l.id} lesson={l} />)}</div>
-              ) : (
-                <p className="rounded-xl bg-surface px-4 py-3 text-sm text-muted">Пар нет</p>
-              )}
-            </section>
+      {dayLessons.length ? (
+        <div className="space-y-3">
+          {dayLessons.map((l) => (
+            <LessonItem key={l.id} lesson={l} highlight={isToday && l.status !== "CANCELLED" && minutesOf(l.startTime) <= nowMin && nowMin < minutesOf(l.endTime) ? "now" : undefined} />
           ))}
+        </div>
+      ) : (
+        <div className="flex items-center gap-4 rounded-[28px] border border-border/70 bg-surface p-6">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-p-mint text-[#0e0e10]">
+            <PartyPopper size={22} />
+          </span>
+          <div>
+            <div className="font-semibold">Пар нет</div>
+            <div className="text-sm text-muted">В этот день занятий не запланировано.</div>
+          </div>
         </div>
       )}
 
       <OfflineCache
         data={{
           savedAt: new Date().toISOString(),
-          week: weekLabel,
+          week: `${fmtShort(weekStart)} – ${fmtShort(addDays(weekStart, 5))}`,
           lessons: lessons.map((l) => ({ date: isoDate(l.date), start: l.startTime, end: l.endTime, course: l.course.name, room: l.room, status: l.status })),
         }}
       />

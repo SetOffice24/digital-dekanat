@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { CircleHelp, Info } from "lucide-react";
-import { getCurrentUser } from "@/server/auth";
+import { getCurrentUser, homeFor } from "@/server/auth";
 import { university } from "@/config/university";
 import { Wordmark } from "@/components/logo";
 import { LoginForm } from "./login-form";
@@ -9,7 +9,7 @@ export const metadata = { title: "Вход" };
 
 export default async function LoginPage() {
   const user = await getCurrentUser();
-  if (user) redirect(user.role === "STAFF" ? "/staff" : "/");
+  if (user) redirect(homeFor(user.role));
   return (
     // Фон сгенерирован нейросетью (OpenAI Image API); SVG-пейзаж — лёгкая подложка, пока грузится картинка
     <main className="relative flex min-h-dvh flex-col bg-[#c9d3e3] bg-cover bg-center px-4" style={{ backgroundImage: "url(/bg/login.webp), url(/bg/sky.svg)" }}>

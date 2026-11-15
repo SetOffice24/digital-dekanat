@@ -1,15 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, FileText, LayoutDashboard, LogOut, Megaphone, type LucideIcon } from "lucide-react";
+import { CalendarDays, FileText, LogOut, Megaphone, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/logo";
 import { logoutAction } from "@/app/login/actions";
 import { university } from "@/config/university";
 
-const nav: { href: string; label: string; icon: LucideIcon; exact?: boolean }[] = [
-  { href: "/staff", label: "Сводка", icon: LayoutDashboard, exact: true },
-  { href: "/staff/requests", label: "Заявки", icon: FileText },
+const nav: { href: string; label: string; icon: LucideIcon; exact?: boolean; match?: (p: string) => boolean }[] = [
+  { href: "/staff", label: "Заявки", icon: FileText, match: (p: string) => p === "/staff" || p.startsWith("/staff/requests") },
   { href: "/staff/announcements", label: "Объявления", icon: Megaphone },
   { href: "/staff/schedule", label: "Расписание", icon: CalendarDays },
 ];
@@ -17,7 +16,7 @@ const nav: { href: string; label: string; icon: LucideIcon; exact?: boolean }[] 
 /** Кабинет сотрудника: шапка с вкладками на всю ширину экрана, контент до 1600 px. */
 export function StaffShell({ children, name, position }: { children: React.ReactNode; name: string; position: string }) {
   const path = usePathname();
-  const active = (n: (typeof nav)[number]) => (n.exact ? path === n.href : path === n.href || path.startsWith(n.href + "/"));
+  const active = (n: (typeof nav)[number]) => (n.match ? n.match(path) : n.exact ? path === n.href : path === n.href || path.startsWith(n.href + "/"));
   return (
     <div className="sky-glow flex min-h-dvh flex-col">
       <header className="sticky top-0 z-20 border-b border-border/60 bg-bg/75 backdrop-blur-md">

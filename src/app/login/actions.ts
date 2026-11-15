@@ -3,7 +3,7 @@ import { z } from "zod";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/server/db";
-import { clearAttempts, createSession, destroySession, dummyHash, isRateLimited, registerFailedAttempt, verifyPassword } from "@/server/auth";
+import { clearAttempts, createSession, destroySession, dummyHash, homeFor, isRateLimited, registerFailedAttempt, verifyPassword } from "@/server/auth";
 
 const schema = z.object({
   login: z.string().trim().min(1, "Введите логин").max(64),
@@ -31,7 +31,7 @@ export async function loginAction(_: LoginState, form: FormData): Promise<LoginS
   }
   clearAttempts(key);
   await createSession(user.id);
-  redirect(user.role === "STAFF" ? "/staff" : "/");
+  redirect(homeFor(user.role));
 }
 
 export async function logoutAction() {

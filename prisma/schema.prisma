@@ -11,6 +11,7 @@ datasource db {
 enum Role {
   STUDENT
   STAFF
+  TEACHER
 }
 
 enum Assessment {
@@ -85,6 +86,7 @@ model User {
   sessions      Session[]
   student       Student?
   staff         Staff?
+  teacher       Teacher?
   notifications Notification[]
   events        RequestEvent[]
 }
@@ -173,6 +175,8 @@ model Staff {
 
 model Teacher {
   id         String   @id @default(cuid())
+  userId     String?  @unique
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   fullName   String
   department String
   lessons    Lesson[]

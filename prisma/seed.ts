@@ -184,6 +184,9 @@ async function main() {
   /* ---------- расписание: недели -2..+6 ---------- */
   const lessonRows: Prisma.LessonCreateManyInput[] = [];
   const groupTeacher = new Map<string, string>();
+  // Демо-преподаватель с кабинетом: ведёт алгоритмы в двух группах и базы данных у Анны
+  const demoTeacher = teachers[11];
+  for (const k of ["ИВТ-24-1Алгоритмы и структуры данных", "ИВТ-24-2Алгоритмы и структуры данных", "ИВТ-24-1Базы данных"]) groupTeacher.set(k, demoTeacher.id);
   const teacherFor = (group: string, course: string) => {
     const k = group + course;
     if (!groupTeacher.has(k)) groupTeacher.set(k, pick(teachers).id);
@@ -298,6 +301,9 @@ async function main() {
     );
   }
 
+  const teacherUser = await prisma.user.create({ data: { login: "teacher", passwordHash: await hash("Teacher-Univer-2026", ARGON), role: "TEACHER" } });
+  await prisma.teacher.update({ where: { id: demoTeacher.id }, data: { userId: teacherUser.id } });
+
   const staffUser = await prisma.user.create({ data: { login: "dekanat", passwordHash: await hash("Dekanat-Univer-2026", ARGON), role: "STAFF" } });
   const staff = await prisma.staff.create({ data: { userId: staffUser.id, fullName: "Светлова Марина Игоревна", position: "Специалист по учебной работе", facultyId: null } });
 
@@ -398,7 +404,7 @@ async function main() {
       : code === "APP_ABSENCE" ? { dateFrom: addDays(todayUTC, -5).toISOString().slice(0, 10), dateTo: addDays(todayUTC, -4).toISOString().slice(0, 10), reason: "Болезнь, справка из поликлиники" }
       : code === "CERT_MILITARY" ? { commissariat: "Северный район" }
       : { subject: "Перевод на другую форму обучения", text: "Подскажите, какие документы нужны для перевода на заочную форму." };
-    const hist: Parameters<typeof mkRequest>[3] = i % 3 === 0 ? [{ to: "NEW", daysAgo: int(0, 2) }] : [{ to: "NEW", daysAgo: int(3, 6) }, { to: "IN_REVIEW", daysAgo: int(1, 2), staff: true }];
+    const hist: Parameters<typeof mkRequest>[3] = i % 3 === 0 ? [{ to: "NEW", daysAgo: i === 0 ? 3 : 0 }] : [{ to: "NEW", daysAgo: 1 }, { to: "IN_REVIEW", daysAgo: 0.5, staff: true }];
     await mkRequest(f, code, payload, hist, code === "CERT_MILITARY");
   }
 

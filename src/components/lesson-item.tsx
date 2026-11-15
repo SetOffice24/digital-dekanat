@@ -1,52 +1,43 @@
-import { MapPin, User } from "lucide-react";
 import type { LessonWithRefs } from "@/server/repos/student";
 import { lessonKindLabel } from "@/lib/labels";
 import { cn, fmtShort } from "@/lib/utils";
-import { Badge } from "./ui";
 
 export function changeInfo(l: LessonWithRefs) {
-  if (l.status === "CANCELLED") return { tone: "danger" as const, label: "Отменено" };
+  if (l.status === "CANCELLED") return { cancelled: true, label: "Отменено" };
   if (l.status === "MOVED") {
     const sameSlot = l.movedFromDate && l.movedFromDate.getTime() === l.date.getTime() && l.movedFromTime === l.startTime;
-    if (sameSlot) return { tone: "warning" as const, label: "Новая аудитория" };
-    return { tone: "warning" as const, label: `Перенесено с ${l.movedFromDate ? fmtShort(l.movedFromDate) : ""} ${l.movedFromTime ?? ""}`.trim() };
+    return { cancelled: false, label: sameSlot ? "Новая аудитория" : `Перенос с ${l.movedFromDate ? fmtShort(l.movedFromDate) : ""} ${l.movedFromTime ?? ""}`.trim() };
   }
   return null;
 }
 
+/**
+ * Пара в расписании. Иерархия: время → предмет → где → (мелко) вид и преподаватель.
+ * Изменение показывается одной пометкой, без лишних цветов.
+ */
 export function LessonItem({ lesson: l, highlight }: { lesson: LessonWithRefs; highlight?: "now" | "next" }) {
   const change = changeInfo(l);
-  const cancelled = l.status === "CANCELLED";
+  const cancelled = change?.cancelled;
   return (
-    <div
-      className={cn(
-        "flex gap-3 rounded-[24px] border bg-surface p-4",
-        change ? (cancelled ? "border-danger/30" : "border-warning/50") : "border-border/70",
-        highlight === "now" && "border-ink ring-1 ring-ink",
-      )}
-    >
-      <div className={cn("w-12 shrink-0 text-right tabular-nums", cancelled && "opacity-50")}>
-        <div className="text-[15px] font-bold leading-tight">{l.startTime}</div>
-        <div className="text-xs text-muted">{l.endTime}</div>
+    <div className="flex gap-3 sm:gap-5">
+      <div className={cn("w-14 shrink-0 pt-4 text-right tabular-nums sm:w-16", cancelled && "opacity-40")}>
+        <div className="text-lg font-semibold leading-none">{l.startTime}</div>
+        <div className="mt-1 text-[13px] text-muted">{l.endTime}</div>
       </div>
-      <div className={cn("w-1 shrink-0 rounded-full", cancelled ? "bg-danger/40" : change ? "bg-warning" : l.kind === "LECTURE" ? "bg-primary" : l.kind === "LAB" ? "bg-info" : "bg-success")} />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs font-semibold text-muted">{lessonKindLabel[l.kind]}</span>
-          {l.subgroup && <span className="text-xs text-muted">· подгр. {l.subgroup}</span>}
-          {highlight === "now" && <Badge tone="primary">Идёт сейчас</Badge>}
-          {change && <Badge tone={change.tone}>{change.label}</Badge>}
+      <div className={cn("min-w-0 flex-1 rounded-[24px] border bg-surface p-4 sm:p-5", highlight === "now" ? "border-ink" : "border-border/70", cancelled && "bg-surface/60")}>
+        <div className="flex items-start justify-between gap-3">
+          <div className={cn("min-w-0 text-[17px] font-semibold leading-snug", cancelled && "text-muted line-through")}>{l.course.name}</div>
+          {highlight === "now" && <span className="shrink-0 rounded-full bg-ink px-2.5 py-0.5 text-xs font-semibold text-ink-fg">Идёт</span>}
+          {change && <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold", cancelled ? "bg-danger-soft text-danger" : "bg-p-yellow text-[#0e0e10]")}>{change.label}</span>}
         </div>
-        <div className={cn("mt-0.5 font-bold leading-snug", cancelled && "text-muted line-through")}>{l.course.name}</div>
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[13px] text-muted">
-          <span className="inline-flex items-center gap-1">
-            <MapPin size={13} /> {l.room}, {l.building}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <User size={13} /> {l.teacher.fullName}
-          </span>
+        <div className={cn("mt-1 text-[15px]", cancelled && "text-muted")}>
+          {l.room} · {l.building}
         </div>
-        {change && l.changeNote && <p className={cn("mt-1.5 text-[13px]", cancelled ? "text-danger" : "text-warning")}>{l.changeNote}</p>}
+        <div className="mt-0.5 text-[13px] text-muted">
+          {lessonKindLabel[l.kind]}
+          {l.subgroup ? ` · подгр. ${l.subgroup}` : ""} · {l.teacher.fullName}
+        </div>
+        {change && l.changeNote && <p className="mt-2 text-[13px] text-muted">{l.changeNote}</p>}
       </div>
     </div>
   );
