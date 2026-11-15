@@ -7,6 +7,7 @@ import { Checkin } from "../checkin";
 import { logoutAction } from "@/app/login/actions";
 import { university } from "@/config/university";
 import { ThemeToggle } from "../more/theme-toggle";
+import { BrowserAlerts } from "../more/browser-alerts";
 
 export const metadata = { title: "Профиль" };
 
@@ -66,6 +67,9 @@ export default async function ProfilePage() {
               <span className="flex-1 font-medium">Уведомления</span>
               <ArrowUpRight size={18} className="text-muted" />
             </Link>
+            <div className="border-t border-border/70">
+              <BrowserAlerts />
+            </div>
             <div className="border-t border-border/70">
               <ThemeToggle />
             </div>

@@ -8,6 +8,7 @@ import { Logo, Wordmark } from "./logo";
 import { AssistantProvider, OpenAssistant } from "./assistant/provider";
 import { Mascot } from "./assistant/mascot";
 import { university } from "@/config/university";
+import { LiveNotice, type Latest } from "./live-notice";
 
 /**
  * Простая навигация: 4 раздела + 3 действия.
@@ -24,11 +25,12 @@ const nav: NavItem[] = [
   { href: "/requests", label: "Заявки", icon: FileText },
 ];
 
-const fetcher = (u: string) => fetch(u).then((r) => (r.ok ? r.json() : { count: 0 }));
+const fetcher = (u: string) => fetch(u).then((r) => (r.ok ? r.json() : { count: 0, latest: null }));
 
+/** Непрочитанные уведомления: опрос каждые 10 с и при возврате на вкладку — изменения расписания видны почти сразу. */
 export function useUnread() {
-  const { data } = useSWR<{ count: number }>("/api/notifications/unread", fetcher, { refreshInterval: 20000, revalidateOnFocus: true });
-  return data?.count ?? 0;
+  const { data } = useSWR<{ count: number; latest: Latest }>("/api/notifications/unread", fetcher, { refreshInterval: 10000, revalidateOnFocus: true });
+  return { count: data?.count ?? 0, latest: data?.latest ?? null, ready: data !== undefined };
 }
 
 const isActive = (item: NavItem, path: string) => (item.match ? item.match(path) : path === item.href || path.startsWith(item.href + "/"));
@@ -37,7 +39,7 @@ const capsule = "inline-flex min-h-12 items-center gap-2 rounded-full border px-
 
 export function StudentShell({ children, name, firstName, group, initials }: { children: React.ReactNode; name: string; firstName: string; group: string; initials: string }) {
   const path = usePathname();
-  const unread = useUnread();
+  const { count: unread, latest, ready } = useUnread();
   const onProfile = path.startsWith("/profile");
   const onNotes = path.startsWith("/notifications");
 
@@ -111,6 +113,7 @@ export function StudentShell({ children, name, firstName, group, initials }: { c
           </ul>
         </nav>
       </div>
+      {ready && <LiveNotice latest={latest} count={unread} />}
     </AssistantProvider>
   );
 }

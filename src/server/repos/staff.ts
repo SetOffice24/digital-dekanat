@@ -6,7 +6,10 @@ import "server-only";
 import { customAlphabet } from "nanoid";
 import type { Prisma, RequestStatus, Staff } from "@prisma/client";
 import { prisma } from "../db";
-import { addDays, dueDate } from "@/lib/utils";
+import { addDays, dueDate, fmtShort, fmtWeekdayShort, roomLabel } from "@/lib/utils";
+
+// «пн, 16 нояб» — коротко и однозначно для уведомлений
+const dayShort = (d: Date) => `${fmtWeekdayShort(d)}, ${fmtShort(d)}`;
 import { audienceUserIds, groupUserIds, notify } from "../notify";
 import { requestStatusLabel } from "@/lib/labels";
 
@@ -245,7 +248,7 @@ export async function moveLesson(
   await notify(ids, {
     kind: "SCHEDULE_CHANGE",
     title: `Перенос: ${l.course.name}`,
-    body: `Занятие ${ymd(l.date).split("-").reverse().join(".")} в ${l.startTime} перенесено на ${ymd(to.date).split("-").reverse().join(".")}, ${to.startTime}–${to.endTime}, ауд. ${to.room}. Причина: ${to.reason}`,
+    body: `Пара ${dayShort(l.date)} в ${l.startTime} перенесена на ${dayShort(to.date)}, ${to.startTime}–${to.endTime}, ${roomLabel(to.room)}. Причина: ${to.reason}`,
     link: `/schedule?date=${ymd(to.date)}`,
   });
   return l;
@@ -259,7 +262,7 @@ export async function cancelLesson(staff: SessionStaff, id: string, reason: stri
   await notify(ids, {
     kind: "SCHEDULE_CHANGE",
     title: `Отмена: ${l.course.name}`,
-    body: `Занятие ${ymd(l.date).split("-").reverse().join(".")} в ${l.startTime} отменено. Причина: ${reason}`,
+    body: `Пара ${dayShort(l.date)} в ${l.startTime} отменена. Причина: ${reason}`,
     link: `/schedule?date=${ymd(l.date)}`,
   });
   return l;
