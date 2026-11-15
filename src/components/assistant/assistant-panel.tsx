@@ -142,7 +142,7 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer" }: { firstN
         aria-label="История чатов"
       >
         <div className="flex items-center justify-between px-4 pb-2 pt-4">
-          <Mascot size={30} />
+          <Mascot size={34} />
           <button onClick={() => setSidebar(false)} className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface hover:text-fg" aria-label="Свернуть историю">
             <PanelLeft size={20} />
           </button>
@@ -202,9 +202,9 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer" }: { firstN
             </div>
           ) : msgs.length === 0 ? (
             <div className="flex min-h-full flex-col items-center justify-center py-10 text-center">
-              <Mascot size={72} />
+              <Mascot size={112} />
               <p className="mt-4 font-display text-xl font-semibold">Привет, {firstName}!</p>
-              <p className="mt-1 text-sm text-muted">Я Уни, помощник деканата. Чем помочь?</p>
+              <p className="mt-1 text-sm text-muted">Я помощник деканата. Чем помочь?</p>
               <div className="mt-6 flex max-w-xl flex-wrap justify-center gap-2">
                 {suggestions.map((s) => (
                   <button key={s.text} onClick={() => send(s.text)} disabled={busy} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-surface-2 px-4 text-sm font-medium transition hover:bg-primary-soft hover:text-primary">
@@ -284,7 +284,7 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer" }: { firstN
               <ArrowUp size={20} />
             </button>
           </form>
-          <p className="mt-1.5 text-center text-[11px] text-muted">Уни может ошибаться. Важное уточняйте в деканате.</p>
+          <p className="mt-1.5 text-center text-[11px] text-muted">Помощник может ошибаться. Важное уточняйте в деканате.</p>
         </div>
       </section>
     </div>

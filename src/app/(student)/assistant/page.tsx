@@ -1,7 +1,7 @@
 import { requireStudent } from "@/server/auth";
 import { AssistantPanel } from "@/components/assistant/assistant-panel";
 
-export const metadata = { title: "Помощник Уни" };
+export const metadata = { title: "Помощник" };
 
 /** Полноэкранная версия помощника (та же панель, что открывается поверх разделов). */
 export default async function AssistantPage() {

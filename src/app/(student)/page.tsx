@@ -1,16 +1,13 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, ArrowUpRight, CalendarClock, CalendarDays, CalendarRange, CheckCircle2, Clock, FileCheck2, FilePlus2, FileQuestion, GraduationCap, MapPin, Megaphone, PartyPopper, Sparkles, UserRound } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CalendarRange, CheckCircle2, Clock, FilePlus2, GraduationCap, PartyPopper } from "lucide-react";
 import { requireStudent } from "@/server/auth";
-import { getCheckin, getEnrollments, getExams, getLessons, listAnnouncements, listDeadlines, listRequests, currentSemester, summarize } from "@/server/repos/student";
+import { getEnrollments, getExams, getLessons, listDeadlines, listRequests, currentSemester, summarize } from "@/server/repos/student";
 import { remindDeadlines } from "@/server/notify";
-import { LessonItem } from "@/components/lesson-item";
 import { Countdown } from "@/components/countdown";
-import { Badge, Card, EmptyState, SectionTitle } from "@/components/ui";
-import { addDays, fmtDateTime, fmtDay, fmtShort, isoDate, minutesOf, moscowTime, moscowToday, mondayOf, plural } from "@/lib/utils";
+import { EmptyState } from "@/components/ui";
+import { addDays, fmtDateTime, fmtDay, fmtShort, isoDate, minutesOf, moscowTime, moscowToday, plural } from "@/lib/utils";
 import { requestStatusLabel } from "@/lib/labels";
-import { Checkin } from "./checkin";
-import { OpenAssistant } from "@/components/assistant/provider";
-import { Mascot } from "@/components/assistant/mascot";
+import { AttentionList, type AttentionItem } from "./attention-list";
 
 export const metadata = { title: "Главная" };
 
@@ -35,16 +32,13 @@ export default async function TodayPage() {
   const today = moscowToday();
   const nowHM = moscowTime();
   const nowMin = minutesOf(nowHM);
-  const weekStart = mondayOf(today);
 
-  const [lessons14, deadlines, requests, announcements, enrollments, exams, checkin] = await Promise.all([
+  const [lessons14, deadlines, requests, enrollments, exams] = await Promise.all([
     getLessons(student, today, addDays(today, 14)),
     listDeadlines(student, 7),
     listRequests(student),
-    listAnnouncements(student, 5),
     getEnrollments(student),
     getExams(student),
-    getCheckin(student, weekStart),
   ]);
 
   const todayLessons = lessons14.filter((l) => l.date.getTime() === today.getTime());
@@ -58,28 +52,26 @@ export default async function TodayPage() {
   const { debts } = summarize(enrollments, currentSemester(student));
   const retakes = exams.filter((e) => e.kind === "RETAKE" && e.date > new Date());
   const attentionRequests = requests.filter((r) => r.status === "NEED_INFO" || (r.status === "READY" && r.updatedAt > addDays(new Date(), -7)));
-  const pinned = announcements.find((a) => a.pinned);
-  const weekLoad = deadlines.filter((d) => d.dueAt < addDays(weekStart, 7)).length + retakes.filter((e) => e.date < addDays(weekStart, 7)).length;
 
-  type Item = { key: string; icon: React.ReactNode; tone: string; title: string; text: string; href: string };
+  type Item = AttentionItem;
   const items: Item[] = [];
   for (const r of attentionRequests)
     items.push({
       key: "r" + r.id,
-      icon: r.status === "NEED_INFO" ? <FileQuestion size={20} /> : <FileCheck2 size={20} />,
+      kind: r.status === "NEED_INFO" ? "need_info" : "ready",
       tone: r.status === "NEED_INFO" ? "bg-p-peach text-[#0e0e10]" : "bg-p-mint text-[#0e0e10]",
       title: r.status === "NEED_INFO" ? "Деканат ждёт ответа" : "Заявка готова",
       text: `${r.type.title} — ${requestStatusLabel[r.status].toLowerCase()}`,
       href: `/requests/${r.id}`,
     });
   for (const e of retakes)
-    items.push({ key: "e" + e.id, icon: <AlertTriangle size={20} />, tone: "bg-danger-soft text-danger", title: `Пересдача: ${e.course.name}`, text: `${fmtDateTime(e.date)}, ауд. ${e.room}`, href: "/grades" });
+    items.push({ key: "e" + e.id, kind: "retake", tone: "bg-danger-soft text-danger", title: `Пересдача: ${e.course.name}`, text: `${fmtDateTime(e.date)}, ауд. ${e.room}`, href: "/grades" });
   for (const d of deadlines)
-    items.push({ key: "d" + d.id, icon: <Clock size={20} />, tone: "bg-p-sky text-[#0e0e10]", title: d.title, text: `до ${fmtDateTime(d.dueAt)}`, href: d.link ?? "/notifications" });
+    items.push({ key: "d" + d.id, kind: "deadline", tone: "bg-p-sky text-[#0e0e10]", title: d.title, text: `до ${fmtDateTime(d.dueAt)}`, href: d.link ?? "/notifications" });
   if (debts.length && !retakes.length)
-    items.push({ key: "debt", icon: <AlertTriangle size={20} />, tone: "bg-danger-soft text-danger", title: `${debts.length} ${plural(debts.length, "долг", "долга", "долгов")}`, text: "Подайте заявление на пересдачу", href: "/requests/new?type=APP_RETAKE" });
+    items.push({ key: "debt", kind: "debt", tone: "bg-danger-soft text-danger", title: `${debts.length} ${plural(debts.length, "долг", "долга", "долгов")}`, text: "Подайте заявление на пересдачу", href: "/requests/new?type=APP_RETAKE" });
   if (weekChanges)
-    items.push({ key: "chg", icon: <CalendarClock size={20} />, tone: "bg-p-yellow text-[#0e0e10]", title: `${weekChanges} ${plural(weekChanges, "изменение", "изменения", "изменений")} в расписании`, text: "В ближайшие 7 дней — переносы и отмены", href: "/schedule" });
+    items.push({ key: "chg", kind: "changes", tone: "bg-p-yellow text-[#0e0e10]", title: `${weekChanges} ${plural(weekChanges, "изменение", "изменения", "изменений")} в расписании`, text: "В ближайшие 7 дней — переносы и отмены", href: "/schedule" });
 
   const lessonsWord = `${active.length} ${plural(active.length, "пара", "пары", "пар")}`;
   const itemsWord = `${items.length} ${plural(items.length, "дело", "дела", "дел")}`;
@@ -90,19 +82,17 @@ export default async function TodayPage() {
     { href: "/grades", label: "Оценки", hint: "Баллы и сессия", icon: <GraduationCap size={22} />, tone: "bg-p-lilac" },
   ];
 
+  const restToday = todayLessons.filter((l) => l.status !== "CANCELLED" && l.id !== next?.id).length;
+
   return (
     <div className="w-full">
-      {/* ---------- Приветствие в стиле «Welcome [фото] again!» ---------- */}
-      <section className="pb-6 pt-2 sm:pb-8 lg:pt-6">
+      {/* ---------- Приветствие: одна фраза о главном ---------- */}
+      <section className="pb-7 pt-2 lg:pb-9 lg:pt-6">
         <p className="text-sm font-medium text-muted sm:text-base">{fmtDay(today)}</p>
-        <h1 className="mt-2 font-head text-[40px] font-semibold leading-[1.02] tracking-[-0.03em] sm:text-6xl xl:text-7xl">
-          {greeting(nowHM)},{" "}
-          <span className="inline-flex translate-y-[-0.08em] items-center rounded-full bg-p-yellow px-[0.28em] py-[0.04em] align-middle text-[0.62em]" aria-hidden>
-            <Mascot size={44} className="size-[1.1em]" />
-          </span>{" "}
-          {student.firstName}!
+        <h1 className="mt-2 font-head text-[36px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-5xl xl:text-6xl">
+          {greeting(nowHM)}, {student.firstName}!
         </h1>
-        <p className="mt-4 max-w-2xl text-lg leading-snug text-muted sm:text-2xl">
+        <p className="mt-3 max-w-2xl text-lg leading-snug text-muted sm:text-xl">
           {active.length ? (
             <>
               Сегодня у вас <b className="font-semibold text-fg">{lessonsWord}</b>
@@ -124,154 +114,63 @@ export default async function TodayPage() {
         </p>
       </section>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,1fr)] xl:gap-8">
-        {/* ---------- Левая колонка ---------- */}
-        <div className="min-w-0 space-y-5">
-          {/* Следующая пара — тёмная «медиа»-карточка */}
-          {next ? (
-            <Link href={`/schedule?date=${isoDate(next.date)}`} className="group relative block overflow-hidden rounded-[32px] bg-ink p-6 text-ink-fg sm:p-8">
-              <div className="pointer-events-none absolute -right-16 -top-20 size-72 rounded-full bg-[radial-gradient(circle,rgba(255,230,138,0.35),transparent_65%)]" />
-              <div className="pointer-events-none absolute -bottom-24 left-1/3 size-72 rounded-full bg-[radial-gradient(circle,rgba(221,211,255,0.25),transparent_65%)]" />
-              <div className="relative">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-p-yellow px-3 py-1 text-[13px] font-semibold text-[#0e0e10]">
-                    <Clock size={14} />
-                    {current ? <>идёт · до конца {Math.max(0, minutesOf(current.endTime) - nowMin)} мин</> : <Countdown to={lessonStartIso(next.date, next.startTime)} />}
-                  </span>
-                  <span className="text-sm opacity-60">{current ? "Сейчас" : next.date.getTime() === today.getTime() ? "Следующая пара" : `Ближайшая пара · ${fmtShort(next.date)}`}</span>
-                </div>
-                <h2 className="mt-5 max-w-xl font-head text-3xl font-semibold leading-[1.08] tracking-[-0.02em] sm:text-4xl">{next.course.name}</h2>
-                <div className="mt-6 flex flex-wrap gap-2 pr-16">
-                  <span className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/25 px-4 text-sm">
-                    <CalendarDays size={15} /> {next.startTime}–{next.endTime}
-                  </span>
-                  <span className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/25 px-4 text-sm">
-                    <MapPin size={15} /> {next.room}, {next.building}
-                  </span>
-                  <span className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/25 px-4 text-sm">
-                    <UserRound size={15} /> {next.teacher.fullName}
-                  </span>
-                </div>
-                {next.status === "MOVED" && <p className="mt-4 text-sm text-p-yellow">⚠ {next.changeNote}</p>}
-              </div>
-              <span className="absolute bottom-6 right-6 flex size-14 items-center justify-center rounded-full bg-white/15 backdrop-blur transition group-hover:bg-white group-hover:text-[#0e0e10] sm:bottom-8 sm:right-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-8">
+        {/* Ближайшая пара */}
+        {next ? (
+          <Link href={`/schedule?date=${isoDate(next.date)}`} className="group relative flex min-h-[260px] flex-col overflow-hidden rounded-[32px] bg-ink p-6 text-ink-fg sm:p-8">
+            <div className="pointer-events-none absolute -right-20 -top-24 size-80 rounded-full bg-[radial-gradient(circle,rgba(255,230,138,0.28),transparent_65%)]" />
+            <div className="relative flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-p-yellow px-3 py-1 text-[13px] font-semibold text-[#0e0e10]">
+                <Clock size={14} />
+                {current ? <>идёт · ещё {Math.max(0, minutesOf(current.endTime) - nowMin)} мин</> : <Countdown to={lessonStartIso(next.date, next.startTime)} />}
+              </span>
+              <span className="text-sm opacity-60">{current ? "Сейчас" : next.date.getTime() === today.getTime() ? "Следующая пара" : `Ближайшая пара · ${fmtShort(next.date)}`}</span>
+            </div>
+            <h2 className="relative mt-5 max-w-xl font-head text-3xl font-semibold leading-[1.08] tracking-[-0.02em] sm:text-4xl">{next.course.name}</h2>
+            <p className="relative mt-3 text-[15px] opacity-75">
+              {next.startTime}–{next.endTime} · {next.room}, {next.building}
+            </p>
+            {next.status === "MOVED" && <p className="relative mt-2 text-sm text-p-yellow">⚠ {next.changeNote}</p>}
+            <div className="relative mt-auto flex items-end justify-between gap-3 pt-6">
+              <span className="text-sm opacity-60">{restToday > 0 ? `Сегодня ещё ${restToday} ${plural(restToday, "пара", "пары", "пар")}` : "Всё расписание"}</span>
+              <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-white/15 transition group-hover:bg-white group-hover:text-[#0e0e10]">
                 <ArrowRight size={22} />
               </span>
-            </Link>
+            </div>
+          </Link>
+        ) : (
+          <EmptyState icon={<PartyPopper size={22} />} title="Пар в ближайшие две недели нет" text="Отдыхайте — или загляните в раздел «Учёба»." />
+        )}
+
+        {/* Дела: три главных, остальное по кнопке */}
+        <section className="min-w-0">
+          <h2 className="mb-3 font-head text-lg font-semibold tracking-tight sm:text-xl">Требует внимания</h2>
+          {items.length ? (
+            <AttentionList items={items.map(({ key, title, text, href, tone, kind }) => ({ key, title, text, href, tone, kind }))} />
           ) : (
-            <EmptyState icon={<PartyPopper size={22} />} title="Пар в ближайшие две недели нет" text="Отдыхайте — или загляните в раздел «Учёба»." />
+            <div className="flex items-center gap-3 rounded-[24px] border border-border/70 bg-surface p-5">
+              <CheckCircle2 className="text-success" />
+              <div>
+                <div className="font-semibold">Всё спокойно</div>
+                <div className="text-sm text-muted">Нет срочных дел и вопросов от деканата.</div>
+              </div>
+            </div>
           )}
+        </section>
+      </div>
 
-          {/* Быстрые действия — пастельные плитки */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {tiles.map((t) => (
-              <Link key={t.href} href={t.href} className={`group flex min-h-36 flex-col justify-between rounded-[28px] p-4 text-[#0e0e10] transition hover:-translate-y-0.5 sm:p-5 ${t.tone}`}>
-                <span className="flex size-11 items-center justify-center rounded-full bg-white/70">{t.icon}</span>
-                <span>
-                  <span className="block text-[17px] font-semibold leading-tight">{t.label}</span>
-                  <span className="mt-0.5 block text-[13px] opacity-65">{t.hint}</span>
-                </span>
-              </Link>
-            ))}
-            <OpenAssistant className="group flex min-h-36 flex-col justify-between rounded-[28px] bg-p-yellow p-4 text-left text-[#0e0e10] transition hover:-translate-y-0.5 sm:p-5">
-              <span className="flex size-11 items-center justify-center rounded-full bg-white/70">
-                <Mascot size={30} />
-              </span>
-              <span>
-                <span className="block text-[17px] font-semibold leading-tight">Спросить Уни</span>
-                <span className="mt-0.5 block text-[13px] opacity-65">Ответит 24/7</span>
-              </span>
-            </OpenAssistant>
-          </div>
-
-          {/* Пары сегодня */}
-          <section>
-            <SectionTitle action={<Link href="/schedule" className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-border px-4 text-sm font-medium hover:border-ink">Расписание <ArrowRight size={15} /></Link>}>
-              Пары сегодня
-            </SectionTitle>
-            {todayLessons.length ? (
-              <div className="grid grid-cols-1 gap-2.5 2xl:grid-cols-2">
-                {todayLessons.map((l) => (
-                  <LessonItem key={l.id} lesson={l} highlight={current?.id === l.id ? "now" : undefined} />
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center gap-4 rounded-[28px] border border-border/70 bg-surface p-5">
-                <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-p-mint text-[#0e0e10]">
-                  <PartyPopper size={22} />
-                </span>
-                <div>
-                  <div className="font-semibold">Сегодня пар нет</div>
-                  <div className="text-sm text-muted">Хороший день, чтобы закрыть дедлайны или отдохнуть.</div>
-                </div>
-              </div>
-            )}
-          </section>
-        </div>
-
-        {/* ---------- Правая колонка ---------- */}
-        <div className="min-w-0 space-y-5">
-          <section>
-            <SectionTitle className="xl:mt-0">Требует внимания {items.length > 0 && <span className="ml-1 rounded-full bg-ink px-2 py-0.5 align-middle text-xs font-semibold text-ink-fg">{items.length}</span>}</SectionTitle>
-            {items.length ? (
-              <div className="space-y-2.5">
-                {items.slice(0, 6).map((it) => (
-                  <Link key={it.key} href={it.href} className="group flex items-center gap-3.5 rounded-[24px] border border-border/70 bg-surface p-3.5 pr-4 transition hover:border-ink/40">
-                    <span className={`flex size-11 shrink-0 items-center justify-center rounded-full ${it.tone}`}>{it.icon}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-semibold">{it.title}</span>
-                      <span className="block truncate text-[13px] text-muted">{it.text}</span>
-                    </span>
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-2 transition group-hover:bg-ink group-hover:text-ink-fg">
-                      <ArrowUpRight size={17} />
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <Card className="flex items-center gap-3">
-                <CheckCircle2 className="text-success" />
-                <div>
-                  <div className="font-semibold">Всё спокойно</div>
-                  <div className="text-sm text-muted">Нет срочных дел и вопросов от деканата.</div>
-                </div>
-              </Card>
-            )}
-            {weekLoad >= 3 && (
-              <div className="mt-3 flex gap-3 rounded-[24px] bg-p-lilac p-4 text-sm text-[#0e0e10]">
-                <Sparkles size={18} className="mt-0.5 shrink-0" />
-                <p>
-                  <b>Плотная неделя:</b> {weekLoad} {plural(weekLoad, "дедлайн", "дедлайна", "дедлайнов")} и контрольных. Начните с ближайшего — и не забудьте про перерывы.
-                </p>
-              </div>
-            )}
-          </section>
-
-          {pinned && (
-            <section>
-              <SectionTitle action={<Link href="/notifications?tab=news" className="text-sm font-medium text-muted hover:text-fg">Все объявления</Link>}>Деканат сообщает</SectionTitle>
-              <div className="rounded-[28px] border border-border/70 bg-surface p-5">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-11 items-center justify-center rounded-full bg-p-peach text-[#0e0e10]">
-                    <Megaphone size={20} />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold">{pinned.author.fullName}</div>
-                    <div className="text-xs text-muted">{pinned.author.position}</div>
-                  </div>
-                  <Badge tone="neutral" className="ml-auto">Важно</Badge>
-                </div>
-                <p className="mt-4 font-head text-lg font-semibold leading-snug">{pinned.title}</p>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted">{pinned.body}</p>
-              </div>
-            </section>
-          )}
-
-          <section>
-            <SectionTitle>Как вы на этой неделе?</SectionTitle>
-            <Checkin initial={checkin?.mood ?? null} />
-          </section>
-        </div>
+      {/* Быстрые действия */}
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:mt-8">
+        {tiles.map((t) => (
+          <Link key={t.href} href={t.href} className={`group flex items-center gap-4 rounded-[28px] p-5 text-[#0e0e10] transition hover:-translate-y-0.5 ${t.tone}`}>
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white/70">{t.icon}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[17px] font-semibold leading-tight">{t.label}</span>
+              <span className="mt-0.5 block text-[13px] opacity-65">{t.hint}</span>
+            </span>
+            <ArrowUpRight size={18} className="shrink-0 opacity-50 transition group-hover:opacity-100" />
+          </Link>
+        ))}
       </div>
     </div>
   );

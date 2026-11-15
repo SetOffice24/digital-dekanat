@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { ArrowUpRight, Bell, HeartHandshake, LogOut, MapPin, ShieldCheck } from "lucide-react";
 import { requireStudent } from "@/server/auth";
-import { getProfile } from "@/server/repos/student";
+import { getCheckin, getProfile } from "@/server/repos/student";
+import { mondayOf, moscowToday } from "@/lib/utils";
+import { Checkin } from "../checkin";
 import { logoutAction } from "@/app/login/actions";
 import { university } from "@/config/university";
 import { ThemeToggle } from "../more/theme-toggle";
@@ -10,7 +12,7 @@ export const metadata = { title: "Профиль" };
 
 export default async function ProfilePage() {
   const { student } = await requireStudent();
-  const p = await getProfile(student);
+  const [p, checkin] = await Promise.all([getProfile(student), getCheckin(student, mondayOf(moscowToday()))]);
   const rows = [
     ["Факультет", p.faculty.name],
     ["Направление", `${p.program.code} ${p.program.name}`],
@@ -65,6 +67,11 @@ export default async function ProfilePage() {
             <div className="border-t border-border/70">
               <ThemeToggle />
             </div>
+          </section>
+
+          <section>
+            <h2 className="mb-3 font-head text-lg font-semibold">Как вы на этой неделе?</h2>
+            <Checkin initial={checkin?.mood ?? null} />
           </section>
 
           <section className="space-y-3 rounded-[28px] bg-p-lilac p-5 text-sm text-[#0e0e10]">

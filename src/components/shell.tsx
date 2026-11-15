@@ -12,8 +12,8 @@ import { university } from "@/config/university";
 /**
  * Простая навигация: 4 раздела + 3 действия.
  * Разделы: Главная · Расписание · Учёба · Заявки.
- * Действия (справа в шапке): уведомления, помощник Уни, профиль.
- * Десктоп — капсулы в шапке; телефон — нижняя панель с центральной кнопкой Уни.
+ * Действия (справа в шапке): уведомления, ИИ-помощник, профиль.
+ * Десктоп — капсулы в шапке; телефон — нижняя панель с центральной кнопкой помощника.
  */
 type NavItem = { href: string; label: string; icon: LucideIcon; match?: (p: string) => boolean };
 
@@ -66,7 +66,7 @@ export function StudentShell({ children, name, firstName, group, initials }: { c
             <div className="flex-1" />
 
             <OpenAssistant className={cn(capsule, "hidden border-transparent bg-surface pl-2 pr-5 hover:border-border lg:inline-flex")}>
-              <Mascot size={34} /> Спросить Уни
+              <Mascot size={30} /> Помощник
             </OpenAssistant>
 
             <Link href="/notifications" aria-label={`Уведомления${unread ? `, непрочитанных: ${unread}` : ""}`} className={cn("relative flex size-12 items-center justify-center rounded-full border transition", onNotes ? "border-ink bg-ink text-ink-fg" : "border-transparent bg-surface hover:border-border")}>
@@ -101,9 +101,9 @@ export function StudentShell({ children, name, firstName, group, initials }: { c
                 </li>
               ) : (
                 <li key="uni" className="flex justify-center">
-                  <OpenAssistant className="-mt-7 flex size-16 items-center justify-center rounded-full bg-p-yellow shadow-[0_8px_20px_-6px_rgba(0,0,0,0.35)] ring-4 ring-bg transition active:scale-95">
+                  <OpenAssistant className="-mt-7 flex size-16 items-center justify-center rounded-full bg-white shadow-[0_8px_20px_-6px_rgba(0,0,0,0.35)] ring-4 ring-bg transition active:scale-95">
                     <Mascot size={40} />
-                    <span className="sr-only">Спросить помощника Уни</span>
+                    <span className="sr-only">Открыть помощника</span>
                   </OpenAssistant>
                 </li>
               ),

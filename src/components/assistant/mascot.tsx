@@ -1,22 +1,22 @@
+/* eslint-disable @next/next/no-img-element */
 import { cn } from "@/lib/utils";
 
 /**
- * Маскот помощника «Уни» — собственный персонаж: тёмный кубик с антенной,
- * глазами и персиковой «улыбкой-плашкой» из логотипа Универа. Глаза мягко моргают.
+ * Иконка ИИ-помощника: пузырь сообщения со звездой.
+ * Сгенерирована нейросетью OpenAI (gpt-image) по промпту команды, уменьшена до 256×256 WebP (~10 КБ).
+ * Исходник — docs/assistant-icon-source.png.
  */
 export function Mascot({ size = 40, className, thinking }: { size?: number; className?: string; thinking?: boolean }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" className={cn("shrink-0", className)} aria-hidden>
-      <line x1="24" y1="10" x2="24" y2="5" stroke="var(--ink)" strokeWidth="2.4" strokeLinecap="round" />
-      <circle cx="24" cy="4.5" r="3.2" fill="var(--peach)" className={thinking ? "animate-pulse" : undefined} />
-      <rect x="6" y="10" width="36" height="31" rx="12" fill="var(--ink)" />
-      <rect x="3" y="20" width="4" height="10" rx="2" fill="var(--ink)" />
-      <rect x="41" y="20" width="4" height="10" rx="2" fill="var(--ink)" />
-      <g className="mascot-eyes" fill="var(--ink-fg)">
-        <rect x="15" y="19" width="5.5" height="9" rx="2.75" />
-        <rect x="27.5" y="19" width="5.5" height="9" rx="2.75" />
-      </g>
-      <rect x="19" y="32" width="10" height="3.2" rx="1.6" fill="var(--peach)" />
-    </svg>
+    <img
+      src="/ai/assistant.webp"
+      width={size}
+      height={size}
+      alt=""
+      aria-hidden
+      draggable={false}
+      className={cn("shrink-0 select-none object-contain", thinking && "animate-pulse", className)}
+      style={{ width: size, height: size }}
+    />
   );
 }
