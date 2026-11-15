@@ -1,27 +1,14 @@
 import { requireStudent } from "@/server/auth";
-import { prisma } from "@/server/db";
-import { Chat } from "./chat";
+import { AssistantPanel } from "@/components/assistant/assistant-panel";
 
-export const metadata = { title: "ИИ-помощник" };
+export const metadata = { title: "Помощник Уни" };
 
-const typeTitles: Record<string, string> = {
-  CERT_STUDY: "Справка об обучении",
-  CERT_MILITARY: "Справка для военкомата",
-  CERT_SCHOLARSHIP: "Справка о стипендии",
-  APP_RETAKE: "Заявление на пересдачу",
-  APP_ABSENCE: "Уважительная причина пропуска",
-  APP_ACADEMIC_LEAVE: "Академический отпуск",
-  APP_OTHER: "Обращение в деканат",
-};
-
+/** Полноэкранная версия помощника (та же панель, что открывается поверх разделов). */
 export default async function AssistantPage() {
   const { student } = await requireStudent();
-  const msgs = await prisma.aiMessage.findMany({ where: { studentId: student.id }, orderBy: { createdAt: "asc" }, take: 50 });
   return (
-    <Chat
-      firstName={student.firstName}
-      typeTitles={typeTitles}
-      initial={msgs.map((m) => ({ id: m.id, role: m.role === "USER" ? "user" : "assistant", text: m.content, draft: (m.draft as { typeCode: string } | null) ?? null }))}
-    />
+    <div className="-mx-4 -mt-3 h-[calc(100dvh-8.5rem)] overflow-hidden sm:mx-0 sm:mt-0 sm:rounded-[28px] sm:shadow-[0_8px_30px_-12px_rgba(20,24,40,0.2)] sm:ring-1 sm:ring-border lg:h-[calc(100dvh-6rem)]">
+      <AssistantPanel firstName={student.firstName} mode="page" />
+    </div>
   );
 }

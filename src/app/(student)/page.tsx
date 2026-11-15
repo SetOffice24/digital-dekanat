@@ -9,6 +9,8 @@ import { Badge, Card, EmptyState, SectionTitle } from "@/components/ui";
 import { addDays, fmtDateTime, fmtDay, fmtShort, isoDate, minutesOf, moscowTime, moscowToday, mondayOf, plural } from "@/lib/utils";
 import { requestStatusLabel } from "@/lib/labels";
 import { Checkin } from "./checkin";
+import { OpenAssistant } from "@/components/assistant/provider";
+import { Mascot } from "@/components/assistant/mascot";
 
 export const metadata = { title: "Сегодня" };
 
@@ -121,16 +123,16 @@ export default async function TodayPage() {
       )}
 
       {/* Помощник */}
-      <Link href="/assistant" className="mt-3 flex items-center gap-3 rounded-[22px] bg-ink p-3.5 text-ink-fg transition hover:opacity-95">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/12">
-          <Sparkles size={20} className="text-accent-peach" />
+      <OpenAssistant className="mt-3 flex w-full items-center gap-3 rounded-[22px] bg-ink p-3.5 text-left text-ink-fg transition hover:opacity-95">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/95">
+          <Mascot size={32} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-bold">Спросить помощника</span>
+          <span className="block font-bold">Спросить Уни — помощника деканата</span>
           <span className="block truncate text-[13px] opacity-70">«Нужна справка в банк», «какие пары завтра?»</span>
         </span>
         <ChevronRight size={18} className="shrink-0 opacity-70" />
-      </Link>
+      </OpenAssistant>
       </div>
 
       {/* Пары сегодня */}

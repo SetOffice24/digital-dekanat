@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { Bell, CalendarDays, FileText, GraduationCap, House, Menu, Sparkles, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "./logo";
+import { AssistantProvider, OpenAssistant } from "./assistant/provider";
 import { university } from "@/config/university";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; match?: (p: string) => boolean };
@@ -28,10 +29,11 @@ function isActive(item: NavItem, path: string) {
   return item.match ? item.match(path) : path === item.href || path.startsWith(item.href + "/");
 }
 
-export function StudentShell({ children, name, group }: { children: React.ReactNode; name: string; group: string }) {
+export function StudentShell({ children, name, firstName, group }: { children: React.ReactNode; name: string; firstName: string; group: string }) {
   const path = usePathname();
   const unread = useUnread();
   return (
+    <AssistantProvider firstName={firstName}>
     <div className="sky-glow min-h-dvh">
     {/* Адаптивный каркас: телефон/планшет — шапка + плавающая нижняя панель;
         от 1024 px — сайдбар у левого края, контент тянется на всю оставшуюся ширину (до 1600 px). */}
@@ -43,7 +45,7 @@ export function StudentShell({ children, name, group }: { children: React.ReactN
           <div className="mt-1.5 text-xs font-medium text-muted">{university.product}</div>
         </Link>
         <nav className="flex flex-col gap-1" aria-label="Основная навигация">
-          {[...studentNav.slice(0, 4), { href: "/notifications", label: "Уведомления", icon: Bell }, { href: "/assistant", label: "Помощник", icon: Sparkles }, { href: "/more", label: "Ещё", icon: Menu, match: (p: string) => ["/more", "/profile"].some((x) => p.startsWith(x)) }].map((item) => {
+          {[...studentNav.slice(0, 4), { href: "/notifications", label: "Уведомления", icon: Bell }, { href: "/more", label: "Ещё", icon: Menu, match: (p: string) => ["/more", "/profile"].some((x) => p.startsWith(x)) }].map((item) => {
             const active = isActive(item, path);
             return (
               <Link key={item.href} href={item.href} className={cn("flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-[15px] font-semibold transition", active ? "bg-ink text-ink-fg shadow-sm" : "text-muted hover:bg-surface/70 hover:text-fg")} aria-current={active ? "page" : undefined}>
@@ -53,6 +55,10 @@ export function StudentShell({ children, name, group }: { children: React.ReactN
               </Link>
             );
           })}
+          <OpenAssistant className="flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-left text-[15px] font-semibold text-muted transition hover:bg-surface/70 hover:text-fg">
+            <Sparkles size={20} />
+            <span className="flex-1">Помощник Уни</span>
+          </OpenAssistant>
         </nav>
         <div className="mt-auto rounded-2xl bg-surface/80 p-3.5 text-xs text-muted shadow-sm">
           <div className="font-semibold text-fg">{name}</div>
@@ -67,9 +73,9 @@ export function StudentShell({ children, name, group }: { children: React.ReactN
             <Wordmark className="text-[18px]" />
           </Link>
           <div className="flex-1" />
-          <Link href="/assistant" className="flex size-10 items-center justify-center rounded-xl text-primary hover:bg-surface-2" aria-label="ИИ-помощник">
-            <Sparkles size={21} />
-          </Link>
+          <OpenAssistant className="flex size-10 items-center justify-center rounded-xl text-primary hover:bg-surface-2">
+            <Sparkles size={21} aria-label="ИИ-помощник" />
+          </OpenAssistant>
           <Link href="/notifications" className="relative flex size-10 items-center justify-center rounded-xl hover:bg-surface-2" aria-label={`Уведомления${unread ? `, непрочитанных: ${unread}` : ""}`}>
             <Bell size={21} />
             {unread > 0 && <span className="absolute right-1 top-1 min-w-[18px] rounded-full bg-danger px-1 text-center text-[11px] font-bold leading-[18px] text-white">{unread > 9 ? "9+" : unread}</span>}
@@ -105,5 +111,6 @@ export function StudentShell({ children, name, group }: { children: React.ReactN
       </div>
     </div>
     </div>
+    </AssistantProvider>
   );
 }

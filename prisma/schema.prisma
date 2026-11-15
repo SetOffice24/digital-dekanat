@@ -155,6 +155,7 @@ model Student {
   enrollments  Enrollment[]
   requests     Request[]
   checkins     WellbeingCheckin[]
+  aiChats      AiChat[]
   aiMessages   AiMessage[]
 }
 
@@ -364,8 +365,22 @@ model WellbeingCheckin {
   @@unique([studentId, weekStart])
 }
 
+model AiChat {
+  id        String      @id @default(cuid())
+  studentId String
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title     String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  messages  AiMessage[]
+
+  @@index([studentId, updatedAt])
+}
+
 model AiMessage {
   id        String   @id @default(cuid())
+  chatId    String
+  chat      AiChat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
   studentId String
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   role      ChatRole
@@ -373,5 +388,6 @@ model AiMessage {
   draft     Json?
   createdAt DateTime @default(now())
 
+  @@index([chatId, createdAt])
   @@index([studentId, createdAt])
 }

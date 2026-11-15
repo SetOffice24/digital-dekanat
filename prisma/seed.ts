@@ -123,6 +123,7 @@ const buildings = ["Главный корпус", "Корпус Б", "Корпу
 async function reset() {
   // порядок удаления с учётом связей
   await prisma.aiMessage.deleteMany();
+  await prisma.aiChat.deleteMany();
   await prisma.wellbeingCheckin.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.certificate.deleteMany();

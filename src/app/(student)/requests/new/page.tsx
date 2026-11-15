@@ -1,6 +1,6 @@
 import { requireStudent } from "@/server/auth";
 import { listRequestTypes } from "@/server/repos/student";
-import { prisma } from "@/server/db";
+import { getDraftMessage } from "@/server/repos/assistant";
 import { PageHeader } from "@/components/ui";
 import { parseFields } from "@/lib/request-fields";
 import { NewRequestForm } from "./form";
@@ -15,7 +15,7 @@ export default async function NewRequestPage({ searchParams }: { searchParams: P
   // Черновик от ИИ-помощника — только из сообщений этого студента
   let draft: { typeCode: string; payload: Record<string, string> } | null = null;
   if (sp.draft) {
-    const msg = await prisma.aiMessage.findFirst({ where: { id: sp.draft, studentId: student.id }, select: { draft: true } });
+    const msg = await getDraftMessage(student, sp.draft);
     const d = msg?.draft as { typeCode?: string; payload?: Record<string, string> } | null;
     if (d?.typeCode) draft = { typeCode: d.typeCode, payload: d.payload ?? {} };
   }

@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient, type Student } from "@prisma/client";
 import { answerRequest, getCertificateForStudent, getEnrollments, getLessons, getRequest, listNotifications, listRequests, markRead } from "@/server/repos/student";
 import { buildStudentContext } from "@/server/ai/context";
+import { addMessage, createChat, deleteChat, getChat, getDraftMessage, listChats } from "@/server/repos/assistant";
 import { addDays, mondayOf, moscowToday } from "@/lib/utils";
 
 const db = new PrismaClient();
@@ -56,6 +57,17 @@ describe("студент видит только свои данные", () => {
     const petrNote = await db.notification.findFirstOrThrow({ where: { userId: petr.userId } });
     const res = await markRead(anna.userId, petrNote.id);
     expect(res.count).toBe(0);
+  });
+
+  it("чаты помощника: чужой чат не открыть, не удалить, черновик не прочитать", async () => {
+    const chat = await createChat(petr, "секретный вопрос Петра");
+    const msg = await addMessage(petr, chat.id, "ASSISTANT", "ответ", { typeCode: "APP_RETAKE", payload: { course: "x" } });
+    expect(await getChat(anna, chat.id)).toBeNull();
+    expect((await listChats(anna)).some((c) => c.id === chat.id)).toBe(false);
+    expect(await getDraftMessage(anna, msg.id)).toBeNull();
+    expect(await deleteChat(anna, chat.id)).toBe(false);
+    expect(await getChat(petr, chat.id)).not.toBeNull();
+    expect(await deleteChat(petr, chat.id)).toBe(true);
   });
 
   it("контекст ИИ-помощника не содержит данных другого студента", async () => {
