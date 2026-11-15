@@ -22,7 +22,7 @@ export default async function NewRequestPage({ searchParams }: { searchParams: P
   const initialCode = draft?.typeCode ?? sp.type ?? null;
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto w-full max-w-5xl">
       <PageHeader title="Новая заявка" subtitle="Выберите, что нужно — деканат увидит заявку сразу" />
       <NewRequestForm
         types={types.map((t) => ({ id: t.id, code: t.code, title: t.title, description: t.description, category: t.category, slaDays: t.slaDays, needsPaper: t.needsPaper, isCertificate: t.isCertificate, fields: parseFields(t.fields) }))}

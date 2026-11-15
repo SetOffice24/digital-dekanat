@@ -38,7 +38,7 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
         {overdue && <Badge tone="danger">Просрочена</Badge>}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-[1fr_20rem]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]">
         <div className="space-y-4">
           <Card>
             <SectionTitle>Студент</SectionTitle>

@@ -31,7 +31,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
   const qr = verifyUrl ? await QRCode.toDataURL(verifyUrl, { margin: 1, width: 220 }) : null;
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto w-full max-w-6xl">
       <Link href="/requests" className="mb-3 inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-muted hover:text-fg">
         <ArrowLeft size={16} /> Все заявки
       </Link>
@@ -44,7 +44,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
 
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold leading-tight tracking-tight">{r.type.title}</h1>
+          <h1 className="font-display text-[22px] font-semibold leading-tight tracking-tight sm:text-2xl">{r.type.title}</h1>
           <p className="mt-0.5 text-sm text-muted">
             № {r.number} · от {fmtDate(r.createdAt)} · срок до {r.type.slaDays} раб. дн.
           </p>
@@ -52,6 +52,8 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
         <StatusBadge status={r.status} />
       </div>
 
+      <div className="grid grid-cols-1 gap-x-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] lg:items-start">
+      <div className="min-w-0">
       {/* Трекер */}
       <Card>
         {rejected ? (
@@ -135,7 +137,9 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
         )}
       </Card>
 
-      <SectionTitle>История</SectionTitle>
+      </div>
+      <div className="min-w-0 lg:sticky lg:top-8">
+      <SectionTitle className="lg:mt-0">История</SectionTitle>
       <ol className="relative ml-3 border-l-2 border-border pl-5">
         {r.events.map((e) => (
           <li key={e.id} className="relative pb-4 last:pb-0">
@@ -148,6 +152,8 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
           </li>
         ))}
       </ol>
+      </div>
+      </div>
     </div>
   );
 }

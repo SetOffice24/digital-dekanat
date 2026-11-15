@@ -22,7 +22,7 @@ export default async function ProfilePage() {
     ["Логин", p.user.login],
   ];
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto w-full max-w-3xl">
       <Link href="/more" className="mb-3 inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-muted hover:text-fg">
         <ArrowLeft size={16} /> Назад
       </Link>

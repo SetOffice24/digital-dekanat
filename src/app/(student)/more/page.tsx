@@ -18,7 +18,7 @@ export default async function MorePage() {
     { href: "/assistant", icon: <Sparkles size={20} />, label: "ИИ-помощник", hint: "Ответит и заполнит заявление" },
   ];
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto w-full max-w-3xl">
       <Link href="/profile" className="mb-5 flex items-center gap-3 rounded-3xl bg-surface p-4 shadow-sm">
         <span className="flex size-14 items-center justify-center rounded-2xl bg-primary text-xl font-extrabold text-primary-fg">
           {p.firstName[0]}

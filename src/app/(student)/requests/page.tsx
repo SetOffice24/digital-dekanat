@@ -31,7 +31,7 @@ export default async function RequestsPage() {
   );
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto w-full max-w-6xl">
       <PageHeader
         title="Заявки и справки"
         subtitle="Без очереди в деканате"
@@ -48,13 +48,13 @@ export default async function RequestsPage() {
           {active.length > 0 && (
             <>
               <h2 className="mb-2 text-[15px] font-bold">Активные</h2>
-              <div className="space-y-2">{active.map((r) => <Row key={r.id} r={r} />)}</div>
+              <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">{active.map((r) => <Row key={r.id} r={r} />)}</div>
             </>
           )}
           {archive.length > 0 && (
             <>
               <h2 className="mb-2 mt-6 text-[15px] font-bold">Завершённые</h2>
-              <div className="space-y-2">{archive.map((r) => <Row key={r.id} r={r} />)}</div>
+              <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">{archive.map((r) => <Row key={r.id} r={r} />)}</div>
             </>
           )}
         </>

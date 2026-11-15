@@ -33,9 +33,11 @@ export function StudentShell({ children, name, group }: { children: React.ReactN
   const unread = useUnread();
   return (
     <div className="sky-glow min-h-dvh">
-    <div className="mx-auto flex min-h-dvh max-w-6xl">
+    {/* Адаптивный каркас: телефон/планшет — шапка + плавающая нижняя панель;
+        от 1024 px — сайдбар у левого края, контент тянется на всю оставшуюся ширину (до 1600 px). */}
+    <div className="flex min-h-dvh">
       {/* Сайдбар для десктопа */}
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col px-3 py-6 lg:flex">
+      <aside className="sticky top-0 hidden h-dvh w-[248px] shrink-0 flex-col border-r border-border/60 bg-surface/55 px-3 py-6 backdrop-blur-md lg:flex xl:w-[272px]">
         <Link href="/" className="mb-8 block px-3" aria-label="На главную">
           <Wordmark className="text-[22px]" />
           <div className="mt-1.5 text-xs font-medium text-muted">{university.product}</div>
@@ -60,7 +62,7 @@ export function StudentShell({ children, name, group }: { children: React.ReactN
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Шапка для телефона */}
-        <header className="sticky top-0 z-20 flex items-center gap-2 bg-bg/70 px-4 py-3 backdrop-blur-md lg:hidden">
+        <header className="sticky top-0 z-20 flex items-center gap-2 bg-bg/70 px-4 py-3 backdrop-blur-md sm:px-6 md:px-8 lg:hidden">
           <Link href="/" className="flex items-center" aria-label="На главную">
             <Wordmark className="text-[18px]" />
           </Link>
@@ -74,9 +76,13 @@ export function StudentShell({ children, name, group }: { children: React.ReactN
           </Link>
         </header>
 
-        <main className="flex-1 px-4 pb-32 pt-3 lg:px-8 lg:pb-10 lg:pt-8">{children}</main>
+        <main className="flex-1 px-4 pb-32 pt-3 sm:px-6 md:px-8 lg:px-10 lg:pb-10 lg:pt-8 2xl:px-14">
+          <div className="mx-auto w-full max-w-[100rem]">{children}</div>
+        </main>
 
-        <footer className="hidden px-8 pb-6 text-xs text-muted lg:block">{university.disclaimer}</footer>
+        <footer className="hidden px-10 pb-6 text-xs text-muted lg:block 2xl:px-14">
+          <div className="mx-auto max-w-[100rem]">{university.disclaimer}</div>
+        </footer>
 
         {/* Нижняя навигация для телефона */}
         <nav className="pb-safe fixed inset-x-3 bottom-3 z-30 rounded-[26px] bg-surface/95 shadow-[0_10px_30px_-10px_rgba(20,24,40,0.25)] ring-1 ring-border backdrop-blur lg:hidden" aria-label="Основная навигация">

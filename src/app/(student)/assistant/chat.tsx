@@ -45,7 +45,7 @@ export function Chat({ firstName, initial, typeTitles }: { firstName: string; in
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col" style={{ minHeight: "calc(100dvh - 10rem)" }}>
+    <div className="mx-auto flex w-full max-w-3xl flex-col" style={{ minHeight: "calc(100dvh - 10rem)" }}>
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className="flex size-10 items-center justify-center rounded-2xl bg-primary text-primary-fg">

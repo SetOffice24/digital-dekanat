@@ -80,7 +80,7 @@ export default async function TodayPage() {
     items.push({ key: "chg", icon: <CalendarClock size={20} />, tone: "bg-warning-soft text-warning", title: `${weekChanges} ${plural(weekChanges, "изменение", "изменения", "изменений")} в расписании`, text: "В ближайшие 7 дней — переносы и отмены", href: "/schedule" });
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="w-full">
       <div className="mb-5">
         <p className="text-sm font-medium text-muted">{fmtDay(today)}</p>
         <h1 className="mt-1 font-display text-[22px] font-semibold leading-tight tracking-tight sm:text-2xl">
@@ -88,6 +88,10 @@ export default async function TodayPage() {
         </h1>
       </div>
 
+      {/* Телефон/планшет: одна колонка (порядок задан order-*). От 1280 px: слева пара и день, справа дела и сообщения. */}
+      <div className="flex flex-col xl:grid xl:grid-cols-[minmax(0,1.5fr)_minmax(340px,1fr)] xl:items-start xl:gap-x-8 2xl:gap-x-10">
+      <div className="contents xl:block xl:min-w-0">
+      <div className="order-1">
       {/* Следующая пара */}
       {next ? (
         <Link href={`/schedule?date=${isoDate(next.date)}`} className="block">
@@ -127,11 +131,31 @@ export default async function TodayPage() {
         </span>
         <ChevronRight size={18} className="shrink-0 opacity-70" />
       </Link>
+      </div>
 
+      {/* Пары сегодня */}
+      <div className="order-3 mt-7">
+      <SectionTitle action={<Link href="/schedule" className="inline-flex items-center gap-1 text-sm font-semibold text-primary">Неделя <ArrowRight size={15} /></Link>}>
+        Пары сегодня {todayLessons.length > 0 && <span className="font-medium text-muted">· {active.length}</span>}
+      </SectionTitle>
+      {todayLessons.length ? (
+        <div className="grid grid-cols-1 gap-2 2xl:grid-cols-2">
+          {todayLessons.map((l) => (
+            <LessonItem key={l.id} lesson={l} highlight={current?.id === l.id ? "now" : undefined} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState icon={<PartyPopper size={22} />} title="Сегодня пар нет" text="Хороший день, чтобы закрыть дедлайны или отдохнуть." />
+      )}
+      </div>
+      </div>
+
+      <div className="contents xl:block xl:min-w-0">
+      <div className="order-2 mt-7 xl:mt-0">
       {/* Требует внимания */}
-      <SectionTitle>Требует внимания</SectionTitle>
+      <SectionTitle className="xl:mt-0">Требует внимания</SectionTitle>
       {items.length ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">
           {items.slice(0, 6).map((it) => (
             <Link key={it.key} href={it.href} className="group flex items-center gap-3 rounded-[22px] bg-surface shadow-[0_1px_2px_rgba(20,24,40,0.04)] ring-1 ring-border/70 p-3.5 transition hover:border-primary/40">
               <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${it.tone}`}>{it.icon}</span>
@@ -161,25 +185,13 @@ export default async function TodayPage() {
           </p>
         </div>
       )}
+      </div>
 
-      {/* Пары сегодня */}
-      <SectionTitle action={<Link href="/schedule" className="inline-flex items-center gap-1 text-sm font-semibold text-primary">Неделя <ArrowRight size={15} /></Link>}>
-        Пары сегодня {todayLessons.length > 0 && <span className="font-medium text-muted">· {active.length}</span>}
-      </SectionTitle>
-      {todayLessons.length ? (
-        <div className="space-y-2">
-          {todayLessons.map((l) => (
-            <LessonItem key={l.id} lesson={l} highlight={current?.id === l.id ? "now" : undefined} />
-          ))}
-        </div>
-      ) : (
-        <EmptyState icon={<PartyPopper size={22} />} title="Сегодня пар нет" text="Хороший день, чтобы закрыть дедлайны или отдохнуть." />
-      )}
-
+      <div className="order-4 mt-7">
       {/* Объявление */}
       {pinned && (
         <>
-          <SectionTitle action={<Link href="/notifications?tab=news" className="text-sm font-semibold text-primary">Все</Link>}>Деканат сообщает</SectionTitle>
+          <SectionTitle className="!mt-0" action={<Link href="/notifications?tab=news" className="text-sm font-semibold text-primary">Все</Link>}>Деканат сообщает</SectionTitle>
           <Card>
             <div className="flex items-start gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
@@ -199,6 +211,9 @@ export default async function TodayPage() {
 
       <SectionTitle>Как вы на этой неделе?</SectionTitle>
       <Checkin initial={checkin?.mood ?? null} />
+      </div>
+      </div>
+      </div>
     </div>
   );
 }

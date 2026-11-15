@@ -15,7 +15,7 @@ export default async function StaffAnnouncements() {
   return (
     <>
       <PageHeader title="Объявления" />
-      <div className="grid gap-4 md:grid-cols-[1fr_22rem]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] 2xl:grid-cols-[minmax(0,1fr)_28rem]">
         <div className="order-2 md:order-1">
           <SectionTitle>Опубликованные</SectionTitle>
           {items.length ? (

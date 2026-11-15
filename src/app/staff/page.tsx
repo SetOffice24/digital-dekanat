@@ -39,7 +39,7 @@ export default async function StaffHome() {
         Последние заявки
       </SectionTitle>
       {d.recent.length ? (
-        <div className="grid gap-2.5 md:grid-cols-2">
+        <div className="grid gap-2.5 md:grid-cols-2 2xl:grid-cols-3">
           {d.recent.map((r) => (
             <RequestRow key={r.id} r={r} />
           ))}

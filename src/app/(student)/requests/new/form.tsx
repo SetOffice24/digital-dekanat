@@ -30,7 +30,7 @@ export function NewRequestForm({ types, initialCode, draftPayload }: { types: T[
         {groups.map(([cat, list]) => (
           <section key={cat}>
             <h2 className="mb-2 text-[15px] font-bold">{cat}</h2>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {list.map((t) => (
                 <button key={t.id} type="button" onClick={() => setCode(t.code)} className="flex gap-3 rounded-[22px] bg-surface shadow-[0_1px_2px_rgba(20,24,40,0.04)] ring-1 ring-border/70 p-4 text-left transition hover:border-primary/50 hover:shadow-sm">
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">{catIcon[cat] ?? <FileCheck2 size={20} />}</span>
@@ -53,7 +53,7 @@ export function NewRequestForm({ types, initialCode, draftPayload }: { types: T[
   // React 19 сбрасывает форму после action — восстанавливаем введённые значения из состояния
   const values = state.values ?? draftPayload ?? {};
   return (
-    <form key={state.n ?? 0} action={action} className="space-y-4" noValidate>
+    <form key={state.n ?? 0} action={action} className="mx-auto max-w-2xl space-y-4" noValidate>
       <button type="button" onClick={() => setCode(null)} className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-muted hover:text-fg">
         <ArrowLeft size={16} /> Другой тип
       </button>

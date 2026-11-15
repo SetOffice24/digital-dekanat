@@ -44,7 +44,7 @@ export default async function StaffRequests({ searchParams }: { searchParams: Pr
         </Link>
       </form>
       {rows.length ? (
-        <div className="grid gap-2.5 md:grid-cols-2">
+        <div className="grid gap-2.5 md:grid-cols-2 2xl:grid-cols-3">
           {rows.map((r) => (
             <RequestRow key={r.id} r={r} />
           ))}

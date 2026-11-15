@@ -25,7 +25,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const weekLabel = `${fmtShort(weekStart)} – ${fmtShort(addDays(weekStart, 5))}`;
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="w-full">
       <PageHeader
         title="Расписание"
         subtitle={weekLabel}
@@ -91,13 +91,13 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             {selected.getTime() === today.getTime() && <span className="ml-2 font-medium text-primary">сегодня</span>}
           </h2>
           {byDay(selected).length ? (
-            <div className="space-y-2">{byDay(selected).map((l) => <LessonItem key={l.id} lesson={l} />)}</div>
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">{byDay(selected).map((l) => <LessonItem key={l.id} lesson={l} />)}</div>
           ) : (
             <EmptyState icon={<PartyPopper size={22} />} title="Пар нет" text="В этот день занятий не запланировано." />
           )}
         </section>
       ) : (
-        <div className="space-y-5">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2 2xl:grid-cols-3">
           {days.map((d) => (
             <section key={d.toISOString()} aria-label={fmtDay(d)}>
               <h2 className={cn("mb-2 text-[15px] font-bold", d.getTime() === today.getTime() && "text-primary")}>

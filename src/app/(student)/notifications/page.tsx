@@ -39,7 +39,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   ];
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto w-full max-w-4xl">
       <PageHeader title="Уведомления" action={tab !== "news" && unread > 0 ? <MarkAllRead /> : undefined} />
       <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]" role="tablist">
         {tabs.map((t) => (

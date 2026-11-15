@@ -85,6 +85,8 @@
 
 html {
   -webkit-tap-highlight-color: transparent;
+  /* плавный масштаб: 16px до ~1660px ширины, до 19px на 2K/4K-мониторах */
+  font-size: clamp(16px, calc(10px + 0.36vw), 19px);
 }
 
 body {

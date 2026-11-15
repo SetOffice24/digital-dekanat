@@ -32,7 +32,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
   }[status];
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="w-full">
       <PageHeader title="Учёба" subtitle={`${student.course} курс · ${curSem} семестр`} />
 
       {/* Как у меня дела */}
@@ -66,7 +66,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
       {retakes.length > 0 && (
         <>
           <SectionTitle>Пересдачи</SectionTitle>
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {retakes.map((e) => (
               <Card key={e.id} className="border-danger/30">
                 <div className="flex items-start justify-between gap-2">
@@ -94,7 +94,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
 
       {sem === curSem ? (
         current.length ? (
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
             {current.map(({ enrollment: e, points, max, ratio }) => (
               <Card key={e.id}>
                 <div className="flex items-start justify-between gap-2">
@@ -126,13 +126,13 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
           <EmptyState icon={<BookOpen size={22} />} title="Оценок пока нет" text="Баллы появятся после первых контрольных точек." />
         )
       ) : (
-        <Card className="divide-y divide-border p-0">
+        <Card className="grid grid-cols-1 gap-px overflow-hidden bg-border p-0 lg:grid-cols-2 lg:[&>*:last-child:nth-child(odd)]:col-span-2">
           {enrollments
             .filter((e) => e.semester === sem)
             .map((e) => {
               const final = [...e.grades].reverse().find((g) => g.kind === "FINAL" || g.kind === "RETAKE");
               return (
-                <div key={e.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <div key={e.id} className="flex items-center justify-between gap-3 bg-surface px-4 py-3">
                   <div className="min-w-0">
                     <div className="font-semibold leading-snug">{e.course.name}</div>
                     <div className="text-xs text-muted">{assessmentLabel[e.course.assessment]}</div>
@@ -151,9 +151,9 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
         </span>
       </SectionTitle>
       {session.length ? (
-        <Card className="divide-y divide-border p-0">
+        <Card className="grid grid-cols-1 gap-px overflow-hidden bg-border p-0 lg:grid-cols-2 lg:[&>*:last-child:nth-child(odd)]:col-span-2">
           {session.map((e) => (
-            <div key={e.id} className="flex items-center justify-between gap-3 px-4 py-3">
+            <div key={e.id} className="flex items-center justify-between gap-3 bg-surface px-4 py-3">
               <div className="min-w-0">
                 <div className="font-semibold leading-snug">{e.course.name}</div>
                 <div className="mt-0.5 flex items-center gap-1 text-xs text-muted">
