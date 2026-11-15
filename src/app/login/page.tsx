@@ -11,7 +11,8 @@ export default async function LoginPage() {
   const user = await getCurrentUser();
   if (user) redirect(user.role === "STAFF" ? "/staff" : "/");
   return (
-    <main className="relative flex min-h-dvh flex-col bg-[#c9d3e3] bg-[url(/bg/sky.svg)] bg-cover bg-center px-4">
+    // Фон сгенерирован нейросетью (OpenAI Image API); SVG-пейзаж — лёгкая подложка, пока грузится картинка
+    <main className="relative flex min-h-dvh flex-col bg-[#c9d3e3] bg-cover bg-center px-4" style={{ backgroundImage: "url(/bg/login.webp), url(/bg/sky.svg)" }}>
       <header className="flex items-center justify-between py-6 sm:px-6">
         <Wordmark tone="white" className="text-[22px] drop-shadow-[0_1px_8px_rgba(60,70,110,0.25)] sm:text-[26px]" />
       </header>
@@ -30,15 +31,15 @@ export default async function LoginPage() {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between px-1 text-[13px] font-semibold text-white drop-shadow-[0_1px_6px_rgba(60,70,110,0.35)]">
-            <span className="inline-flex items-center gap-1.5">
+          <div className="mt-4 flex items-center justify-between gap-2 text-[13px] font-semibold text-white">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#2a3150]/35 px-3 py-1.5 backdrop-blur-md">
               <Info size={15} /> Концепт для конкурса
             </span>
-            <a href={`mailto:${university.deanOffice.email}`} className="inline-flex items-center gap-1.5 hover:underline">
+            <a href={`mailto:${university.deanOffice.email}`} className="inline-flex items-center gap-1.5 rounded-full bg-[#2a3150]/35 px-3 py-1.5 backdrop-blur-md hover:bg-[#2a3150]/50">
               Поддержка <CircleHelp size={16} />
             </a>
           </div>
-          <p className="mt-3 px-1 text-center text-xs text-white/90 drop-shadow-[0_1px_6px_rgba(60,70,110,0.35)]">{university.disclaimer}</p>
+          <p className="mx-auto mt-3 w-fit rounded-2xl bg-[#2a3150]/35 px-3 py-1.5 text-center text-xs text-white backdrop-blur-md">{university.disclaimer}</p>
         </div>
       </div>
     </main>
