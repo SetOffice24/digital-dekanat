@@ -20,7 +20,7 @@ export const requestStatusLabel: Record<RequestStatus, string> = {
   IN_REVIEW: "В работе",
   NEED_INFO: "Нужно уточнение",
   READY: "Готова",
-  DONE: "Выдана",
+  DONE: "Завершена",
   REJECTED: "Отклонена",
 };
 

@@ -76,16 +76,16 @@ export default async function StaffInbox({ searchParams }: { searchParams: Promi
             const days = Math.ceil((now.getTime() - due.getTime()) / 86400000);
             const initials = `${r.student.lastName[0]}${r.student.firstName[0]}`;
             const action =
-              r.status === "NEW" ? { to: "IN_REVIEW" as const, label: "Взять в работу" } : r.status === "IN_REVIEW" && r.type.isCertificate ? { to: "READY" as const, label: "Справка готова" } : r.status === "READY" ? { to: "DONE" as const, label: "Выдана" } : null;
+              r.status === "NEW" ? { to: "IN_REVIEW" as const, label: "Взять в работу" } : r.status === "IN_REVIEW" && r.type.isCertificate ? { to: "READY" as const, label: "Справка готова" } : r.status === "READY" ? { to: "DONE" as const, label: "Отметить выданной" } : null;
             return (
-              <li key={r.id} className={cn("flex items-center gap-3 px-4 py-4 sm:gap-4 sm:px-5", i > 0 && "border-t border-border/70")}>
+              <li key={r.id} className={cn("flex flex-wrap items-center gap-3 px-4 py-4 sm:flex-nowrap sm:gap-4 sm:px-5", i > 0 && "border-t border-border/70")}>
                 <span className="hidden size-11 shrink-0 items-center justify-center rounded-full bg-p-sky text-sm font-semibold text-[#0e0e10] sm:flex">{initials}</span>
-                <Link href={`/staff/requests/${r.id}`} className="group min-w-0 flex-1">
+                <Link href={`/staff/requests/${r.id}`} className="group min-w-0 basis-full sm:basis-auto sm:flex-1">
                   <span className="flex items-baseline gap-2">
-                    <span className="truncate font-semibold group-hover:underline">{r.type.title}</span>
+                    <span className="font-semibold group-hover:underline sm:truncate">{r.type.title}</span>
                     <span className="shrink-0 text-sm text-muted">№ {r.number}</span>
                   </span>
-                  <span className="block truncate text-sm text-muted">
+                  <span className="block text-sm text-muted sm:truncate">
                     {r.student.lastName} {r.student.firstName} · {r.student.group.name}
                     {r.wantsPaper ? " · нужна бумага" : ""}
                   </span>

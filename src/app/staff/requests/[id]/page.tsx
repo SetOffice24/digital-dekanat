@@ -2,11 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, FileDown } from "lucide-react";
 import { requireStaff } from "@/server/auth";
-import { getRequest, isOverdue, STAFF_STATUSES } from "@/server/repos/staff";
+import { getRequest, isOverdue } from "@/server/repos/staff";
 import { Badge, ButtonLink, Card, SectionTitle } from "@/components/ui";
 import { requestStatusLabel, requestStatusTone } from "@/lib/labels";
 import { fmtDate, fmtDateTime } from "@/lib/utils";
-import { AssignForm, StatusForm } from "./forms";
+import { AssignForm, DecisionForm } from "./forms";
 
 export const metadata = { title: "Заявка" };
 
@@ -97,7 +97,7 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
             {closed ? (
               <p className="text-sm text-muted">Заявка закрыта — статус «{requestStatusLabel[r.status]}».</p>
             ) : (
-              <StatusForm id={r.id} current={r.status} options={STAFF_STATUSES.filter((x) => x !== r.status).map((x) => ({ value: x, label: requestStatusLabel[x] }))} />
+              <DecisionForm id={r.id} status={r.status} isCertificate={r.type.isCertificate} />
             )}
           </Card>
           {r.assignee?.id !== staff.id && !closed && (
@@ -112,7 +112,9 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
 }
 
 function FieldRow({ label, value }: { label: string; value: unknown }) {
-  const text = value == null || value === "" ? "—" : String(value);
+  const raw = value == null || value === "" ? "—" : String(value);
+  // даты из форм (YYYY-MM-DD) показываем по-человечески
+  const text = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(raw + "T00:00:00Z")) : raw;
   return (
     <>
       <dt className="text-muted">{label}</dt>

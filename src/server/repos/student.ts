@@ -96,8 +96,11 @@ export function getRequest(s: SessionStudent, id: string) {
   });
 }
 
-export function listRequestTypes() {
-  return prisma.requestType.findMany({ orderBy: [{ category: "desc" }, { title: "asc" }] });
+/** Порядок — от самых частых к редким: справки → заявления → обращения. */
+const TYPE_ORDER = ["CERT_STUDY", "CERT_SCHOLARSHIP", "CERT_MILITARY", "APP_ABSENCE", "APP_RETAKE", "APP_ACADEMIC_LEAVE", "APP_OTHER"];
+export async function listRequestTypes() {
+  const types = await prisma.requestType.findMany();
+  return types.sort((a, b) => TYPE_ORDER.indexOf(a.code) - TYPE_ORDER.indexOf(b.code));
 }
 
 export async function createRequest(s: SessionStudent, typeId: string, payload: Prisma.InputJsonValue, wantsPaper: boolean, comment?: string) {

@@ -22,7 +22,11 @@ function Chip({ g }: { g: RowGrade }) {
           disabled={pending}
           aria-label={`Удалить оценку ${g.points ?? g.value} (${label})`}
           className="flex size-6 items-center justify-center rounded-full text-muted hover:bg-danger-soft hover:text-danger"
-          onClick={() => start(async () => setErr((await deleteGradeAction(g.id)).error ?? null))}
+          onClick={() => {
+            // защита от случайного нажатия: оценка исчезнет у студента
+            if (!window.confirm(`Удалить оценку ${g.points ?? g.value} (${label})? Студент её больше не увидит.`)) return;
+            start(async () => setErr((await deleteGradeAction(g.id)).error ?? null));
+          }}
         >
           <X size={14} />
         </button>

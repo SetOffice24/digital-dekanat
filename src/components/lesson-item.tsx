@@ -37,7 +37,7 @@ export function LessonItem({ lesson: l, highlight }: { lesson: LessonWithRefs; h
           {lessonKindLabel[l.kind]}
           {l.subgroup ? ` · подгр. ${l.subgroup}` : ""} · {l.teacher.fullName}
         </div>
-        {change && l.changeNote && <p className="mt-2 text-[13px] text-muted">{l.changeNote}</p>}
+        {change && l.changeNote && change.label !== "Новая аудитория" && <p className="mt-2 text-[13px] text-muted">{l.changeNote}</p>}
       </div>
     </div>
   );

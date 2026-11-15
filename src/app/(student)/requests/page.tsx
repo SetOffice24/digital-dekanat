@@ -20,27 +20,22 @@ export default async function RequestsPage() {
         <FileText size={20} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-bold">{r.type.title}</span>
-        <span className="block text-[13px] text-muted">
-          № {r.number} · от {fmtDate(r.createdAt)}
+        <span className="block font-semibold leading-snug">{r.type.title}</span>
+        <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted">
+          <StatusBadge status={r.status} />
+          <span>№ {r.number} · {fmtDate(r.createdAt)}</span>
         </span>
       </span>
-      <StatusBadge status={r.status} />
       <ChevronRight size={18} className="shrink-0 text-muted" />
     </Link>
   );
 
   return (
     <div className="mx-auto w-full max-w-6xl">
-      <PageHeader
-        title="Заявки и справки"
-        subtitle="Без очереди в деканате"
-        action={
-          <ButtonLink href="/requests/new" className="shrink-0">
-            <FilePlus2 size={18} /> <span className="hidden sm:inline">Новая заявка</span>
-          </ButtonLink>
-        }
-      />
+      <PageHeader title="Заявки и справки" subtitle="Справки и заявления — без очереди в деканате" />
+      <ButtonLink href="/requests/new" className="mb-8 w-full sm:w-auto">
+        <FilePlus2 size={18} /> Новая заявка
+      </ButtonLink>
       {requests.length === 0 ? (
         <EmptyState icon={<FileText size={22} />} title="Заявок пока нет" text="Закажите справку или подайте заявление — это займёт минуту." action={<ButtonLink href="/requests/new">Создать заявку</ButtonLink>} />
       ) : (
