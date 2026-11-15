@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, BookOpen, CalendarCheck, CheckCircle2, MapPin, TrendingUp } from "lucide-react";
+import { AlertTriangle, BookOpen, CalendarCheck, CheckCircle2, TrendingUp } from "lucide-react";
 import { requireStudent } from "@/server/auth";
 import { currentSemester, getEnrollments, getExams, listRequests, summarize } from "@/server/repos/student";
 import { Badge, ButtonLink, Card, EmptyState, PageHeader, SectionTitle } from "@/components/ui";
@@ -57,7 +57,64 @@ function ThresholdBar({ points, max, ratio, credit }: { points: number; max: num
   );
 }
 
-const gradeTone = (v: string) => (v === "5" || v === "PASS" ? "success" : v === "4" ? "primary" : v === "3" ? "warning" : "danger") as "success" | "primary" | "warning" | "danger";
+const TZ = "Europe/Moscow";
+const dayNum = new Intl.DateTimeFormat("ru-RU", { day: "numeric", timeZone: TZ });
+const monthShort = new Intl.DateTimeFormat("ru-RU", { month: "short", timeZone: TZ });
+const weekday = new Intl.DateTimeFormat("ru-RU", { weekday: "short", timeZone: TZ });
+const timeOnly = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", timeZone: TZ });
+
+type Enr = Awaited<ReturnType<typeof getEnrollments>>[number];
+const finalOf = (e: Enr) => [...e.grades].reverse().find((g) => g.kind === "FINAL" || g.kind === "RETAKE");
+
+/**
+ * Прошлый семестр: спокойный список в одну колонку. Цвет — только у проблем (долг),
+ * обычные оценки — просто цифрой, без цветных плашек. Долги — наверху.
+ */
+function PastSemester({ rows }: { rows: Enr[] }) {
+  const items = rows
+    .map((e) => ({ e, v: finalOf(e)?.value ?? null }))
+    .sort((a, b) => Number(b.v === "2" || b.v === "FAIL") - Number(a.v === "2" || a.v === "FAIL") || a.e.course.name.localeCompare(b.e.course.name, "ru"));
+  const nums = items.map((i) => Number(i.v)).filter((n) => n >= 3);
+  const avg = nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2).replace(".", ",") : null;
+  const debts = items.filter((i) => i.v === "2" || i.v === "FAIL").length;
+  return (
+    <div className="max-w-3xl">
+      <p className="mb-3 text-sm text-muted">
+        {avg && (
+          <>
+            Средний балл <b className="font-semibold text-fg">{avg}</b>
+          </>
+        )}
+        {debts > 0 && <span className="font-semibold text-danger"> · {debts} {plural(debts, "долг", "долга", "долгов")}</span>}
+        {!debts && avg && " · без долгов"}
+      </p>
+      <ul className="overflow-hidden rounded-[28px] border border-border/70 bg-surface">
+        {items.map(({ e, v }, i) => {
+          const bad = v === "2" || v === "FAIL";
+          return (
+            <li key={e.id} className={cn("flex items-center justify-between gap-4 px-4 py-3.5 sm:px-5", i > 0 && "border-t border-border/60", bad && "bg-danger-soft/60")}>
+              <div className="min-w-0">
+                <div className="font-semibold leading-snug">{e.course.name}</div>
+                <div className={cn("text-sm", bad ? "font-medium text-danger" : "text-muted")}>{bad ? "Долг — нужна пересдача" : assessmentLabel[e.course.assessment]}</div>
+              </div>
+              <div className="shrink-0 text-right">
+                {v && /^\d$/.test(v) ? (
+                  <>
+                    <div className={cn("font-head text-2xl font-semibold leading-none tabular-nums", bad && "text-danger")}>{v}</div>
+                    <div className="mt-1 text-[11px] text-muted">{gradeText(v).toLowerCase()}</div>
+                  </>
+                ) : (
+                  <div className={cn("text-sm font-medium", bad ? "text-danger" : "text-muted")}>{v ? gradeText(v) : "—"}</div>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 
 export default async function GradesPage({ searchParams }: { searchParams: Promise<{ sem?: string }> }) {
   const { student } = await requireStudent();
@@ -96,7 +153,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
           <div className="rounded-2xl bg-surface p-3">
             <div className="text-2xl font-extrabold tabular-nums">{avg ? avg.toFixed(2).replace(".", ",") : "—"}</div>
-            <div className="text-[11px] font-semibold text-muted">средний балл</div>
+            <div className="text-[11px] font-semibold text-muted">средний за учёбу</div>
           </div>
           <div className="rounded-2xl bg-surface p-3">
             <div className={cn("text-2xl font-extrabold tabular-nums", debts.length && "text-danger")}>{debts.length}</div>
@@ -109,12 +166,12 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
         </div>
         {debts.length > 0 && retakeRequest?.status === "NEED_INFO" && (
           <ButtonLink href={`/requests/${retakeRequest.id}`} variant="danger" className="mt-4 w-full">
-            Деканат ждёт ответа по заявлению — ответить
+            Ответить деканату по пересдаче
           </ButtonLink>
         )}
         {debts.length > 0 && retakeRequest && retakeRequest.status !== "NEED_INFO" && (
           <ButtonLink href={`/requests/${retakeRequest.id}`} variant="secondary" className="mt-4 w-full">
-            Заявление на пересдачу уже подано — посмотреть статус
+            Статус заявления на пересдачу
           </ButtonLink>
         )}
         {debts.length > 0 && !retakeRequest && retakes.length === 0 && (
@@ -171,14 +228,33 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
                   </div>
                 </div>
                 <ThresholdBar points={points} max={max} ratio={ratio} credit={e.course.assessment === "CREDIT"} />
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {e.grades.map((g) => (
-                    <span key={g.id} className="rounded-lg bg-surface-2 px-2 py-0.5 text-xs" title={`${g.note ?? "Оценка"}, ${fmtDayMonth(g.date)}`}>
-                      {g.note} · {fmtDayMonth(g.date)}: <b>{g.points ?? g.value}</b>
-                      {g.points != null && <span className="text-muted">/20</span>}
-                    </span>
-                  ))}
-                </div>
+                {/* Последняя оценка видна сразу, остальные — по нажатию: карточка не превращается в россыпь плашек */}
+                {e.grades.length > 0 && (
+                  <details className="group mt-3 border-t border-border/60 pt-2.5 text-sm">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-muted [&::-webkit-details-marker]:hidden">
+                      <span className="min-w-0 truncate">
+                        Последняя: {e.grades[e.grades.length - 1].note ?? "оценка"}, {fmtDayMonth(e.grades[e.grades.length - 1].date)} —{" "}
+                        <b className="font-semibold text-fg">{e.grades[e.grades.length - 1].points ?? e.grades[e.grades.length - 1].value}</b>
+                        {e.grades[e.grades.length - 1].points != null && "/20"}
+                      </span>
+                      <span className="shrink-0 text-xs font-medium group-open:hidden">Все ({e.grades.length})</span>
+                      <span className="hidden shrink-0 text-xs font-medium group-open:inline">Свернуть</span>
+                    </summary>
+                    <ul className="mt-2 space-y-1">
+                      {e.grades.map((g) => (
+                        <li key={g.id} className="flex justify-between gap-3">
+                          <span className="text-muted">
+                            {fmtDayMonth(g.date)} · {g.note ?? "Оценка"}
+                          </span>
+                          <span className="tabular-nums">
+                            <b className="font-semibold">{g.points ?? g.value}</b>
+                            {g.points != null && <span className="text-muted">/20</span>}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </Card>
             ))}
           </div>
@@ -186,22 +262,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
           <EmptyState icon={<BookOpen size={22} />} title="Оценок пока нет" text="Баллы появятся после первых контрольных точек." />
         )
       ) : (
-        <Card className="grid grid-cols-1 gap-px overflow-hidden bg-border p-0 lg:grid-cols-2 lg:[&>*:last-child:nth-child(odd)]:col-span-2">
-          {enrollments
-            .filter((e) => e.semester === sem)
-            .map((e) => {
-              const final = [...e.grades].reverse().find((g) => g.kind === "FINAL" || g.kind === "RETAKE");
-              return (
-                <div key={e.id} className="flex items-center justify-between gap-3 bg-surface px-4 py-3">
-                  <div className="min-w-0">
-                    <div className="font-semibold leading-snug">{e.course.name}</div>
-                    <div className="text-xs text-muted">{assessmentLabel[e.course.assessment]}</div>
-                  </div>
-                  {final ? <Badge tone={gradeTone(final.value)}>{gradeText(final.value)}{/^\d$/.test(final.value) ? ` · ${final.value}` : ""}</Badge> : <Badge>—</Badge>}
-                </div>
-              );
-            })}
-        </Card>
+        <PastSemester rows={enrollments.filter((e) => e.semester === sem)} />
       )}
 
       {/* Сессия */}
@@ -211,22 +272,32 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
         </span>
       </SectionTitle>
       {session.length ? (
-        <Card className="grid grid-cols-1 gap-px overflow-hidden bg-border p-0 lg:grid-cols-2 lg:[&>*:last-child:nth-child(odd)]:col-span-2">
-          {session.map((e) => (
-            <div key={e.id} className="flex items-center justify-between gap-3 bg-surface px-4 py-3">
-              <div className="min-w-0">
-                <div className="font-semibold leading-snug">{e.course.name}</div>
-                <div className="mt-0.5 flex items-center gap-1 text-xs text-muted">
-                  <MapPin size={12} /> {roomLabel(e.room)} · {e.teacher}
+        // Одна колонка сверху вниз, как в календаре: дата слева — сразу видно, что за чем идёт
+        <div className="max-w-3xl">
+          {daysToSession != null && (
+            <p className="mb-3 text-sm text-muted">
+              Первое испытание через <b className="font-semibold text-fg">{daysToSession} {plural(daysToSession, "день", "дня", "дней")}</b> · всего {session.length}
+            </p>
+          )}
+          <ol className="overflow-hidden rounded-[28px] border border-border/70 bg-surface">
+            {session.map((e, i) => (
+              <li key={e.id} className={cn("flex items-center gap-4 px-4 py-3.5 sm:px-5", i > 0 && "border-t border-border/60")}>
+                <div className="w-12 shrink-0 text-center leading-none">
+                  <div className="font-head text-2xl font-semibold tabular-nums">{dayNum.format(e.date)}</div>
+                  <div className="mt-1 text-[11px] font-medium text-muted">{monthShort.format(e.date).replace(".", "")}</div>
                 </div>
-              </div>
-              <div className="shrink-0 text-right">
-                <Badge tone={e.kind === "EXAM" ? "primary" : "neutral"}>{e.kind === "EXAM" ? "Экзамен" : "Зачёт"}</Badge>
-                <div className="mt-1 text-xs font-semibold">{fmtDateTime(e.date)}</div>
-              </div>
-            </div>
-          ))}
-        </Card>
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold leading-snug">{e.course.name}</div>
+                  <div className="mt-0.5 text-sm text-muted">
+                    <span className={e.kind === "EXAM" ? "font-medium text-primary" : ""}>{e.kind === "EXAM" ? "Экзамен" : "Зачёт"}</span>
+                    {" · "}
+                    {weekday.format(e.date)}, {timeOnly.format(e.date)} · {roomLabel(e.room)}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
       ) : (
         <EmptyState icon={<TrendingUp size={22} />} title="Расписание сессии пока не опубликовано" />
       )}
