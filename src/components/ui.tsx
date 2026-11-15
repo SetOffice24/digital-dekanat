@@ -18,7 +18,7 @@ export function SectionTitle({ children, action, className }: { children: ReactN
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="mb-7 flex items-end justify-between gap-3">
+    <div className="mb-7 flex flex-wrap items-end justify-between gap-x-3 gap-y-4">
       <div className="min-w-0">
         <h1 className="font-head text-[34px] font-semibold leading-[1.05] tracking-[-0.02em] sm:text-5xl">{title}</h1>
         {subtitle && <p className="mt-2.5 text-[15px] text-muted sm:text-lg">{subtitle}</p>}

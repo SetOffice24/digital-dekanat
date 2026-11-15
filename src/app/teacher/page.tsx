@@ -1,41 +1,111 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, ClipboardList, MapPin } from "lucide-react";
 import { requireTeacher } from "@/server/auth";
-import { listClasses } from "@/server/repos/teacher";
-import { Card, EmptyState, PageHeader } from "@/components/ui";
-import { plural } from "@/lib/utils";
+import { listClasses, teachingDay } from "@/server/repos/teacher";
+import { EmptyState, PageHeader } from "@/components/ui";
+import { lessonKindLabel } from "@/lib/labels";
+import { cn, fmtDay, minutesOf, moscowTime, moscowToday, plural, roomLabel } from "@/lib/utils";
 
-export const metadata = { title: "Мои группы" };
+export const metadata = { title: "Сегодня" };
 
-const tints = ["bg-p-sky", "bg-p-mint", "bg-p-lilac", "bg-p-yellow", "bg-p-peach"];
-
+/**
+ * Главная преподавателя — от пар дня: «какая пара → журнал этой группы».
+ * Ниже — все группы для случаев, когда оценку нужно поставить не в день занятия.
+ */
 export default async function TeacherHome() {
   const { teacher } = await requireTeacher();
-  const classes = await listClasses(teacher);
+  const today = moscowToday();
+  const [day, classes] = await Promise.all([teachingDay(teacher, today), listClasses(teacher)]);
+  const nowMin = minutesOf(moscowTime());
+  const active = day?.lessons.filter((l) => l.status !== "CANCELLED") ?? [];
+  const next = day?.isToday ? active.find((l) => minutesOf(l.endTime) > nowMin) : active[0];
+  const hour = Number(moscowTime().slice(0, 2));
+  const hello = hour < 12 ? "Доброе утро" : hour < 18 ? "Добрый день" : "Добрый вечер";
+
+  const summary = !day
+    ? "В ближайшие две недели пар нет."
+    : day.isToday
+      ? next
+        ? `Сегодня ${active.length} ${plural(active.length, "пара", "пары", "пар")}. Следующая — в ${next.startTime}, ${next.group.name}.`
+        : `Сегодня ${active.length} ${plural(active.length, "пара", "пары", "пар")} — все уже прошли.`
+      : `Сегодня пар нет. Ближайшие — ${fmtDay(day.date).toLowerCase()}.`;
+
   return (
     <>
-      <PageHeader title="Мои группы" subtitle="Выберите группу, чтобы открыть журнал и поставить оценку" />
+      <PageHeader title={`${hello}!`} subtitle={summary} />
+
+      {day && (
+        <section className="mb-10">
+          <h2 className="mb-3 flex items-center gap-2 text-[15px] font-bold">
+            <CalendarDays size={17} /> {day.isToday ? "Пары сегодня" : fmtDay(day.date)}
+          </h2>
+          <ol className="overflow-hidden rounded-[28px] border border-border/70 bg-surface">
+            {day.lessons.map((l, i) => {
+              const cancelled = l.status === "CANCELLED";
+              const isNext = next?.id === l.id;
+              const journal = `/teacher/${l.group.id}/${l.course.id}`;
+              return (
+                <li key={l.id} className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-4 sm:flex-nowrap sm:px-5", i > 0 && "border-t border-border/60", isNext && "bg-p-sky/40")}>
+                  <div className="w-14 shrink-0 leading-tight">
+                    <div className={cn("font-head text-lg font-semibold tabular-nums", cancelled && "text-muted line-through")}>{l.startTime}</div>
+                    <div className="text-xs text-muted tabular-nums">{l.endTime}</div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className={cn("font-semibold leading-snug", cancelled && "text-muted line-through")}>
+                      {l.course.name} · {l.group.name}
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-sm text-muted">
+                      {cancelled ? (
+                        <span className="font-medium text-danger">Отменено</span>
+                      ) : (
+                        <>
+                          {isNext && <span className="font-semibold text-fg">Следующая ·</span>}
+                          <span>{lessonKindLabel[l.kind]}</span>
+                          <span>·</span>
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin size={12} /> {roomLabel(l.room)}, {l.building}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {!cancelled && (
+                    <div className="flex w-full gap-2 sm:w-auto">
+                      <Link href={`${journal}/bulk`} className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-ink px-4 text-sm font-semibold text-ink-fg hover:opacity-90 sm:flex-none">
+                        <ClipboardList size={15} /> Оценки группе
+                      </Link>
+                      <Link href={journal} className="inline-flex min-h-10 flex-1 items-center justify-center whitespace-nowrap rounded-full border border-border px-4 text-sm font-semibold hover:border-ink sm:flex-none">
+                        Журнал
+                      </Link>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      )}
+
+      <h2 className="mb-3 text-[15px] font-bold">Все мои группы</h2>
       {classes.length === 0 ? (
         <EmptyState icon={<BookOpen size={22} />} title="Пока нет групп" text="У вас нет назначенных занятий. Когда деканат добавит их в расписание, группы появятся здесь." />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {classes.map((c, i) => (
-            <Link key={c.groupId + c.courseId} href={`/teacher/${c.groupId}/${c.courseId}`} className="group block">
-              <Card className={`flex h-full items-end justify-between gap-3 border-transparent transition group-hover:scale-[1.01] ${tints[i % tints.length]}`}>
-                <div className="min-w-0">
-                  <div className="font-head text-4xl font-semibold tracking-tight">{c.groupName}</div>
-                  <div className="mt-1.5 text-[15px] font-medium">{c.courseName}</div>
-                  <div className="mt-1 text-sm text-fg/70">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {classes.map((c) => (
+            <li key={c.groupId + c.courseId} className="min-w-0">
+              <Link href={`/teacher/${c.groupId}/${c.courseId}`} className="group flex items-center gap-3 rounded-[24px] border border-border/70 bg-surface p-4 transition hover:border-ink">
+                <span className="flex h-11 min-w-16 shrink-0 items-center justify-center rounded-2xl bg-p-lilac px-2 text-sm font-semibold text-[#0e0e10]">{c.groupName}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold">{c.courseName}</span>
+                  <span className="block text-sm text-muted">
                     {c.studentCount} {plural(c.studentCount, "студент", "студента", "студентов")}
-                  </div>
-                </div>
-                <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-ink text-ink-fg" aria-hidden>
-                  <ArrowRight size={20} />
+                  </span>
                 </span>
-              </Card>
-            </Link>
+                <ArrowRight size={18} className="shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-fg" />
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </>
   );

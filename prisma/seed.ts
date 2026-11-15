@@ -40,6 +40,19 @@ const femaleFirst = ["Алина", "Полина", "Вероника", "Ксен
 const lastBase = ["Лесков", "Брусницын", "Ольхов", "Таволгин", "Жаворонков", "Снегирёв", "Рябинин", "Клёнов", "Вереск", "Ракитин", "Черёмухин", "Зорин"];
 const maleMiddle = ["Андреевич", "Олегович", "Сергеевич", "Игоревич", "Павлович"];
 const femaleMiddle = ["Андреевна", "Олеговна", "Сергеевна", "Игоревна", "Павловна"];
+// ФИО не повторяются: в журнале двух одинаковых «Брусницыных Злат» быть не должно
+const usedNames = new Set<string>(["Леснова Анна Викторовна", "Озёров Пётр Алексеевич"]);
+function uniquePerson(female: boolean) {
+  for (let i = 0; i < 50; i++) {
+    const p = person(female);
+    const key = `${p.lastName} ${p.firstName} ${p.middleName}`;
+    if (!usedNames.has(key)) {
+      usedNames.add(key);
+      return p;
+    }
+  }
+  return person(female);
+}
 function person(female: boolean) {
   const base = pick(lastBase);
   const last = female ? (base.endsWith("ск") || base === "Вереск" ? base : base + "а") : base;
@@ -189,7 +202,8 @@ async function main() {
   for (const k of ["ИВТ-24-1Алгоритмы и структуры данных", "ИВТ-24-2Алгоритмы и структуры данных", "ИВТ-24-1Базы данных"]) groupTeacher.set(k, demoTeacher.id);
   const teacherFor = (group: string, course: string) => {
     const k = group + course;
-    if (!groupTeacher.has(k)) groupTeacher.set(k, pick(teachers).id);
+    // демо-преподавателю — только его три пары, остальное ведут другие
+    if (!groupTeacher.has(k)) groupTeacher.set(k, pick(teachers.filter((t) => t.id !== demoTeacher.id)).id);
     return groupTeacher.get(k)!;
   };
 
@@ -217,6 +231,24 @@ async function main() {
         });
       }
     }
+  }
+  // преподаватель не может вести две пары одновременно: накладку переносим на свободную для него и группы пару
+  const slot = (d: unknown, t: string) => `${(d as Date).toISOString()}|${t}`;
+  const groupBusy = new Set(lessonRows.map((r) => `${r.groupId}|${slot(r.date, r.startTime)}`));
+  const busy = new Set<string>();
+  for (const r of lessonRows) {
+    if (r.teacherId !== demoTeacher.id) continue;
+    if (!busy.has(slot(r.date, r.startTime))) {
+      busy.add(slot(r.date, r.startTime));
+      continue;
+    }
+    const free = BELLS.find(([st]) => !busy.has(slot(r.date, st)) && !groupBusy.has(`${r.groupId}|${slot(r.date, st)}`));
+    if (!free) continue;
+    groupBusy.delete(`${r.groupId}|${slot(r.date, r.startTime)}`);
+    r.startTime = free[0];
+    r.endTime = free[1];
+    busy.add(slot(r.date, free[0]));
+    groupBusy.add(`${r.groupId}|${slot(r.date, free[0])}`);
   }
   await prisma.lesson.createMany({ data: lessonRows });
 
@@ -310,7 +342,7 @@ async function main() {
   const fillerGroups = ["ИВТ-24-1", "ИВТ-24-2", "ИВТ-23-1", "ЭК-23-1", "ЭК-23-2", "МН-24-1", "ЖР-24-1", "ПИ-25-1", "ЛН-25-1", "ИВТ-24-1"];
   for (let i = 0; i < fillerGroups.length; i++) {
     const female = rng() > 0.5;
-    const p = person(female);
+    const p = uniquePerson(female);
     fillers.push(
       await mkStudent(`student${i + 1}`, `Filler-${verifyCode()}`, fillerGroups[i], {
         ...p, subgroup: int(1, 2), recordBookNo: `${groups[fillerGroups[i]].course === 1 ? 25 : 24}-${1000 + i}`,
@@ -322,7 +354,7 @@ async function main() {
   const mkClassmate = async (group: string, i: number) => {
     const g = groups[group];
     const user = await prisma.user.create({ data: { login: `classmate${i}`, passwordHash: classmateHash, role: "STUDENT" } });
-    return prisma.student.create({ data: { userId: user.id, facultyId: g.facultyId, programId: g.programId, course: g.course, groupId: g.id, ...person(rng() > 0.5), subgroup: int(1, 2), recordBookNo: `${g.course === 1 ? 25 : 24}-${2000 + i}` } });
+    return prisma.student.create({ data: { userId: user.id, facultyId: g.facultyId, programId: g.programId, course: g.course, groupId: g.id, ...uniquePerson(rng() > 0.5), subgroup: int(1, 2), recordBookNo: `${g.course === 1 ? 25 : 24}-${2000 + i}` } });
   };
   const classmateHash = await hash(`Classmate-${verifyCode()}`, ARGON);
   const classmates = [];

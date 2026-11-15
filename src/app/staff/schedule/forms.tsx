@@ -1,5 +1,7 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 import { Input, Label, Select } from "@/components/ui";
 import { FormMessage, SubmitButton } from "@/components/staff/bits";
 import { bells } from "@/config/university";
@@ -56,5 +58,42 @@ export function CancelForm({ id }: { id: string }) {
         Отменить занятие
       </SubmitButton>
     </form>
+  );
+}
+
+/** Действия с парой: две компактные кнопки, форма раскрывается под строкой — одна за раз. */
+export function LessonActions({ id, date, room }: { id: string; date: string; room: string }) {
+  const [open, setOpen] = useState<"move" | "cancel" | null>(null);
+  const btn = "inline-flex min-h-9 items-center rounded-full border px-3.5 text-sm font-semibold transition";
+  return (
+    <div className="contents">
+      <div className="flex shrink-0 gap-1.5">
+        <button type="button" aria-expanded={open === "move"} onClick={() => setOpen(open === "move" ? null : "move")} className={cn(btn, open === "move" ? "border-ink bg-ink text-ink-fg" : "border-border hover:border-ink")}>
+          Перенести
+        </button>
+        <button type="button" aria-expanded={open === "cancel"} onClick={() => setOpen(open === "cancel" ? null : "cancel")} className={cn(btn, open === "cancel" ? "border-danger bg-danger text-white" : "border-transparent text-danger hover:bg-danger-soft")}>
+          Отменить
+        </button>
+      </div>
+      {open && (
+        <div className="basis-full rounded-2xl bg-surface-2 p-3 sm:ml-[4.5rem]">
+          {open === "move" ? <MoveForm id={id} date={date} room={room} /> : <CancelForm id={id} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Выбор группы: сразу открывает её расписание, без кнопки «Показать». */
+export function GroupPicker({ groups, value, date }: { groups: { id: string; name: string }[]; value?: string; date: string }) {
+  const router = useRouter();
+  return (
+    <Select aria-label="Группа" value={value} onChange={(e) => router.push(`/staff/schedule?group=${e.target.value}&date=${date}`)} className="w-full sm:w-48">
+      {groups.map((g) => (
+        <option key={g.id} value={g.id}>
+          {g.name}
+        </option>
+      ))}
+    </Select>
   );
 }

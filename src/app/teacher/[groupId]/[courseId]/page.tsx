@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft, Check, ClipboardList, Users } from "lucide-react";
 import { requireTeacher } from "@/server/auth";
 import { getGradebook, MAX_POINTS, WORK_KINDS } from "@/server/repos/teacher";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
@@ -10,8 +10,9 @@ export const metadata = { title: "Журнал" };
 
 const fmt = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", timeZone: "Europe/Moscow" });
 
-export default async function GradebookPage({ params }: { params: Promise<{ groupId: string; courseId: string }> }) {
+export default async function GradebookPage({ params, searchParams }: { params: Promise<{ groupId: string; courseId: string }>; searchParams: Promise<{ saved?: string }> }) {
   const { groupId, courseId } = await params;
+  const saved = Number((await searchParams).saved) || 0;
   const { teacher } = await requireTeacher();
   const book = await getGradebook(teacher, groupId, courseId);
   if (!book) notFound();
@@ -25,9 +26,22 @@ export default async function GradebookPage({ params }: { params: Promise<{ grou
   return (
     <>
       <Link href="/teacher" className="mb-4 inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-muted hover:text-fg">
-        <ArrowLeft size={16} /> Мои группы
+        <ArrowLeft size={16} /> На главную
       </Link>
-      <PageHeader title={`${book.course.name} · ${book.group.name}`} subtitle={`Журнал, ${book.semester}-й семестр. Под каждой цифрой — вид работы и дата. Нажмите «+ Оценка» напротив студента.`} />
+      <PageHeader
+        title={`${book.course.name} · ${book.group.name}`}
+        subtitle={`Журнал, ${book.semester}-й семестр. Под каждой цифрой — вид работы и дата. Одному студенту — «+ Оценка», всей группе за работу — кнопка справа.`}
+        action={
+          <Link href={`/teacher/${groupId}/${courseId}/bulk`} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-ink-fg hover:opacity-90">
+            <ClipboardList size={17} /> Оценки группе
+          </Link>
+        }
+      />
+      {saved > 0 && (
+        <p role="status" className="mb-4 flex items-center gap-2 rounded-2xl bg-success-soft px-4 py-3 text-sm font-semibold text-success">
+          <Check size={17} /> Сохранено {saved} {saved % 10 === 1 && saved % 100 !== 11 ? "оценка" : [2, 3, 4].includes(saved % 10) && ![12, 13, 14].includes(saved % 100) ? "оценки" : "оценок"} — студенты получили уведомления.
+        </p>
+      )}
       {rows.length === 0 ? (
         <EmptyState icon={<Users size={22} />} title="Студентов нет" text="В этой группе никто не записан на дисциплину в текущем семестре." />
       ) : (

@@ -41,18 +41,20 @@ export default async function ProfilePage() {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,1fr)]">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,1fr)]">
         <section className="rounded-[28px] border border-border/70 bg-surface p-2">
           <h2 className="px-4 pb-1 pt-3 font-head text-lg font-semibold">Данные студента</h2>
           <dl>
             {rows.map(([k, v]) => (
-              <div key={k} className="flex flex-col gap-0.5 rounded-2xl px-4 py-3 sm:flex-row sm:gap-4">
+              <div key={k} className="flex flex-col gap-0.5 rounded-2xl px-4 py-2.5 sm:flex-row sm:gap-4">
                 <dt className="shrink-0 text-sm text-muted sm:w-44">{k}</dt>
                 <dd className="font-medium">{v}</dd>
               </div>
             ))}
           </dl>
-          <p className="px-4 pb-3 text-xs text-muted">Нашли ошибку? Напишите в деканат через «Заявки» → «Обращение».</p>
+          <p className="flex items-start gap-1.5 px-4 pb-3 pt-1 text-xs text-muted">
+            <ShieldCheck size={14} className="mt-px shrink-0 text-success" /> Эти данные видите только вы. Нашли ошибку? Напишите в деканат: «Заявки» → «Обращение в деканат».
+          </p>
         </section>
 
         <div className="space-y-5">
@@ -74,19 +76,14 @@ export default async function ProfilePage() {
             <Checkin initial={checkin?.mood ?? null} />
           </section>
 
-          <section className="space-y-3 rounded-[28px] bg-p-lilac p-5 text-sm text-[#0e0e10]">
-            <h2 className="font-head text-lg font-semibold">Деканат</h2>
+          <section className="space-y-3 rounded-[28px] border border-border/70 bg-surface p-5 text-sm">
+            <h2 className="font-head text-lg font-semibold">Куда обратиться</h2>
             <p className="flex items-start gap-2">
-              <MapPin size={16} className="mt-0.5 shrink-0" /> {university.deanOffice.room}, {university.deanOffice.hours}
+              <MapPin size={16} className="mt-0.5 shrink-0 text-muted" /> Деканат — {university.deanOffice.room}, {university.deanOffice.hours}
             </p>
             <p className="flex items-start gap-2">
-              <HeartHandshake size={16} className="mt-0.5 shrink-0" /> Психолог — студенческий центр, каб. 115 (анонимно, бесплатно)
+              <HeartHandshake size={16} className="mt-0.5 shrink-0 text-muted" /> Психолог — студенческий центр, каб. 115 (анонимно, бесплатно)
             </p>
-          </section>
-
-          <section className="flex gap-3 rounded-[28px] border border-border/70 bg-surface p-5 text-sm">
-            <ShieldCheck className="shrink-0 text-success" />
-            <p className="text-muted">Пароль хранится только как хэш (argon2id), вход защищён от подбора. Ваши данные видите только вы.</p>
           </section>
 
           <form action={logoutAction}>

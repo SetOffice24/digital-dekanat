@@ -280,3 +280,13 @@ export async function countByStatus(staff: SessionStaff, f: Omit<RequestFilters,
   for (const r of rows) out[r.status] = r._count._all;
   return out;
 }
+/** Данные для черновика справки (до «Справка готова»): только справки, только в области видимости сотрудника. */
+export async function getCertificatePreview(staff: SessionStaff, requestId: string) {
+  const r = await prisma.request.findFirst({
+    where: { id: requestId, type: { isCertificate: true }, student: studentScope(staff) },
+    include: { type: true, student: { include: { faculty: true, program: true, group: true } } },
+  });
+  if (!r) return null;
+  const now = new Date();
+  return { verifyCode: "ОБРАЗЕЦ", issuedAt: now, validUntil: addDays(now, 180), request: r };
+}

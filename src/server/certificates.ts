@@ -1,7 +1,7 @@
 import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { PDFDocument, rgb, type PDFFont } from "pdf-lib";
+import { PDFDocument, degrees, rgb, type PDFFont } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import QRCode from "qrcode";
 import { university } from "@/config/university";
@@ -58,7 +58,8 @@ export function certificateBody(c: CertificateData): string {
   }
 }
 
-export async function renderCertificatePdf(c: CertificateData): Promise<Uint8Array> {
+/** preview: черновик для деканата до выдачи — крупная надпись «ОБРАЗЕЦ», без настоящего кода проверки. */
+export async function renderCertificatePdf(c: CertificateData, opts: { preview?: boolean } = {}): Promise<Uint8Array> {
   const [regBytes, boldBytes] = await loadFonts();
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
@@ -106,5 +107,14 @@ export async function renderCertificatePdf(c: CertificateData): Promise<Uint8Arr
 
   page.drawLine({ start: { x: M, y: 90 }, end: { x: M + W, y: 90 }, thickness: 0.6, color: grey });
   center("Концепт для конкурса — не является официальным документом. Все данные вымышленные.", 72, reg, 8.5, grey);
+  if (opts.preview) {
+    const mark = "ОБРАЗЕЦ · НЕ ВЫДАН";
+    const size = 54;
+    const w = bold.widthOfTextAtSize(mark, size);
+    // по диагонали через центр листа
+    const a = Math.PI / 5;
+    const cx = page.getWidth() / 2, cy = page.getHeight() / 2;
+    page.drawText(mark, { x: cx - (w / 2) * Math.cos(a), y: cy - (w / 2) * Math.sin(a), size, font: bold, color: rgb(0.85, 0.2, 0.15), opacity: 0.18, rotate: degrees(36) });
+  }
   return pdf.save();
 }

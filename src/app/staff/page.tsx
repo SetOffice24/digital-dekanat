@@ -38,6 +38,12 @@ export default async function StaffInbox({ searchParams }: { searchParams: Promi
   const rows = (await Promise.all(tab.statuses.map((s) => listRequests(staff, { ...filter, status: s })))).flat().sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   const now = new Date();
   const found = filtered ? tabs.reduce((a, t) => a + count(t), 0) : 0;
+  // для сводки дня: открытые заявки без фильтров
+  const open = (await Promise.all((["NEW", "IN_REVIEW"] as const).map((s) => listRequests(staff, { status: s })))).flat();
+  const overdueCount = open.filter((r) => isOverdue(r, now)).length;
+  const todayKey = now.toLocaleDateString("ru-RU", { timeZone: "Europe/Moscow" });
+  const dueToday = open.filter((r) => !isOverdue(r, now) && dueDate(r.createdAt, r.type.slaDays).toLocaleDateString("ru-RU", { timeZone: "Europe/Moscow" }) === todayKey).length;
+  const readyTotal = totals.READY ?? 0;
   const tabHref = (key: string) => {
     const p = new URLSearchParams({ tab: key });
     if (q.trim()) p.set("q", q.trim());
@@ -48,17 +54,34 @@ export default async function StaffInbox({ searchParams }: { searchParams: Promi
   return (
     <div className="mx-auto w-full max-w-5xl">
       <h1 className="font-head text-[34px] font-semibold leading-[1.05] tracking-[-0.02em] sm:text-5xl">Заявки студентов</h1>
+      {/* Сводка дня — одной фразой: что важно сделать сегодня */}
       <p className="mt-2 text-lg text-muted">
         {newTotal > 0 ? (
           <>
             <b className="font-semibold text-fg">
               {newTotal} {plural(newTotal, "новая заявка", "новые заявки", "новых заявок")}
             </b>{" "}
-            ждут, чтобы их взяли в работу.
+            {plural(newTotal, "ждёт", "ждут", "ждут")}, чтобы их взяли в работу
           </>
         ) : (
-          <>Новых заявок нет — всё разобрано.</>
+          <>Новых заявок нет</>
         )}
+        {overdueCount > 0 && (
+          <>
+            , <b className="font-semibold text-danger">{overdueCount} {plural(overdueCount, "просрочена", "просрочены", "просрочено")}</b>
+          </>
+        )}
+        {dueToday > 0 && (
+          <>
+            , у <b className="font-semibold text-fg">{dueToday}</b> срок истекает сегодня
+          </>
+        )}
+        {readyTotal > 0 && (
+          <>
+            , <b className="font-semibold text-fg">{readyTotal}</b> {plural(readyTotal, "готова", "готовы", "готовы")} к выдаче
+          </>
+        )}
+        .
       </p>
 
       <InboxSearch tab={sp.tab && tabs.some((t) => t.key === sp.tab) ? sp.tab : ""} q={q} type={typeId} types={types} />

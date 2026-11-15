@@ -92,3 +92,52 @@ export async function deleteGrade(teacher: SessionTeacher, gradeId: string) {
   await prisma.grade.delete({ where: { id: gradeId } });
   return true;
 }
+
+/**
+ * Пары преподавателя на ближайший учебный день (сегодня, если пары есть, иначе следующий день с парами, до 14 дней вперёд).
+ * Подгруппы одной пары не дублируем: группа + время + дисциплина — одна строка.
+ */
+export async function teachingDay(teacher: SessionTeacher, today: Date) {
+  const first = await prisma.lesson.findFirst({
+    where: { teacherId: teacher.id, date: { gte: today, lt: new Date(today.getTime() + 14 * 86400000) } },
+    orderBy: [{ date: "asc" }, { startTime: "asc" }],
+    select: { date: true },
+  });
+  if (!first) return null;
+  const lessons = await prisma.lesson.findMany({
+    where: { teacherId: teacher.id, date: first.date },
+    orderBy: { startTime: "asc" },
+    select: {
+      id: true, startTime: true, endTime: true, room: true, building: true, kind: true, status: true, subgroup: true, changeNote: true,
+      group: { select: { id: true, name: true } },
+      course: { select: { id: true, name: true } },
+    },
+  });
+  const seen = new Set<string>();
+  const unique = lessons.filter((l) => {
+    const k = `${l.group.id}|${l.course.id}|${l.startTime}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  return { date: first.date, isToday: first.date.getTime() === today.getTime(), lessons: unique };
+}
+
+/** Оценки всей группе за одну работу. Пустые поля пропускаются. Доступ проверяется для каждой записи. */
+export async function addGradesBulk(teacher: SessionTeacher, groupId: string, courseId: string, note: string, items: { enrollmentId: string; points: number }[]) {
+  if (!(await teachesPair(teacher, groupId, courseId))) throw new TeacherAccessError("Нет доступа к этой группе");
+  const course = await prisma.course.findUnique({ where: { id: courseId }, select: { name: true } });
+  const enrs = await prisma.enrollment.findMany({
+    where: { id: { in: items.map((i) => i.enrollmentId) }, courseId, student: { groupId } },
+    select: { id: true, student: { select: { userId: true } } },
+  });
+  const allowed = new Map(enrs.map((e) => [e.id, e.student.userId]));
+  const ok = items.filter((i) => allowed.has(i.enrollmentId));
+  if (ok.length !== items.length) throw new TeacherAccessError("Часть студентов не из этой группы");
+  const now = new Date();
+  await prisma.grade.createMany({ data: ok.map((i) => ({ enrollmentId: i.enrollmentId, kind: "CURRENT" as const, value: String(i.points), points: i.points, date: now, note })) });
+  for (const i of ok) {
+    await notify([allowed.get(i.enrollmentId)!], { kind: "GRADE", title: "Новая оценка", body: `${course?.name ?? "Дисциплина"}: ${i.points} баллов — ${note}`, link: "/grades" });
+  }
+  return ok.length;
+}

@@ -3,9 +3,8 @@ import { Bell, CalendarClock, Clock, FileText, GraduationCap, Info, Megaphone } 
 import type { NotificationKind } from "@prisma/client";
 import { requireStudent } from "@/server/auth";
 import { listAnnouncements, listNotifications } from "@/server/repos/student";
-import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
+import { EmptyState, PageHeader } from "@/components/ui";
 import { cn, fmtDate, relativeTime } from "@/lib/utils";
-import { notificationKindLabel } from "@/lib/labels";
 import { MarkAllRead, MarkOnOpen } from "./mark-read";
 
 export const metadata = { title: "Уведомления" };
@@ -51,39 +50,36 @@ export default async function NotificationsPage({ searchParams }: { searchParams
 
       {tab === "news" ? (
         news.length ? (
-          <div className="space-y-2">
-            {news.map((a) => (
-              <Card key={a.id}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold">{a.title}</span>
-                  {a.pinned && <Badge tone="primary">Закреплено</Badge>}
-                  {a.audience !== "ALL" && <Badge>{a.audience === "GROUP" ? "Для вашей группы" : "Для факультета"}</Badge>}
-                </div>
-                <p className="mt-1.5 whitespace-pre-line text-sm">{a.body}</p>
+          <div className="overflow-hidden rounded-[28px] border border-border/70 bg-surface">
+            {news.map((a, i) => (
+              <article key={a.id} className={cn("px-4 py-4 sm:px-5", i > 0 && "border-t border-border/60")}>
+                <h3 className="font-semibold leading-snug">{a.title}</h3>
+                <p className="mt-1 whitespace-pre-line text-sm">{a.body}</p>
                 <p className="mt-2 text-xs text-muted">
-                  {a.author.fullName}, {a.author.position.toLowerCase()} · {fmtDate(a.publishedAt)}
+                  {fmtDate(a.publishedAt)} · {a.pinned ? "закреплено · " : ""}
+                  {a.audience === "GROUP" ? "для вашей группы" : a.audience === "FACULTY" ? "для факультета" : "для всех"}
                 </p>
-              </Card>
+              </article>
             ))}
           </div>
         ) : (
           <EmptyState icon={<Megaphone size={22} />} title="Объявлений нет" />
         )
       ) : items.length ? (
-        <div className="space-y-2">
-          {items.map((n) => {
+        <div className="overflow-hidden rounded-[28px] border border-border/70 bg-surface">
+          {items.map((n, i) => {
             const body = (
-              <div className={cn("flex gap-3 rounded-2xl border p-3.5 transition", n.readAt ? "border-border bg-surface" : "border-primary/30 bg-primary-soft/40")}>
-                <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", tones[n.kind])}>{icons[n.kind]}</span>
+              <div className={cn("flex gap-3 px-4 py-3.5 transition hover:bg-surface-2/60 sm:px-5", i > 0 && "border-t border-border/60")}>
+                <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", n.readAt ? "bg-surface-2 text-muted" : tones[n.kind])}>{icons[n.kind]}</span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-bold leading-snug">{n.title}</span>
-                    {!n.readAt && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" aria-label="Не прочитано" />}
+                    <span className={cn("leading-snug", n.readAt ? "font-medium text-fg/80" : "font-semibold")}>{n.title}</span>
+                    <span className="flex shrink-0 items-center gap-2 text-xs text-muted">
+                      {relativeTime(n.createdAt)}
+                      {!n.readAt && <span className="size-2 rounded-full bg-primary" aria-label="Не прочитано" />}
+                    </span>
                   </div>
-                  <p className="text-sm text-muted">{n.body}</p>
-                  <p className="mt-1 text-xs text-muted">
-                    {notificationKindLabel[n.kind]} · {relativeTime(n.createdAt)}
-                  </p>
+                  <p className="mt-0.5 text-sm text-muted">{n.body}</p>
                 </div>
               </div>
             );

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, FileDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, FileDown } from "lucide-react";
 import { requireStaff } from "@/server/auth";
 import { getRequest, isOverdue, nextOpenRequest } from "@/server/repos/staff";
 import { Badge, ButtonLink, Card, SectionTitle } from "@/components/ui";
@@ -105,6 +105,16 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
         <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           <Card id="actions" className="scroll-mt-24">
             <SectionTitle>Действия</SectionTitle>
+            {/* перед «Справка готова» — посмотреть текст будущей справки */}
+            {r.type.isCertificate && !r.certificate && !closed && (
+              <a href={`/api/certificates/${r.id}/preview`} target="_blank" rel="noopener" className="mb-4 flex items-center gap-3 rounded-2xl bg-p-mint/60 p-3 text-sm transition hover:bg-p-mint">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface"><Eye size={17} /></span>
+                <span className="min-w-0">
+                  <span className="block font-semibold">Посмотреть справку до выдачи</span>
+                  <span className="block text-xs text-muted">PDF-образец с данными студента</span>
+                </span>
+              </a>
+            )}
             {closed ? (
               <p className="text-sm text-muted">Заявка закрыта — статус «{requestStatusLabel[r.status]}».</p>
             ) : (
