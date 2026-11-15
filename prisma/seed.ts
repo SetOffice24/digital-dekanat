@@ -135,6 +135,7 @@ const buildings = ["Главный корпус", "Корпус Б", "Корпу
 
 async function reset() {
   // порядок удаления с учётом связей
+  await prisma.attendance.deleteMany();
   await prisma.aiMessage.deleteMany();
   await prisma.aiChat.deleteMany();
   await prisma.wellbeingCheckin.deleteMany();
@@ -401,6 +402,24 @@ async function main() {
   await gradesFor(anna.id, "ИВТ-24-1", { strong: true });
   await gradesFor(petr.id, "ЭК-23-2", { debtCourse: "Методы оптимальных решений" });
   for (const f of classmates) await gradesFor(f.id, Object.keys(groups).find((k) => groups[k].id === f.groupId)!, {});
+  /* ---------- посещаемость прошедших пар (демо-группы) ---------- */
+  {
+    const demoGroups = ["ИВТ-24-1", "ИВТ-24-2", "ЭК-23-2"].map((n) => groups[n].id);
+    const past = await prisma.lesson.findMany({ where: { groupId: { in: demoGroups }, date: { lt: todayUTC }, status: { not: "CANCELLED" } }, select: { id: true, groupId: true, subgroup: true, date: true } });
+    const studs = await prisma.student.findMany({ where: { groupId: { in: demoGroups } }, select: { id: true, groupId: true, subgroup: true } });
+    // Анна пропустила дни олимпиады (совпадает с её заявлением об уважительной причине)
+    const annaOff = new Set([-9, -8, -7].map((d) => addDays(todayUTC, d).toISOString()));
+    const rows: Prisma.AttendanceCreateManyInput[] = [];
+    for (const l of past) {
+      for (const st of studs) {
+        if (st.groupId !== l.groupId || (l.subgroup && l.subgroup !== st.subgroup)) continue;
+        const present = st.id === anna.id ? !annaOff.has(l.date.toISOString()) : rng() < (st.id === petr.id ? 0.8 : 0.93);
+        rows.push({ lessonId: l.id, studentId: st.id, present, markedAt: l.date });
+      }
+    }
+    await prisma.attendance.createMany({ data: rows });
+  }
+
   for (const f of fillers) await gradesFor(f.id, Object.keys(groups).find((k) => groups[k].id === f.groupId)!, {});
 
   // пересдача для Петра

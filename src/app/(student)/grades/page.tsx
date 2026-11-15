@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, BookOpen, CalendarCheck, CheckCircle2, TrendingUp } from "lucide-react";
 import { requireStudent } from "@/server/auth";
-import { currentSemester, getEnrollments, getExams, listRequests, summarize } from "@/server/repos/student";
+import { currentSemester, getAttendance, getEnrollments, getExams, listRequests, summarize } from "@/server/repos/student";
 import { Badge, ButtonLink, Card, EmptyState, PageHeader, SectionTitle } from "@/components/ui";
 import { assessmentLabel, gradeText } from "@/lib/labels";
 import { cn, fmtDateTime, plural, roomLabel } from "@/lib/utils";
@@ -119,7 +119,7 @@ function PastSemester({ rows }: { rows: Enr[] }) {
 export default async function GradesPage({ searchParams }: { searchParams: Promise<{ sem?: string }> }) {
   const { student } = await requireStudent();
   const sp = await searchParams;
-  const [enrollments, exams, requests] = await Promise.all([getEnrollments(student), getExams(student), listRequests(student)]);
+  const [enrollments, exams, requests, attendance] = await Promise.all([getEnrollments(student), getExams(student), listRequests(student), getAttendance(student)]);
   // активное заявление на пересдачу — вместо «подать ещё одно» ведём к нему
   const retakeRequest = requests.find((r) => r.type.code === "APP_RETAKE" && !["DONE", "REJECTED"].includes(r.status));
   const curSem = currentSemester(student);
@@ -198,6 +198,46 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
             ))}
           </div>
         </>
+      )}
+
+      {/* Посещаемость — одной строкой, пропуски по нажатию */}
+      {attendance.total > 0 && (
+        <details className="group mt-6 rounded-[28px] border border-border/70 bg-surface px-4 py-3.5 sm:px-5">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+            <span className="min-w-0">
+              <span className="font-semibold">Посещаемость {attendance.percent}%</span>
+              <span className={cn("ml-2 text-sm", attendance.percent! < 80 ? "font-medium text-warning" : "text-muted")}>
+                {attendance.absences.length ? `пропущено ${attendance.absences.length} ${plural(attendance.absences.length, "пара", "пары", "пар")} из ${attendance.total}` : "без пропусков"}
+              </span>
+            </span>
+            {attendance.absences.length > 0 && (
+              <span className="shrink-0 text-xs font-medium text-muted">
+                <span className="group-open:hidden">Пропуски</span>
+                <span className="hidden group-open:inline">Свернуть</span>
+              </span>
+            )}
+          </summary>
+          {attendance.absences.length > 0 && (
+            <>
+              <ul className="mt-3 space-y-1 border-t border-border/60 pt-3 text-sm">
+                {attendance.absences.slice(0, 12).map((a, i) => (
+                  <li key={i} className="flex justify-between gap-3">
+                    <span>{a.course.name}</span>
+                    <span className="shrink-0 text-muted tabular-nums">
+                      {fmtDayMonth(a.date)}, {a.startTime}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-xs text-muted">
+                Пропуск по уважительной причине?{" "}
+                <Link href="/requests/new?type=APP_ABSENCE" className="font-medium text-fg underline underline-offset-2">
+                  Подать заявление
+                </Link>
+              </p>
+            </>
+          )}
+        </details>
       )}
 
       {/* Семестры */}

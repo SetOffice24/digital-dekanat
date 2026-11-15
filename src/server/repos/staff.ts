@@ -290,3 +290,12 @@ export async function getCertificatePreview(staff: SessionStaff, requestId: stri
   const now = new Date();
   return { verifyCode: "ОБРАЗЕЦ", issuedAt: now, validUntil: addDays(now, 180), request: r };
 }
+
+/** Пропуски студента за период — для заявления об уважительной причине. Только студенты в области видимости. */
+export function absencesInRange(staff: SessionStaff, studentId: string, from: Date, to: Date) {
+  return prisma.attendance.findMany({
+    where: { present: false, student: { id: studentId, ...studentScope(staff) }, lesson: { date: { gte: from, lte: to } } },
+    orderBy: [{ lesson: { date: "asc" } }, { lesson: { startTime: "asc" } }],
+    select: { lesson: { select: { date: true, startTime: true, course: { select: { name: true } } } } },
+  });
+}

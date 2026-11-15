@@ -182,3 +182,14 @@ export function saveCheckin(s: SessionStudent, weekStart: Date, mood: number) {
     update: { mood },
   });
 }
+
+/** Посещаемость студента: только свои отметки. */
+export async function getAttendance(s: SessionStudent) {
+  const rows = await prisma.attendance.findMany({
+    where: { studentId: s.id },
+    orderBy: { lesson: { date: "desc" } },
+    select: { present: true, lesson: { select: { date: true, startTime: true, course: { select: { name: true } } } } },
+  });
+  const present = rows.filter((r) => r.present).length;
+  return { total: rows.length, present, percent: rows.length ? Math.round((present / rows.length) * 100) : null, absences: rows.filter((r) => !r.present).map((r) => r.lesson) };
+}

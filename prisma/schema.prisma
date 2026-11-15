@@ -159,6 +159,7 @@ model Student {
   checkins     WellbeingCheckin[]
   aiChats      AiChat[]
   aiMessages   AiMessage[]
+  attendance   Attendance[]
 }
 
 model Staff {
@@ -214,7 +215,23 @@ model Lesson {
   changeNote    String?
   changedAt     DateTime?
 
+  attendance    Attendance[]
+
   @@index([groupId, date])
+}
+
+/** Посещаемость: одна отметка на студента и пару. Нет записи — отметку ещё не ставили. */
+model Attendance {
+  id        String   @id @default(cuid())
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  present   Boolean
+  markedAt  DateTime @default(now())
+
+  @@unique([lessonId, studentId])
+  @@index([studentId])
 }
 
 model Enrollment {

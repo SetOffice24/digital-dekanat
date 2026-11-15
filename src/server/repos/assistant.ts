@@ -46,3 +46,11 @@ export async function deleteChat(s: SessionStudent, chatId: string) {
 export function getDraftMessage(s: SessionStudent, messageId: string) {
   return prisma.aiMessage.findFirst({ where: { id: messageId, studentId: s.id }, select: { draft: true } });
 }
+
+/** Отметить, что по черновику уже создана заявка (чтобы карточка не заказывала повторно). Только своё сообщение. */
+export async function markDraftOrdered(s: SessionStudent, messageId: string, requestId: string) {
+  const m = await prisma.aiMessage.findFirst({ where: { id: messageId, studentId: s.id }, select: { draft: true } });
+  if (!m?.draft) return false;
+  await prisma.aiMessage.update({ where: { id: messageId }, data: { draft: { ...(m.draft as object), requestId } } });
+  return true;
+}

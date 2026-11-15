@@ -4,6 +4,7 @@ import { apiStudent } from "@/server/auth";
 import { buildStudentContext } from "@/server/ai/context";
 import { reply } from "@/server/ai/assistant";
 import { addMessage, createChat, getChat, recentMessages } from "@/server/repos/assistant";
+import { describeDraft } from "@/server/ai/drafts";
 
 /* лимит: 20 сообщений за 10 минут на студента */
 const hits = new Map<string, number[]>();
@@ -39,5 +40,5 @@ export async function POST(req: Request) {
   const ctx = await buildStudentContext(student);
   const r = await reply(history, ctx);
   const saved = await addMessage(student, chatId, "ASSISTANT", r.text, r.draft ?? undefined);
-  return NextResponse.json({ chatId, id: saved.id, text: r.text, draft: r.draft ?? null, source: r.source });
+  return NextResponse.json({ chatId, id: saved.id, text: r.text, draft: await describeDraft(r.draft ?? null), source: r.source });
 }

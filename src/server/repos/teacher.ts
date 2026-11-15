@@ -109,6 +109,7 @@ export async function teachingDay(teacher: SessionTeacher, today: Date) {
     orderBy: { startTime: "asc" },
     select: {
       id: true, startTime: true, endTime: true, room: true, building: true, kind: true, status: true, subgroup: true, changeNote: true,
+      _count: { select: { attendance: true } },
       group: { select: { id: true, name: true } },
       course: { select: { id: true, name: true } },
     },
@@ -140,4 +141,46 @@ export async function addGradesBulk(teacher: SessionTeacher, groupId: string, co
     await notify([allowed.get(i.enrollmentId)!], { kind: "GRADE", title: "Новая оценка", body: `${course?.name ?? "Дисциплина"}: ${i.points} баллов — ${note}`, link: "/grades" });
   }
   return ok.length;
+}
+
+/* ---------- посещаемость ---------- */
+
+/** Пара преподавателя со списком студентов и отметками. Чужая пара → null. */
+export async function getLessonAttendance(teacher: SessionTeacher, lessonId: string) {
+  const lesson = await prisma.lesson.findFirst({
+    where: { id: lessonId, teacherId: teacher.id },
+    select: { id: true, date: true, startTime: true, endTime: true, room: true, kind: true, status: true, subgroup: true, group: { select: { id: true, name: true } }, course: { select: { id: true, name: true } } },
+  });
+  if (!lesson) return null;
+  const students = await prisma.student.findMany({
+    where: { groupId: lesson.group.id, ...(lesson.subgroup ? { subgroup: lesson.subgroup } : {}) },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    select: { id: true, lastName: true, firstName: true, middleName: true, attendance: { where: { lessonId }, select: { present: true } } },
+  });
+  return {
+    lesson,
+    students: students.map((s) => ({ id: s.id, lastName: s.lastName, firstName: s.firstName, middleName: s.middleName, present: s.attendance[0]?.present ?? null })),
+    marked: students.some((s) => s.attendance.length > 0),
+  };
+}
+
+/** Сохранить посещаемость пары: все студенты списка — «был», кроме `absentIds`. Будущие и отменённые пары отмечать нельзя. */
+export async function saveAttendance(teacher: SessionTeacher, lessonId: string, absentIds: string[], today: Date) {
+  const data = await getLessonAttendance(teacher, lessonId);
+  if (!data) throw new TeacherAccessError("Нет доступа к этой паре");
+  if (data.lesson.status === "CANCELLED") throw new TeacherAccessError("Пара отменена");
+  if (data.lesson.date.getTime() > today.getTime()) throw new TeacherAccessError("Будущую пару отметить нельзя");
+  const ids = new Set(data.students.map((s) => s.id));
+  if (absentIds.some((id) => !ids.has(id))) throw new TeacherAccessError("Студент не из этой группы");
+  const absent = new Set(absentIds);
+  await prisma.$transaction(
+    data.students.map((s) =>
+      prisma.attendance.upsert({
+        where: { lessonId_studentId: { lessonId, studentId: s.id } },
+        create: { lessonId, studentId: s.id, present: !absent.has(s.id) },
+        update: { present: !absent.has(s.id), markedAt: new Date() },
+      }),
+    ),
+  );
+  return { total: data.students.length, absent: absent.size };
 }

@@ -1,23 +1,14 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import useSWR from "swr";
 import { ArrowUp, CalendarDays, CircleHelp, FileCheck2, MessageSquarePlus, PanelLeft, RotateCcw, Stamp, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Mascot } from "./mascot";
+import { DraftCard } from "./draft-card";
+import type { DraftCard as Card } from "@/server/ai/drafts";
 
-type Msg = { id: string; role: "user" | "assistant"; text: string; draft: { typeCode: string } | null; pending?: boolean; error?: boolean };
+type Msg = { id: string; role: "user" | "assistant"; text: string; draft: Card | null; pending?: boolean; error?: boolean };
 type ChatItem = { id: string; title: string; updatedAt: string };
-
-const typeTitles: Record<string, string> = {
-  CERT_STUDY: "Справка об обучении",
-  CERT_MILITARY: "Справка для военкомата",
-  CERT_SCHOLARSHIP: "Справка о стипендии",
-  APP_RETAKE: "Заявление на пересдачу",
-  APP_ABSENCE: "Уважительная причина пропуска",
-  APP_ACADEMIC_LEAVE: "Академический отпуск",
-  APP_OTHER: "Обращение в деканат",
-};
 
 const suggestions = [
   { icon: CalendarDays, text: "Какие пары завтра?" },
@@ -232,18 +223,7 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer" }: { firstN
                       ) : (
                         <p className={cn("whitespace-pre-line pt-1 text-[15px] leading-relaxed", m.error && "text-danger")}>{m.text}</p>
                       )}
-                      {m.draft && (
-                        <Link href={`/requests/new?draft=${m.id}`} onClick={onClose} className="mt-3 flex max-w-md items-center gap-3 rounded-2xl bg-primary-soft p-3 text-primary transition hover:opacity-90">
-                          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface">
-                            <FileCheck2 size={20} />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-xs font-semibold opacity-80">Черновик заявки готов</span>
-                            <span className="block truncate font-bold">{typeTitles[m.draft.typeCode] ?? "Заявка"}</span>
-                          </span>
-                          <span className="shrink-0 text-sm font-bold">Проверить →</span>
-                        </Link>
-                      )}
+                      {m.draft && <DraftCard messageId={m.id} card={m.draft} onNavigate={onClose} />}
                     </div>
                   </div>
                 ),

@@ -16,7 +16,7 @@ corepack pnpm db:seed           # пересоздаёт ВСЕ демо-дан�
 corepack pnpm dev               # http://localhost:3000
 ```
 - Превью в Claude Code: конфигурация **`univer`** в `C:\Users\User\Desktop\SetSearch site creation\.claude\launch.json` (preview_start name="univer").
-- Проверки: `corepack pnpm exec tsc --noEmit`, `corepack pnpm lint`, `corepack pnpm test` (22 теста: `tests/authz.test.ts`, `tests/teacher.test.ts`, `tests/staff-search.test.ts`, `tests/bulk-preview.test.ts`; нужна засеянная БД).
+- Проверки: `corepack pnpm exec tsc --noEmit`, `corepack pnpm lint`, `corepack pnpm test` (30 тестов: `tests/authz.test.ts`, `tests/teacher.test.ts`, `tests/staff-search.test.ts`, `tests/bulk-preview.test.ts`, `tests/attendance.test.ts`; нужна засеянная БД).
 - Продакшен-сборка: `corepack pnpm build` (проходит).
 
 ## 3. Тестовые аккаунты (вымышленные) — также `docs/test-accounts.md`
@@ -41,6 +41,8 @@ corepack pnpm dev               # http://localhost:3000
 - **Преподаватель** (`src/app/teacher`): главная «Сегодня» (пары дня → «Оценки группе» / «Журнал»), журнал с «+ Оценка» одному студенту, «Оценки группе» за одну работу (`/teacher/[g]/[c]/bulk`) → студентам уведомление «Новая оценка».
 
 **Дизайн-система v3** (`src/app/globals.css`, `src/components/ui.tsx`): по мотивам rondesignlab.com — фон #FAFAFA, шрифт **Onest** (Urbanist без кириллицы), крупные заголовки, навигация-капсулы (активная чёрная), чёрные кнопки-пилюли, карточки 24–32 px, пастели со смыслом: мятный — справки, голубой — расписание, сиреневый — учёба, жёлтый — помощник/важное. Логотип — «УНИВЕР» шрифтом Unbounded, где «Е» из трёх плашек (`src/components/logo.tsx`). Вход — в стиле образца ITMO ID: фон сгенерирован OpenAI (`public/bg/login.webp`) + SVG-подложка. Адаптивность 360 px … 4K проверена.
+
+**Посещаемость и ИИ-кнопки (16.11):** таблица `Attendance`; преподаватель отмечает пару (`/teacher/lesson/[id]`) вручную или фразой «нет Зорина и Лесновой» → карточка → «Отметить и сохранить»; студент видит % и пропуски в «Учёбе»; деканат — пропуски в заявлении о пропуске. В чате помощника справки заказываются карточкой с кнопкой «Заказать» (`src/components/assistant/draft-card.tsx`, `src/app/(student)/assistant-actions.ts`). Принцип: ИИ распознаёт, выполняет человек; оценки ИИ не трогает (решение команды).
 
 **Вход для жюри:** на странице входа блок «Демо-доступ» — 4 кнопки входа в тестовые аккаунты без пароля (список логинов зашит на сервере, `DEMO_LOGIN=0` выключает).
 

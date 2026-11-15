@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiStudent } from "@/server/auth";
 import { deleteChat, getChat } from "@/server/repos/assistant";
+import { describeDraft } from "@/server/ai/drafts";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await apiStudent();
@@ -11,7 +12,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     {
       id: chat.id,
       title: chat.title,
-      messages: chat.messages.map((m) => ({ id: m.id, role: m.role === "USER" ? "user" : "assistant", text: m.content, draft: m.draft ?? null })),
+      messages: await Promise.all(chat.messages.map(async (m) => ({ id: m.id, role: m.role === "USER" ? "user" : "assistant", text: m.content, draft: await describeDraft(m.draft) }))),
     },
     { headers: { "Cache-Control": "no-store" } },
   );

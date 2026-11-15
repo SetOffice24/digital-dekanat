@@ -2,10 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Eye, FileDown } from "lucide-react";
 import { requireStaff } from "@/server/auth";
-import { getRequest, isOverdue, nextOpenRequest } from "@/server/repos/staff";
+import { absencesInRange, getRequest, isOverdue, nextOpenRequest } from "@/server/repos/staff";
 import { Badge, ButtonLink, Card, SectionTitle } from "@/components/ui";
 import { requestStatusLabel, requestStatusTone } from "@/lib/labels";
-import { dueDate, fmtDate, fmtDateTime } from "@/lib/utils";
+import { dueDate, fmtDate, fmtDateTime, fmtShort, parseIsoDate } from "@/lib/utils";
 import { AssignForm, DecisionForm, MobileDecisionBar } from "./forms";
 
 export const metadata = { title: "Заявка" };
@@ -25,6 +25,10 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
   const overdue = isOverdue(r);
   const fio = [s.lastName, s.firstName, s.middleName].filter(Boolean).join(" ");
   const n = await nextOpenRequest(staff, r.id);
+  // заявление о пропуске: сразу показываем, какие пары отмечены как пропущенные за эти даты
+  const from = r.type.code === "APP_ABSENCE" ? parseIsoDate(String(payload.dateFrom ?? "")) : null;
+  const to = r.type.code === "APP_ABSENCE" ? parseIsoDate(String(payload.dateTo ?? "")) : null;
+  const absences = from && to ? await absencesInRange(staff, s.id, from, to) : null;
   const next = n ? { id: n.id, number: n.number, title: n.type.title } : null;
   // «назад» — в ту вкладку входящих, где лежит заявка
   const backTab = { NEW: "new", IN_REVIEW: "work", NEED_INFO: "wait", READY: "ready", DONE: "done", REJECTED: "done" }[r.status];
@@ -74,6 +78,22 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
               ))}
               {r.comment && (<><dt className="text-muted">Комментарий студента</dt><dd className="whitespace-pre-wrap">{r.comment}</dd></>)}
             </dl>
+            {absences && (
+              <div className="mt-4 rounded-2xl bg-surface-2 p-3 text-sm">
+                <p className="font-semibold">
+                  {absences.length ? `По журналу посещаемости за эти даты пропущено ${absences.length} ${absences.length === 1 ? "пара" : absences.length < 5 ? "пары" : "пар"}` : "По журналу посещаемости пропусков за эти даты нет"}
+                </p>
+                {absences.length > 0 && (
+                  <ul className="mt-1.5 space-y-0.5 text-muted">
+                    {absences.slice(0, 10).map((a, i) => (
+                      <li key={i}>
+                        {fmtShort(a.lesson.date)}, {a.lesson.startTime} — {a.lesson.course.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
             {r.certificate && (
               <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-3 text-sm">
                 <ButtonLink href={`/api/certificates/${r.id}/pdf`} target="_blank" variant="secondary">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, CalendarDays, ClipboardList, MapPin } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, Check, MapPin, UserCheck } from "lucide-react";
 import { requireTeacher } from "@/server/auth";
 import { listClasses, teachingDay } from "@/server/repos/teacher";
 import { EmptyState, PageHeader } from "@/components/ui";
@@ -71,8 +71,8 @@ export default async function TeacherHome() {
                   </div>
                   {!cancelled && (
                     <div className="flex w-full gap-2 sm:w-auto">
-                      <Link href={`${journal}/bulk`} className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-ink px-4 text-sm font-semibold text-ink-fg hover:opacity-90 sm:flex-none">
-                        <ClipboardList size={15} /> Оценки группе
+                      <Link href={`/teacher/lesson/${l.id}`} className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-ink px-4 text-sm font-semibold text-ink-fg hover:opacity-90 sm:flex-none">
+                        {l._count.attendance > 0 ? <Check size={15} /> : <UserCheck size={15} />} {l._count.attendance > 0 ? "Отмечено" : "Посещаемость"}
                       </Link>
                       <Link href={journal} className="inline-flex min-h-10 flex-1 items-center justify-center whitespace-nowrap rounded-full border border-border px-4 text-sm font-semibold hover:border-ink sm:flex-none">
                         Журнал
