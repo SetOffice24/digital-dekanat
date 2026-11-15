@@ -45,11 +45,47 @@ export async function getDashboard(staff: SessionStaff) {
   return { newCount, needInfoCount, overdueCount: open.filter((r) => isOverdue(r, now)).length, recent };
 }
 
-export type RequestFilters = { status?: RequestStatus; typeId?: string };
+export type RequestFilters = { status?: RequestStatus; typeId?: string; q?: string };
+
+/**
+ * Написания одного слова: как ввели, «Озёров», «ОЗЁРОВ» (группы), «е» → «ё».
+ * Не полагаемся на регистронезависимость БД: при локали C Postgres не сравнивает кириллицу без учёта регистра.
+ */
+function variants(w: string) {
+  const lower = w.toLowerCase();
+  const cap = lower.charAt(0).toUpperCase() + lower.slice(1);
+  const out = new Set([w, lower, cap, w.toUpperCase()]);
+  if (/е/i.test(w)) for (const v of [...out]) out.add(v.replace(/е/g, "ё").replace(/Е/g, "Ё"));
+  return [...out];
+}
+
+/** Поиск: фамилия/имя студента, группа или номер заявки (можно с «№»). Всегда внутри области видимости сотрудника. */
+function searchWhere(staff: SessionStaff, f: Omit<RequestFilters, "status">): Prisma.RequestWhereInput {
+  const q = f.q?.trim().replace(/^№\s*/, "").slice(0, 60);
+  const words = q ? q.split(/\s+/).filter(Boolean).slice(0, 3) : [];
+  return {
+    student: studentScope(staff),
+    ...(f.typeId ? { typeId: f.typeId } : {}),
+    ...(words.length
+      ? {
+          AND: words.map((w) => ({
+            OR: [
+              ...(/^\d{1,7}$/.test(w) ? [{ number: Number(w) }] : []),
+              ...variants(w).flatMap((v) => [
+                { student: { lastName: { contains: v, mode: "insensitive" as const } } },
+                { student: { firstName: { contains: v, mode: "insensitive" as const } } },
+                { student: { group: { name: { contains: v, mode: "insensitive" as const } } } },
+              ]),
+            ],
+          })),
+        }
+      : {}),
+  };
+}
 
 export function listRequests(staff: SessionStaff, f: RequestFilters) {
   return prisma.request.findMany({
-    where: { student: studentScope(staff), ...(f.status ? { status: f.status } : {}), ...(f.typeId ? { typeId: f.typeId } : {}) },
+    where: { ...searchWhere(staff, f), ...(f.status ? { status: f.status } : {}) },
     include: listInclude,
     orderBy: { createdAt: "desc" },
     take: 200,
@@ -70,6 +106,15 @@ export function getRequest(staff: SessionStaff, id: string) {
       student: { include: { faculty: true, program: true, group: true } },
       events: { orderBy: { createdAt: "asc" }, include: { author: { select: { role: true, staff: { select: { fullName: true } } } } } },
     },
+  });
+}
+
+/** Следующая заявка, которая ждёт деканат (новые и в работе, самые старые — первыми). Для кнопки «Следующая». */
+export function nextOpenRequest(staff: SessionStaff, excludeId: string) {
+  return prisma.request.findFirst({
+    where: { id: { not: excludeId }, student: studentScope(staff), status: { in: ["NEW", "IN_REVIEW"] } },
+    orderBy: [{ status: "asc" }, { createdAt: "asc" }],
+    select: { id: true, number: true, type: { select: { title: true } } },
   });
 }
 
@@ -229,8 +274,8 @@ export function getCertificateForStaff(staff: SessionStaff, requestId: string) {
 }
 
 /** Количество заявок по статусам — для вкладок «входящих». */
-export async function countByStatus(staff: SessionStaff) {
-  const rows = await prisma.request.groupBy({ by: ["status"], where: { student: studentScope(staff) }, _count: { _all: true } });
+export async function countByStatus(staff: SessionStaff, f: Omit<RequestFilters, "status"> = {}) {
+  const rows = await prisma.request.groupBy({ by: ["status"], where: searchWhere(staff, f), _count: { _all: true } });
   const out: Partial<Record<RequestStatus, number>> = {};
   for (const r of rows) out[r.status] = r._count._all;
   return out;

@@ -84,6 +84,14 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
         )}
       </Card>
 
+      {/* Что дальше — одной фразой, чтобы не гадать */}
+      {(r.status === "NEW" || r.status === "IN_REVIEW") && (
+        <p className="mt-3 rounded-2xl bg-surface-2 px-4 py-3 text-sm">
+          {r.status === "NEW" ? "Заявка у деканата. " : "Деканат уже занимается заявкой. "}
+          {r.type.isCertificate ? "Справка" : "Решение"} — до <b>{fmtDate(dueDate(r.createdAt, r.type.slaDays))}</b>. Как только статус изменится, придёт уведомление.
+        </p>
+      )}
+
       {r.status === "NEED_INFO" && (
         <div className="mt-4 rounded-2xl border border-warning/40 bg-warning-soft p-4">
           <div className="font-bold text-warning">Деканат просит уточнить</div>

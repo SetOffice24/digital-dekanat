@@ -83,7 +83,7 @@ export function getExams(s: SessionStudent) {
 export function listRequests(s: SessionStudent) {
   return prisma.request.findMany({
     where: { studentId: s.id },
-    include: { type: true },
+    include: { type: true, certificate: { select: { id: true } } },
     orderBy: { createdAt: "desc" },
   });
 }

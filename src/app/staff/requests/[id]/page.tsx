@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, FileDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileDown } from "lucide-react";
 import { requireStaff } from "@/server/auth";
-import { getRequest, isOverdue } from "@/server/repos/staff";
+import { getRequest, isOverdue, nextOpenRequest } from "@/server/repos/staff";
 import { Badge, ButtonLink, Card, SectionTitle } from "@/components/ui";
 import { requestStatusLabel, requestStatusTone } from "@/lib/labels";
 import { dueDate, fmtDate, fmtDateTime } from "@/lib/utils";
-import { AssignForm, DecisionForm } from "./forms";
+import { AssignForm, DecisionForm, MobileDecisionBar } from "./forms";
 
 export const metadata = { title: "Заявка" };
 
@@ -24,12 +24,23 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
   const closed = r.status === "DONE" || r.status === "REJECTED";
   const overdue = isOverdue(r);
   const fio = [s.lastName, s.firstName, s.middleName].filter(Boolean).join(" ");
+  const n = await nextOpenRequest(staff, r.id);
+  const next = n ? { id: n.id, number: n.number, title: n.type.title } : null;
+  // «назад» — в ту вкладку входящих, где лежит заявка
+  const backTab = { NEW: "new", IN_REVIEW: "work", NEED_INFO: "wait", READY: "ready", DONE: "done", REJECTED: "done" }[r.status];
 
   return (
-    <>
-      <Link href="/staff/requests" className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-fg">
-        <ArrowLeft size={16} /> Все заявки
-      </Link>
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <Link href={`/staff?tab=${backTab}`} className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-muted hover:text-fg">
+          <ArrowLeft size={16} /> К заявкам
+        </Link>
+        {next && (
+          <Link href={`/staff/requests/${next.id}`} className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-muted hover:bg-surface hover:text-fg">
+            Следующая <ArrowRight size={16} />
+          </Link>
+        )}
+      </div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <h1 className="text-2xl font-extrabold tracking-tight">
           {r.type.title} <span className="text-muted">№ {r.number}</span>
@@ -91,23 +102,25 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
           </Card>
         </div>
 
-        <div className="space-y-4">
-          <Card>
+        <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <Card id="actions" className="scroll-mt-24">
             <SectionTitle>Действия</SectionTitle>
             {closed ? (
               <p className="text-sm text-muted">Заявка закрыта — статус «{requestStatusLabel[r.status]}».</p>
             ) : (
-              <DecisionForm id={r.id} status={r.status} isCertificate={r.type.isCertificate} />
+              <DecisionForm id={r.id} status={r.status} isCertificate={r.type.isCertificate} next={next} />
             )}
           </Card>
-          {r.assignee?.id !== staff.id && !closed && (
+          {/* «Взять в работу» и так назначает исполнителя — отдельная кнопка нужна только для чужих заявок в работе */}
+          {r.status !== "NEW" && r.assignee?.id !== staff.id && !closed && (
             <Card>
               <AssignForm id={r.id} />
             </Card>
           )}
         </div>
       </div>
-    </>
+      <MobileDecisionBar id={r.id} status={r.status} isCertificate={r.type.isCertificate} closed={closed} next={next} />
+    </div>
   );
 }
 

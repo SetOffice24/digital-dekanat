@@ -318,6 +318,18 @@ async function main() {
     );
   }
 
+  // одногруппники для «живого» журнала и входящих: без заявок, войти под ними нельзя (случайный пароль)
+  const mkClassmate = async (group: string, i: number) => {
+    const g = groups[group];
+    const user = await prisma.user.create({ data: { login: `classmate${i}`, passwordHash: classmateHash, role: "STUDENT" } });
+    return prisma.student.create({ data: { userId: user.id, facultyId: g.facultyId, programId: g.programId, course: g.course, groupId: g.id, ...person(rng() > 0.5), subgroup: int(1, 2), recordBookNo: `${g.course === 1 ? 25 : 24}-${2000 + i}` } });
+  };
+  const classmateHash = await hash(`Classmate-${verifyCode()}`, ARGON);
+  const classmates = [];
+  const classmateGroups: [string, number][] = [["ИВТ-24-1", 10], ["ЭК-23-2", 9], ["ИВТ-24-2", 7], ["ПИ-25-1", 6]];
+  let ci = 0;
+  for (const [group, n] of classmateGroups) for (let k = 0; k < n; k++) classmates.push(await mkClassmate(group, ++ci));
+
   const teacherUser = await prisma.user.create({ data: { login: "teacher", passwordHash: await hash("Teacher-Univer-2026", ARGON), role: "TEACHER" } });
   await prisma.teacher.update({ where: { id: demoTeacher.id }, data: { userId: teacherUser.id } });
 
@@ -356,6 +368,7 @@ async function main() {
   }
   await gradesFor(anna.id, "ИВТ-24-1", { strong: true });
   await gradesFor(petr.id, "ЭК-23-2", { debtCourse: "Методы оптимальных решений" });
+  for (const f of classmates) await gradesFor(f.id, Object.keys(groups).find((k) => groups[k].id === f.groupId)!, {});
   for (const f of fillers) await gradesFor(f.id, Object.keys(groups).find((k) => groups[k].id === f.groupId)!, {});
 
   // пересдача для Петра
@@ -427,7 +440,7 @@ async function main() {
 
   /* ---------- объявления и дедлайны ---------- */
   const ann = [
-    { title: "Расписание зимней сессии опубликовано", body: "Экзамены начинаются после Нового года. Проверьте даты в разделе «Учёба» → «Сессия». Если экзамены стоят в один день — напишите в деканат.", audience: "ALL" as const, pinned: true, daysAgo: 2 },
+    { title: "Расписание зимней сессии опубликовано", body: "Зачёты начинаются в конце декабря, экзамены — до середины января. Проверьте даты в разделе «Учёба» → «Сессия». Если экзамены стоят в один день — напишите в деканат.", audience: "ALL" as const, pinned: true, daysAgo: 2 },
     { title: "Продление студенческих билетов", body: "До конца месяца продлите студенческий в каб. 204. Электронная справка об обучении уже доступна онлайн — в очереди стоять не нужно.", audience: "ALL" as const, pinned: false, daysAgo: 4 },
     { title: "Хакатон ФИТ: регистрация открыта", body: "Командный хакатон для студентов ФИТ. Участие засчитывается как проектная активность. Регистрация — до пятницы.", audience: "FACULTY" as const, facultyId: faculties["ФИТ"], pinned: false, daysAgo: 1 },
     { title: "Консультации по курсовым работам", body: "Консультации по курсовой работе по финансам — по средам в ауд. 306 с 15:40. Черновик нужно сдать за две недели до защиты.", audience: "GROUP" as const, groupId: groups["ЭК-23-2"].id, pinned: false, daysAgo: 3 },
@@ -468,7 +481,7 @@ async function main() {
     { kind: "GRADE", title: "Назначена пересдача", body: `«Методы оптимальных решений» — ${dm(addDays(todayUTC, 5))} в 15:40, ауд. 306.`, link: "/grades", hoursAgo: 30 },
     { kind: "SCHEDULE_CHANGE", ...(changes["ЭК-23-2"]?.cancelled ?? { title: "Занятие отменено", body: "Одно из занятий на этой неделе отменено.", link: "/schedule" }), hoursAgo: 18 },  ]);
 
-  console.log("Seed OK:", { lessons: lessonRows.length, students: 2 + fillers.length, staff: 1 });
+  console.log("Seed OK:", { lessons: lessonRows.length, students: 2 + fillers.length + classmates.length, staff: 1 });
 }
 
 main()

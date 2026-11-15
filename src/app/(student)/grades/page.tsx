@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AlertTriangle, BookOpen, CalendarCheck, CheckCircle2, MapPin, TrendingUp } from "lucide-react";
 import { requireStudent } from "@/server/auth";
 import { currentSemester, getEnrollments, getExams, listRequests, summarize } from "@/server/repos/student";
-import { Badge, ButtonLink, Card, EmptyState, PageHeader, Progress, SectionTitle } from "@/components/ui";
+import { Badge, ButtonLink, Card, EmptyState, PageHeader, SectionTitle } from "@/components/ui";
 import { assessmentLabel, gradeText } from "@/lib/labels";
 import { cn, fmtDateTime, plural, roomLabel } from "@/lib/utils";
 
@@ -10,6 +10,52 @@ export const metadata = { title: "Учёба" };
 
 const dayMonth = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", timeZone: "Europe/Moscow" });
 const fmtDayMonth = (d: Date) => dayMonth.format(d);
+
+/**
+ * Пороги от набранного к возможному на сегодня: 60% — «3»/зачёт, 75% — «4», 90% — «5».
+ * Под шкалой — одна понятная фраза: на что сейчас идёте и сколько баллов не хватает до следующей оценки.
+ */
+const STEPS = [
+  { at: 0.6, grade: "3" },
+  { at: 0.75, grade: "4" },
+  { at: 0.9, grade: "5" },
+] as const;
+
+function ThresholdBar({ points, max, ratio, credit }: { points: number; max: number; ratio: number; credit: boolean }) {
+  const steps = credit ? [{ at: 0.6, grade: "зачёт" }] : STEPS;
+  const reached = [...steps].reverse().find((s) => ratio >= s.at);
+  const nextStep = steps.find((s) => ratio < s.at);
+  const need = nextStep ? Math.max(1, Math.ceil(nextStep.at * max - points)) : 0;
+  const label = (g: string) => (g === "зачёт" ? "зачёта" : `«${g}»`);
+  const text = credit
+    ? reached
+      ? "Зачёт по баллам набран — так держать"
+      : `До зачёта не хватает ${need} ${plural(need, "балла", "баллов", "баллов")}`
+    : !reached
+      ? `Пока ниже «3»: до неё не хватает ${need} ${plural(need, "балла", "баллов", "баллов")}`
+      : nextStep
+        ? `Сейчас на «${reached.grade}». До ${label(nextStep.grade)} — ${need} ${plural(need, "балл", "балла", "баллов")}`
+        : "Идёте на «5»";
+  const tone = !reached ? "bg-warning" : reached.grade === "5" || reached.grade === "зачёт" ? "bg-success" : "bg-primary";
+  return (
+    <div className="mt-3">
+      <div className="relative h-2.5 rounded-full bg-surface-2" role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={points} aria-label={`Баллы: ${points} из ${max}`}>
+        <div className={cn("h-full rounded-full transition-all", tone)} style={{ width: `${Math.min(100, Math.round(ratio * 100))}%` }} />
+        {steps.map((s) => (
+          <span key={s.grade} className="absolute top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-fg/25" style={{ left: `${s.at * 100}%` }} aria-hidden />
+        ))}
+      </div>
+      <div className="relative mt-1 h-4 text-[10px] font-semibold text-muted" aria-hidden>
+        {steps.map((s) => (
+          <span key={s.grade} className="absolute -translate-x-1/2" style={{ left: `${s.at * 100}%` }}>
+            {s.grade === "зачёт" ? "зачёт" : s.grade}
+          </span>
+        ))}
+      </div>
+      <p className={cn("mt-1 text-sm font-medium", !reached ? "text-warning" : "text-fg")}>{text}</p>
+    </div>
+  );
+}
 
 const gradeTone = (v: string) => (v === "5" || v === "PASS" ? "success" : v === "4" ? "primary" : v === "3" ? "warning" : "danger") as "success" | "primary" | "warning" | "danger";
 
@@ -124,9 +170,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
                     </div>
                   </div>
                 </div>
-                <div className="mt-2.5">
-                  <Progress value={ratio} tone={ratio >= 0.8 ? "success" : ratio >= 0.6 ? "primary" : "warning"} />
-                </div>
+                <ThresholdBar points={points} max={max} ratio={ratio} credit={e.course.assessment === "CREDIT"} />
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {e.grades.map((g) => (
                     <span key={g.id} className="rounded-lg bg-surface-2 px-2 py-0.5 text-xs" title={`${g.note ?? "Оценка"}, ${fmtDayMonth(g.date)}`}>
