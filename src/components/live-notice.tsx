@@ -10,7 +10,7 @@ export type Latest = { id: string; kind: string; title: string; body: string; li
 /**
  * Всплывающее извещение: как только деканат перенёс или отменил пару (или пришло любое новое уведомление),
  * студент видит карточку поверх страницы, а расписание на экране обновляется само.
- * Если вкладка в фоне и разрешены системные оповещения — ещё и уведомление браузера.
+ * Когда приложение закрыто или свёрнуто — уведомление приходит как push (см. src/server/push.ts, public/sw.js).
  */
 export function LiveNotice({ latest, count }: { latest: Latest; count: number }) {
   const router = useRouter();
@@ -31,13 +31,6 @@ export function LiveNotice({ latest, count }: { latest: Latest; count: number })
       setShown({ n: latest, more });
       // изменения расписания — сразу перерисовать текущую страницу (главная, расписание)
       if (latest.kind === "SCHEDULE_CHANGE") router.refresh();
-      if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.hidden) {
-        try {
-          new Notification(latest.title, { body: latest.body, tag: latest.id });
-        } catch {
-          /* некоторые браузеры не дают создавать уведомления без service worker */
-        }
-      }
     }
     prevCount.current = count;
   }, [latest, count, router]);

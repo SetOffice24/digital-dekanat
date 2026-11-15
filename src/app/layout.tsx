@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   title: { default: `${university.product} · ${university.name}`, template: `%s · ${university.name}` },
   description: `Личный кабинет студента — ${university.disclaimer}`,
   manifest: "/manifest.webmanifest",
+  icons: { icon: "/icon.svg", apple: "/icons/apple-touch-icon.png" },
+  // iPhone: установка на экран «Домой» как приложение (нужно для push на iOS 16.4+)
+  appleWebApp: { capable: true, title: "Универ", statusBarStyle: "default" },
   robots: { index: false, follow: false },
 };
 
@@ -14,7 +17,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f4f6f8" },
+    { media: "(prefers-color-scheme: light)", color: "#FAFAFA" },
     { media: "(prefers-color-scheme: dark)", color: "#0b1114" },
   ],
 };

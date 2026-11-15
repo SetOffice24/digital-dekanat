@@ -1,6 +1,7 @@
 import "server-only";
 import type { NotificationKind } from "@prisma/client";
 import { prisma } from "./db";
+import { sendPush } from "./push";
 
 /** Создать уведомления пользователям. dedupeKey защищает от повторов (например, напоминаний о дедлайнах). */
 export async function notify(userIds: string[], n: { kind: NotificationKind; title: string; body: string; link?: string; dedupeKey?: string }) {
@@ -9,6 +10,8 @@ export async function notify(userIds: string[], n: { kind: NotificationKind; tit
     data: userIds.map((userId) => ({ userId, kind: n.kind, title: n.title, body: n.body, link: n.link, dedupeKey: n.dedupeKey })),
     skipDuplicates: true,
   });
+  // и сразу push на устройства (телефон с установленным кабинетом, браузер с разрешением) — не дожидаясь ответа
+  void sendPush(userIds, { title: n.title, body: n.body, url: n.link ?? "/notifications", tag: n.kind === "SCHEDULE_CHANGE" ? "schedule" : undefined }).catch(() => {});
 }
 
 /** userId студентов группы (опционально — подгруппы). */

@@ -89,6 +89,21 @@ model User {
   teacher       Teacher?
   notifications Notification[]
   events        RequestEvent[]
+  pushSubs      PushSubscription[]
+}
+
+/** Подписка устройства на push-уведомления (Web Push). Одно устройство/браузер — одна запись. */
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Session {
