@@ -1,8 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 import { AssistantPanel } from "./assistant-panel";
-import { Mascot } from "./mascot";
 import { cn } from "@/lib/utils";
 
 const Ctx = createContext<{ open: () => void; close: () => void }>({ open: () => {}, close: () => {} });
@@ -13,7 +11,6 @@ export function AssistantProvider({ firstName, children }: { firstName: string; 
   const [isOpen, setOpen] = useState(false);
   const open = useCallback(() => setOpen(true), []);
   const close = useCallback(() => setOpen(false), []);
-  const path = usePathname();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -30,14 +27,6 @@ export function AssistantProvider({ firstName, children }: { firstName: string; 
   return (
     <Ctx.Provider value={{ open, close }}>
       {children}
-
-      {/* Плавающая кнопка на десктопе (на телефоне — иконка в шапке) */}
-      {!isOpen && path !== "/assistant" && (
-        <button onClick={open} className="fixed bottom-6 right-6 z-30 hidden items-center gap-2.5 rounded-full bg-surface py-2 pl-2 pr-4 font-semibold shadow-[0_12px_32px_-12px_rgba(20,24,40,0.35)] ring-1 ring-border transition hover:-translate-y-0.5 lg:flex" aria-label="Открыть помощника">
-          <Mascot size={36} />
-          Спросить Уни
-        </button>
-      )}
 
       {isOpen && (
         <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="ИИ-помощник деканата">

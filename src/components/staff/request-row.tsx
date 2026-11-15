@@ -9,7 +9,7 @@ export function RequestRow({ r }: { r: StaffRequestRow }) {
   const s = r.student;
   const overdue = isOverdue(r);
   return (
-    <Link href={`/staff/requests/${r.id}`} className="block rounded-[22px] bg-surface shadow-[0_1px_2px_rgba(20,24,40,0.04)] ring-1 ring-border/70 p-3.5 transition hover:border-primary/50">
+    <Link href={`/staff/requests/${r.id}`} className="block rounded-[24px] border border-border/70 bg-surface p-3.5 transition hover:border-primary/50">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-bold">

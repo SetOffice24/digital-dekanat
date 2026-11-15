@@ -4,13 +4,13 @@ import type { ComponentProps, ReactNode } from "react";
 
 /* ---------- Card ---------- */
 export function Card({ className, ...p }: ComponentProps<"div">) {
-  return <div className={cn("rounded-3xl bg-surface p-4 shadow-[0_1px_2px_rgba(20,24,40,0.04),0_8px_24px_-12px_rgba(20,24,40,0.10)]", className)} {...p} />;
+  return <div className={cn("rounded-[28px] border border-border/70 bg-surface p-5", className)} {...p} />;
 }
 
 export function SectionTitle({ children, action, className }: { children: ReactNode; action?: ReactNode; className?: string }) {
   return (
-    <div className={cn("mb-2.5 mt-7 flex items-center justify-between gap-2 first:mt-0", className)}>
-      <h2 className="text-[15px] font-bold tracking-tight">{children}</h2>
+    <div className={cn("mb-3 mt-9 flex items-center justify-between gap-2 first:mt-0", className)}>
+      <h2 className="font-head text-lg font-semibold tracking-tight sm:text-xl">{children}</h2>
       {action}
     </div>
   );
@@ -18,10 +18,10 @@ export function SectionTitle({ children, action, className }: { children: ReactN
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="mb-5 flex items-start justify-between gap-3">
+    <div className="mb-7 flex items-end justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="font-display text-[22px] font-semibold leading-tight tracking-tight sm:text-2xl">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
+        <h1 className="font-head text-[34px] font-semibold leading-[1.05] tracking-[-0.02em] sm:text-5xl">{title}</h1>
+        {subtitle && <p className="mt-2.5 text-[15px] text-muted sm:text-lg">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -44,10 +44,10 @@ export function Badge({ tone = "neutral", className, children }: { tone?: Tone; 
 
 /* ---------- Button ---------- */
 type Variant = "primary" | "secondary" | "ghost" | "danger";
-const btnBase = "inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl px-5 text-[15px] font-semibold transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
+const btnBase = "inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
 const btnVar: Record<Variant, string> = {
   primary: "bg-ink text-ink-fg hover:opacity-90",
-  secondary: "border border-border bg-surface text-fg hover:bg-surface-2",
+  secondary: "border border-ink/90 bg-transparent text-fg hover:bg-ink hover:text-ink-fg",
   ghost: "text-fg hover:bg-surface-2",
   danger: "bg-danger text-white hover:opacity-90",
 };
@@ -76,7 +76,7 @@ export function Select({ className, ...p }: ComponentProps<"select">) {
 /* ---------- Empty / Error ---------- */
 export function EmptyState({ icon, title, text, action }: { icon?: ReactNode; title: string; text?: string; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center rounded-3xl bg-surface/70 px-6 py-10 text-center ring-1 ring-border">
+    <div className="flex flex-col items-center rounded-[28px] border border-dashed border-border bg-surface px-6 py-12 text-center">
       {icon && <div className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-primary-soft text-primary">{icon}</div>}
       <p className="font-bold">{title}</p>
       {text && <p className="mt-1 max-w-xs text-sm text-muted">{text}</p>}

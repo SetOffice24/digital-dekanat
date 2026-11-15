@@ -10,3 +10,4 @@
 - `public/bg/sky.svg` — пейзаж-подложка, нарисован вручную (SVG) в рамках проекта.
 - Логотип «Универ» (`src/components/logo.tsx`, `public/icon.svg`) — собственная разработка проекта.
 - Шрифт Unbounded — SIL Open Font License 1.1 (пакет `@fontsource-variable/unbounded`).
+- Шрифт Onest — SIL Open Font License 1.1 (пакет `@fontsource-variable/onest`).

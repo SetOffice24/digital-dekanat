@@ -36,7 +36,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
       <PageHeader title="Учёба" subtitle={`${student.course} курс · ${curSem} семестр`} />
 
       {/* Как у меня дела */}
-      <div className={cn("rounded-3xl p-5", status === "success" ? "bg-success-soft" : status === "warning" ? "bg-warning-soft" : "bg-danger-soft")}>
+      <div className={cn("rounded-[32px] p-6 sm:p-8", status === "success" ? "bg-success-soft" : status === "warning" ? "bg-warning-soft" : "bg-danger-soft")}>
         <div className={cn("flex items-center gap-2 font-extrabold", status === "success" ? "text-success" : status === "warning" ? "text-warning" : "text-danger")}>
           {status === "success" ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
           {statusText.title}

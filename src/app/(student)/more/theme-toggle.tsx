@@ -20,13 +20,13 @@ export function ThemeToggle() {
     listeners.forEach((l) => l());
   };
   return (
-    <button onClick={toggle} className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-2" role="switch" aria-checked={dark}>
-      <span className="text-primary">{dark ? <Moon size={20} /> : <Sun size={20} />}</span>
+    <button onClick={toggle} className="flex min-h-16 w-full items-center gap-3 px-5 py-3 text-left hover:bg-surface-2" role="switch" aria-checked={dark}>
+      <span className="flex size-10 items-center justify-center rounded-full bg-p-yellow text-[#0e0e10]">{dark ? <Moon size={18} /> : <Sun size={18} />}</span>
       <span className="flex-1">
         <span className="block font-semibold">Тёмная тема</span>
         <span className="block text-xs text-muted">{dark ? "Включена" : "Выключена"}</span>
       </span>
-      <span className={`relative h-6 w-11 rounded-full transition ${dark ? "bg-primary" : "bg-border"}`}>
+      <span className={`relative h-6 w-11 rounded-full transition ${dark ? "bg-ink" : "bg-border"}`}>
         <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${dark ? "left-[22px]" : "left-0.5"}`} />
       </span>
     </button>

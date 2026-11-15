@@ -20,9 +20,9 @@ export function LessonItem({ lesson: l, highlight }: { lesson: LessonWithRefs; h
   return (
     <div
       className={cn(
-        "flex gap-3 rounded-2xl border bg-surface p-3.5",
-        change ? (cancelled ? "border-danger/30" : "border-warning/40") : "border-border",
-        highlight === "now" && "ring-2 ring-primary",
+        "flex gap-3 rounded-[24px] border bg-surface p-4",
+        change ? (cancelled ? "border-danger/30" : "border-warning/50") : "border-border/70",
+        highlight === "now" && "border-ink ring-1 ring-ink",
       )}
     >
       <div className={cn("w-12 shrink-0 text-right tabular-nums", cancelled && "opacity-50")}>

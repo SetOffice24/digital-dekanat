@@ -1,51 +1,63 @@
 @import "tailwindcss";
 @import "@fontsource-variable/manrope";
 @import "@fontsource-variable/unbounded";
+@import "@fontsource-variable/onest";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Дизайн-система «Универа»: пастельное небо (голубой → сиреневый → персик),
- * белые карточки с крупным скруглением, поля без рамок на светло-сером, тёмные кнопки.
+ * Дизайн-система «Универа» v3 (по мотивам современного продуктового стиля):
+ * почти белый фон, чёрные «чернила», крупные дружелюбные заголовки (Onest),
+ * навигация-капсулы, большие карточки 28px, пастельные акценты для плиток и тегов.
  */
 :root {
-  --bg: #eef1f6;
+  --bg: #fafafa;
   --surface: #ffffff;
-  --surface-2: #f3f4f7;
-  --fg: #1f1f24;
-  --muted: #6b7180;
-  --border: #e6e8ee;
-  --ink: #26262b;
+  --surface-2: #f2f2f3;
+  --fg: #0e0e10;
+  --muted: #6e6e76;
+  --border: #e7e7ea;
+  --ink: #0e0e10;
   --ink-fg: #ffffff;
-  --primary: #4b6bd6;
+  --primary: #4a5bd8;
   --primary-fg: #ffffff;
-  --primary-soft: #eceffd;
+  --primary-soft: #eceefe;
   --peach: #f4b393;
-  --info: #3c74c8;
-  --info-soft: #e7f0fb;
-  --warning: #b2560f;
-  --warning-soft: #fdf0e4;
-  --success: #1f8a4c;
-  --success-soft: #e5f5ec;
-  --danger: #c43d2b;
-  --danger-soft: #fdebe8;
-  --ring: #4b6bd633;
+  --p-yellow: #ffe68a;
+  --p-lilac: #ddd3ff;
+  --p-mint: #c9efd9;
+  --p-peach: #ffd9c7;
+  --p-sky: #d3e5ff;
+  --info: #3466c2;
+  --info-soft: #e6effd;
+  --warning: #a8530c;
+  --warning-soft: #fdf0e1;
+  --success: #1c7f47;
+  --success-soft: #e3f5ea;
+  --danger: #c23a28;
+  --danger-soft: #fde9e5;
+  --ring: #4a5bd833;
   --hero: linear-gradient(135deg, #a9c4df 0%, #cdc4e2 50%, #f3cdb8 100%);
 }
 
 .dark {
-  --bg: #111318;
-  --surface: #191c23;
-  --surface-2: #222631;
-  --fg: #eceef3;
-  --muted: #9aa1b2;
-  --border: #2a2f3b;
-  --ink: #eceef3;
-  --ink-fg: #15171c;
-  --primary: #93a8ff;
-  --primary-fg: #10142a;
-  --primary-soft: #1f2540;
+  --bg: #0d0d0f;
+  --surface: #17171a;
+  --surface-2: #222226;
+  --fg: #f1f1f3;
+  --muted: #9b9ba5;
+  --border: #2a2a2f;
+  --ink: #f1f1f3;
+  --ink-fg: #0d0d0f;
+  --primary: #9aa6ff;
+  --primary-fg: #0d1030;
+  --primary-soft: #1e2142;
   --peach: #f4b393;
+  --p-yellow: #4a3f12;
+  --p-lilac: #2f2650;
+  --p-mint: #163a26;
+  --p-peach: #4a2a1c;
+  --p-sky: #1a2c4a;
   --info: #8fb4f0;
   --info-soft: #172338;
   --warning: #f5b26b;
@@ -54,7 +66,7 @@
   --success-soft: #12301f;
   --danger: #ff8f7d;
   --danger-soft: #3a1a15;
-  --ring: #93a8ff44;
+  --ring: #9aa6ff44;
   --hero: linear-gradient(135deg, #3a4e72 0%, #4f4870 50%, #6e4c4a 100%);
 }
 
@@ -71,6 +83,11 @@
   --color-primary-fg: var(--primary-fg);
   --color-primary-soft: var(--primary-soft);
   --color-accent-peach: var(--peach);
+  --color-p-yellow: var(--p-yellow);
+  --color-p-lilac: var(--p-lilac);
+  --color-p-mint: var(--p-mint);
+  --color-p-peach: var(--p-peach);
+  --color-p-sky: var(--p-sky);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
   --color-warning: var(--warning);
@@ -78,8 +95,8 @@
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-danger: var(--danger);
-  --color-danger-soft: var(--danger-soft);
-  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --color-danger-soft: var(--danger-soft);  --font-sans: "Onest Variable", "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-head: "Onest Variable", ui-sans-serif, sans-serif;
   --font-display: "Unbounded Variable", "Manrope Variable", ui-sans-serif, sans-serif;
 }
 
@@ -96,19 +113,7 @@ body {
   font-feature-settings: "tnum" 1;
 }
 
-/* мягкое «небо» сверху страницы кабинета */
-.sky-glow {
-  background:
-    radial-gradient(1200px 380px at 20% -120px, #c9d9ee 0%, transparent 70%),
-    radial-gradient(900px 340px at 90% -140px, #f6d9c8 0%, transparent 70%),
-    var(--bg);
-}
-.dark .sky-glow {
-  background:
-    radial-gradient(1200px 380px at 20% -120px, #22324d 0%, transparent 70%),
-    radial-gradient(900px 340px at 90% -140px, #3a2a2a 0%, transparent 70%),
-    var(--bg);
-}
+.sky-glow { background: var(--bg); }
 
 .hero {
   background: var(--hero);

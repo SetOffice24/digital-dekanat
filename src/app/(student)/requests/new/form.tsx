@@ -32,8 +32,8 @@ export function NewRequestForm({ types, initialCode, draftPayload }: { types: T[
             <h2 className="mb-2 text-[15px] font-bold">{cat}</h2>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {list.map((t) => (
-                <button key={t.id} type="button" onClick={() => setCode(t.code)} className="flex gap-3 rounded-[22px] bg-surface shadow-[0_1px_2px_rgba(20,24,40,0.04)] ring-1 ring-border/70 p-4 text-left transition hover:border-primary/50 hover:shadow-sm">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">{catIcon[cat] ?? <FileCheck2 size={20} />}</span>
+                <button key={t.id} type="button" onClick={() => setCode(t.code)} className="flex gap-3 rounded-[24px] border border-border/70 bg-surface p-4 text-left transition hover:border-primary/50 hover:shadow-sm">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-p-mint text-[#0e0e10]">{catIcon[cat] ?? <FileCheck2 size={20} />}</span>
                   <span className="min-w-0">
                     <span className="block font-bold leading-snug">{t.title}</span>
                     <span className="mt-0.5 block text-[13px] leading-snug text-muted">{t.description}</span>
@@ -57,7 +57,7 @@ export function NewRequestForm({ types, initialCode, draftPayload }: { types: T[
       <button type="button" onClick={() => setCode(null)} className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-muted hover:text-fg">
         <ArrowLeft size={16} /> Другой тип
       </button>
-      <div className="rounded-[22px] bg-surface shadow-[0_1px_2px_rgba(20,24,40,0.04)] ring-1 ring-border/70 p-4">
+      <div className="rounded-[24px] border border-border/70 bg-surface p-4">
         <div className="font-extrabold">{type.title}</div>
         <p className="mt-1 text-sm text-muted">{type.description}</p>
         {draftPayload && (

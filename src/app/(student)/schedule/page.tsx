@@ -30,16 +30,16 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         title="Расписание"
         subtitle={weekLabel}
         action={
-          <a href="/api/schedule/ics" className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border bg-surface px-3 text-sm font-semibold hover:bg-surface-2" download>
+          <a href="/api/schedule/ics" className="inline-flex min-h-12 items-center gap-2 rounded-full border border-ink px-5 text-sm font-semibold transition hover:bg-ink hover:text-ink-fg" download>
             <CalendarPlus size={17} /> <span className="hidden sm:inline">В календарь</span>
           </a>
         }
       />
 
       {/* Переключатель вида */}
-      <div className="mb-3 grid grid-cols-2 rounded-xl bg-surface-2 p-1 text-sm font-semibold" role="tablist">
+      <div className="mb-4 grid max-w-sm grid-cols-2 rounded-full bg-surface-2 p-1 text-sm font-semibold" role="tablist">
         {(["day", "week"] as const).map((v) => (
-          <Link key={v} href={href(selected, v)} role="tab" aria-selected={view === v} className={cn("rounded-lg py-2 text-center transition", view === v ? "bg-surface shadow-sm" : "text-muted")}>
+          <Link key={v} href={href(selected, v)} role="tab" aria-selected={view === v} className={cn("rounded-full py-2.5 text-center transition", view === v ? "bg-ink text-ink-fg" : "text-muted")}>
             {v === "day" ? "День" : "Неделя"}
           </Link>
         ))}
@@ -57,11 +57,11 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             const hasChange = byDay(d).some((l) => l.status !== "SCHEDULED");
             const count = byDay(d).filter((l) => l.status !== "CANCELLED").length;
             return (
-              <Link key={d.toISOString()} href={href(d, "day")} className={cn("relative flex flex-col items-center rounded-xl py-1.5 transition", isSel && view === "day" ? "bg-primary text-primary-fg" : "hover:bg-surface-2")} aria-label={fmtDay(d)}>
+              <Link key={d.toISOString()} href={href(d, "day")} className={cn("relative flex flex-col items-center rounded-[18px] py-2 transition", isSel && view === "day" ? "bg-ink text-ink-fg" : "bg-surface hover:bg-surface-2")} aria-label={fmtDay(d)}>
                 <span className={cn("text-[11px] font-semibold uppercase", isSel && view === "day" ? "opacity-90" : "text-muted")}>{fmtWeekdayShort(d)}</span>
-                <span className={cn("text-[17px] font-extrabold", isToday && !(isSel && view === "day") && "text-primary")}>{d.getUTCDate()}</span>
+                <span className={cn("text-[17px] font-extrabold", isToday && !(isSel && view === "day") && "text-danger")}>{d.getUTCDate()}</span>
                 <span className="flex h-1.5 gap-0.5">
-                  {hasChange ? <span className="size-1.5 rounded-full bg-warning" /> : count > 0 ? <span className={cn("size-1.5 rounded-full", isSel && view === "day" ? "bg-primary-fg/70" : "bg-border")} /> : null}
+                  {hasChange ? <span className="size-1.5 rounded-full bg-warning" /> : count > 0 ? <span className={cn("size-1.5 rounded-full", isSel && view === "day" ? "bg-ink-fg/70" : "bg-border")} /> : null}
                 </span>
               </Link>
             );
@@ -73,7 +73,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       </div>
 
       {changes.length > 0 && (
-        <div className="mb-4 flex items-start gap-2.5 rounded-2xl bg-warning-soft p-3 text-sm text-warning">
+        <div className="mb-5 flex items-start gap-2.5 rounded-[24px] bg-p-yellow p-4 text-sm text-[#0e0e10]">
           <TriangleAlert size={18} className="mt-0.5 shrink-0" />
           <p>
             <b>
