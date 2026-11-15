@@ -1,0 +1,377 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  STAFF
+}
+
+enum Assessment {
+  EXAM
+  CREDIT
+  GRADED_CREDIT
+  COURSEWORK
+}
+
+enum LessonKind {
+  LECTURE
+  PRACTICE
+  LAB
+  EXAM
+  CONSULTATION
+}
+
+enum LessonStatus {
+  SCHEDULED
+  MOVED
+  CANCELLED
+}
+
+enum GradeKind {
+  CURRENT
+  MIDTERM
+  FINAL
+  RETAKE
+}
+
+enum ExamKind {
+  EXAM
+  CREDIT
+  RETAKE
+}
+
+enum RequestStatus {
+  NEW
+  IN_REVIEW
+  NEED_INFO
+  READY
+  DONE
+  REJECTED
+}
+
+enum Audience {
+  ALL
+  FACULTY
+  GROUP
+}
+
+enum NotificationKind {
+  SCHEDULE_CHANGE
+  REQUEST_STATUS
+  ANNOUNCEMENT
+  DEADLINE
+  GRADE
+  SYSTEM
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+model User {
+  id            String         @id @default(cuid())
+  login         String         @unique
+  passwordHash  String
+  role          Role
+  createdAt     DateTime       @default(now())
+  sessions      Session[]
+  student       Student?
+  staff         Staff?
+  notifications Notification[]
+  events        RequestEvent[]
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userAgent String?
+
+  @@index([userId])
+}
+
+model Faculty {
+  id            String         @id @default(cuid())
+  name          String
+  shortName     String
+  programs      Program[]
+  students      Student[]
+  staff         Staff[]
+  announcements Announcement[]
+  deadlines     Deadline[]
+}
+
+model Program {
+  id        String    @id @default(cuid())
+  facultyId String
+  faculty   Faculty   @relation(fields: [facultyId], references: [id])
+  name      String
+  code      String
+  groups    Group[]
+  students  Student[]
+}
+
+model Group {
+  id            String         @id @default(cuid())
+  programId     String
+  program       Program        @relation(fields: [programId], references: [id])
+  name          String         @unique
+  course        Int
+  students      Student[]
+  lessons       Lesson[]
+  exams         Exam[]
+  announcements Announcement[]
+  deadlines     Deadline[]
+}
+
+model Student {
+  id           String             @id @default(cuid())
+  userId       String             @unique
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastName     String
+  firstName    String
+  middleName   String?
+  facultyId    String
+  faculty      Faculty            @relation(fields: [facultyId], references: [id])
+  programId    String
+  program      Program            @relation(fields: [programId], references: [id])
+  course       Int
+  groupId      String
+  group        Group              @relation(fields: [groupId], references: [id])
+  subgroup     Int
+  recordBookNo String
+  email        String?
+  scholarship  Boolean            @default(false)
+  enrollments  Enrollment[]
+  requests     Request[]
+  checkins     WellbeingCheckin[]
+  aiMessages   AiMessage[]
+}
+
+model Staff {
+  id            String         @id @default(cuid())
+  userId        String         @unique
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName      String
+  position      String
+  facultyId     String?
+  faculty       Faculty?       @relation(fields: [facultyId], references: [id])
+  announcements Announcement[]
+  requests      Request[]
+}
+
+model Teacher {
+  id         String   @id @default(cuid())
+  fullName   String
+  department String
+  lessons    Lesson[]
+}
+
+model Course {
+  id          String       @id @default(cuid())
+  name        String
+  department  String
+  assessment  Assessment
+  lessons     Lesson[]
+  enrollments Enrollment[]
+  exams       Exam[]
+  deadlines   Deadline[]
+}
+
+model Lesson {
+  id            String       @id @default(cuid())
+  groupId       String
+  group         Group        @relation(fields: [groupId], references: [id])
+  subgroup      Int?
+  courseId      String
+  course        Course       @relation(fields: [courseId], references: [id])
+  teacherId     String
+  teacher       Teacher      @relation(fields: [teacherId], references: [id])
+  date          DateTime     @db.Date
+  startTime     String
+  endTime       String
+  room          String
+  building      String
+  kind          LessonKind
+  status        LessonStatus @default(SCHEDULED)
+  movedFromDate DateTime?    @db.Date
+  movedFromTime String?
+  changeNote    String?
+  changedAt     DateTime?
+
+  @@index([groupId, date])
+}
+
+model Enrollment {
+  id        String  @id @default(cuid())
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course  @relation(fields: [courseId], references: [id])
+  semester  Int
+  grades    Grade[]
+
+  @@unique([studentId, courseId, semester])
+}
+
+model Grade {
+  id           String     @id @default(cuid())
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  kind         GradeKind
+  value        String
+  points       Int?
+  date         DateTime
+  note         String?
+
+  @@index([enrollmentId])
+}
+
+model Exam {
+  id       String   @id @default(cuid())
+  courseId String
+  course   Course   @relation(fields: [courseId], references: [id])
+  groupId  String
+  group    Group    @relation(fields: [groupId], references: [id])
+  date     DateTime
+  room     String
+  kind     ExamKind
+  teacher  String
+}
+
+model RequestType {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  title       String
+  description String
+  category    String
+  needsPaper  Boolean   @default(false)
+  fields      Json
+  slaDays     Int
+  isCertificate Boolean @default(false)
+  requests    Request[]
+}
+
+model Request {
+  id          String         @id @default(cuid())
+  number      Int            @default(autoincrement())
+  studentId   String
+  student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  typeId      String
+  type        RequestType    @relation(fields: [typeId], references: [id])
+  status      RequestStatus  @default(NEW)
+  payload     Json
+  comment     String?
+  wantsPaper  Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  assigneeId  String?
+  assignee    Staff?         @relation(fields: [assigneeId], references: [id])
+  events      RequestEvent[]
+  certificate Certificate?
+
+  @@index([studentId, createdAt])
+  @@index([status])
+}
+
+model RequestEvent {
+  id           String         @id @default(cuid())
+  requestId    String
+  request      Request        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  fromStatus   RequestStatus?
+  toStatus     RequestStatus
+  authorUserId String
+  author       User           @relation(fields: [authorUserId], references: [id])
+  message      String?
+  createdAt    DateTime       @default(now())
+
+  @@index([requestId])
+}
+
+model Certificate {
+  id         String   @id @default(cuid())
+  requestId  String   @unique
+  request    Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  verifyCode String   @unique
+  issuedAt   DateTime @default(now())
+  validUntil DateTime
+  revoked    Boolean  @default(false)
+}
+
+model Announcement {
+  id            String   @id @default(cuid())
+  title         String
+  body          String
+  audience      Audience
+  facultyId     String?
+  faculty       Faculty? @relation(fields: [facultyId], references: [id])
+  groupId       String?
+  group         Group?   @relation(fields: [groupId], references: [id])
+  pinned        Boolean  @default(false)
+  authorStaffId String
+  author        Staff    @relation(fields: [authorStaffId], references: [id])
+  publishedAt   DateTime @default(now())
+}
+
+model Deadline {
+  id        String   @id @default(cuid())
+  title     String
+  dueAt     DateTime
+  audience  Audience
+  facultyId String?
+  faculty   Faculty? @relation(fields: [facultyId], references: [id])
+  groupId   String?
+  group     Group?   @relation(fields: [groupId], references: [id])
+  courseId  String?
+  course    Course?  @relation(fields: [courseId], references: [id])
+  link      String?
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      NotificationKind
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  dedupeKey String?
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt, createdAt])
+}
+
+model WellbeingCheckin {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  weekStart DateTime @db.Date
+  mood      Int
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, weekStart])
+}
+
+model AiMessage {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  role      ChatRole
+  content   String
+  draft     Json?
+  createdAt DateTime @default(now())
+
+  @@index([studentId, createdAt])
+}

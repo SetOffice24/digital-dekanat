@@ -1,0 +1,49 @@
+# Продакшен на VPS: cd /opt/univer/deploy && docker compose up -d --build
+# Все сервисы изолированы в собственной сети; наружу открыт только caddy (80/443).
+name: univer
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: univer
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/.env}
+      POSTGRES_DB: univer
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U univer"]
+      interval: 5s
+      retries: 10
+
+  app:
+    build: ..
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://univer:${DB_PASSWORD}@db:5432/univer
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    environment:
+      SITE_HOST: ${SITE_HOST:?set SITE_HOST in deploy/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
