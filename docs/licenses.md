@@ -11,3 +11,6 @@
 - Логотип «Универ» (`src/components/logo.tsx`, `public/icon.svg`) — собственная разработка проекта.
 - Шрифт Unbounded — SIL Open Font License 1.1 (пакет `@fontsource-variable/unbounded`).
 - Шрифт Onest — SIL Open Font License 1.1 (пакет `@fontsource-variable/onest`).
+- `web-push` — MIT (отправка push-уведомлений).
+- `docx`, `exceljs`, `pptxgenjs` — MIT; только для разработки: генерация демо-файлов Word/Excel/PowerPoint (`scripts/make-fixtures.mjs`). Сами файлы в `prisma/fixtures/` — собственные вымышленные учебные материалы проекта.
+- Иконки PWA (`public/icons/*`) — нарисованы из собственного логотипа проекта.

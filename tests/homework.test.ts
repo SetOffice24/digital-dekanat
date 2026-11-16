@@ -9,7 +9,7 @@ import { canAccessAttachment, checkFile } from "@/server/files";
 const db = new PrismaClient();
 let anna: Student, petr: Student, teacher: Teacher;
 const viewer = async (login: string) => db.user.findUniqueOrThrow({ where: { login }, include: { student: true, teacher: true } });
-const txt = (name: string, text = "решение") => new File([text], name, { type: "text/plain" });
+const doc = (name: string, text = "решение") => new File([text], name, { type: "application/pdf" });
 
 beforeAll(async () => {
   anna = await db.student.findFirstOrThrow({ where: { user: { login: "anna.lesnova" } } });
@@ -29,24 +29,27 @@ describe("студент: только задания своей группы", 
 
   it("нельзя сдать чужое, без файла и неподходящий формат", async () => {
     const foreign = await db.assignment.findFirstOrThrow({ where: { groupId: petr.groupId } });
-    await expect(submitHomework(anna, foreign.id, null, [txt("a.txt")])).rejects.toThrow();
+    await expect(submitHomework(anna, foreign.id, null, [doc("a.pdf")])).rejects.toThrow();
     const own = (await listHomework(anna)).find((h) => h.state === "todo")!;
     await expect(submitHomework(anna, own.id, null, [])).rejects.toThrow();
-    await expect(submitHomework(anna, own.id, null, [txt("virus.exe")])).rejects.toThrow();
+    await expect(submitHomework(anna, own.id, null, [doc("virus.exe")])).rejects.toThrow();
     expect(() => checkFile({ name: "big.pdf", size: 11 * 1024 * 1024 })).toThrow();
+    // только Word, PDF, Excel, PowerPoint
+    for (const bad of ["notes.md", "code.py", "data.csv", "photo.png", "archive.zip"]) expect(() => checkFile({ name: bad, size: 100 })).toThrow();
+    for (const ok of ["a.pdf", "b.docx", "c.doc", "d.xlsx", "e.pptx"]) expect(() => checkFile({ name: ok, size: 100 })).not.toThrow();
   });
 
   it("сдача → «на проверке»; повторная заменяет файлы; принятое не меняется", async () => {
     const own = (await listHomework(anna)).find((h) => h.state === "todo")!;
-    await submitHomework(anna, own.id, "первая", [txt("one.txt"), txt("two.txt")]);
+    await submitHomework(anna, own.id, "первая", [doc("one.pdf"), doc("two.docx")]);
     let sub = await db.submission.findUniqueOrThrow({ where: { assignmentId_studentId: { assignmentId: own.id, studentId: anna.id } }, include: { files: true } });
     expect(sub.status).toBe("SUBMITTED");
     expect(sub.files.length).toBe(2);
-    await submitHomework(anna, own.id, "вторая", [txt("final.txt")]);
+    await submitHomework(anna, own.id, "вторая", [doc("final.docx")]);
     sub = await db.submission.findUniqueOrThrow({ where: { id: sub.id }, include: { files: true } });
-    expect(sub.files.map((f) => f.name)).toEqual(["final.txt"]);
+    expect(sub.files.map((f) => f.name)).toEqual(["final.docx"]);
     const accepted = (await listHomework(anna)).find((h) => h.state === "accepted")!;
-    await expect(submitHomework(anna, accepted.id, null, [txt("x.txt")])).rejects.toThrow();
+    await expect(submitHomework(anna, accepted.id, null, [doc("x.xlsx")])).rejects.toThrow();
   });
 });
 

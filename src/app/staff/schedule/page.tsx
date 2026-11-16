@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarOff, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarOff, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
 import { requireStaff } from "@/server/auth";
 import { listGroups, listLessons } from "@/server/repos/staff";
 import { EmptyState, PageHeader } from "@/components/ui";
@@ -77,6 +77,11 @@ export default async function StaffSchedule({ searchParams }: { searchParams: Pr
                     </div>
                   )}
                 </div>
+                {!cancelled && l.date.getTime() <= today.getTime() && (
+                  <Link href={`/staff/attendance/lesson/${l.id}`} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full bg-ink px-3.5 text-sm font-semibold text-ink-fg hover:opacity-90">
+                    <UserCheck size={15} /> Посещаемость
+                  </Link>
+                )}
                 {!cancelled && <LessonActions id={l.id} date={isoDate(l.date)} room={l.room} />}
               </li>
             );

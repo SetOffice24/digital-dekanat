@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, FileText, LogOut, Megaphone, type LucideIcon } from "lucide-react";
+import { CalendarDays, FileText, LogOut, Megaphone, UserCheck, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/logo";
 import { logoutAction } from "@/app/login/actions";
@@ -11,6 +11,7 @@ const nav: { href: string; label: string; icon: LucideIcon; exact?: boolean; mat
   { href: "/staff", label: "Заявки", icon: FileText, match: (p: string) => p === "/staff" || p.startsWith("/staff/requests") },
   { href: "/staff/announcements", label: "Объявления", icon: Megaphone },
   { href: "/staff/schedule", label: "Расписание", icon: CalendarDays },
+  { href: "/staff/attendance", label: "Посещаемость", icon: UserCheck },
 ];
 
 /** Кабинет сотрудника: шапка с вкладками на всю ширину экрана, контент до 1600 px. */
@@ -43,11 +44,11 @@ export function StaffShell({ children, name, position }: { children: React.React
             </button>
           </form>
         </div>
-        {/* На телефоне и планшете — три равные вкладки: все разделы видны сразу, без прокрутки вбок */}
-        <nav className="mx-auto grid w-full max-w-[100rem] grid-cols-3 gap-1 px-3 pb-2.5 sm:px-5 md:px-7 lg:hidden" aria-label="Разделы кабинета">
+        {/* На телефоне и планшете — равные вкладки: все разделы видны сразу, без прокрутки вбок */}
+        <nav className="mx-auto grid w-full max-w-[100rem] grid-cols-2 gap-1 min-[440px]:grid-cols-4 px-3 pb-2.5 sm:px-5 md:px-7 lg:hidden" aria-label="Разделы кабинета">
           {nav.map((n) => (
-            <Link key={n.href} href={n.href} aria-current={active(n) ? "page" : undefined} className={cn("flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-2xl px-2 text-[13px] font-semibold transition sm:text-sm", active(n) ? "bg-ink text-ink-fg" : "text-muted hover:bg-surface/70 hover:text-fg")}>
-              <n.icon size={17} className="shrink-0 max-[379px]:hidden" />
+            <Link key={n.href} href={n.href} aria-current={active(n) ? "page" : undefined} className={cn("flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-2xl px-1 text-[13px] font-semibold transition sm:min-h-11 sm:px-2 sm:text-sm", active(n) ? "bg-ink text-ink-fg" : "text-muted hover:bg-surface/70 hover:text-fg")}>
+              <n.icon size={17} className="shrink-0 max-sm:hidden" />
               <span className="truncate">{n.label}</span>
             </Link>
           ))}

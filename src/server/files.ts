@@ -14,7 +14,7 @@ export const MAX_FILES = 5;
 export const MAX_TOTAL_MB = 25;
 const MAX_BYTES = MAX_FILE_MB * 1024 * 1024;
 
-// только «учебные» форматы; исполняемые и html не принимаем
+// только привычные документы: Word, PDF, Excel, PowerPoint (решение команды); исполняемые, html и прочее не принимаем
 const ALLOWED: Record<string, string> = {
   pdf: "application/pdf",
   doc: "application/msword",
@@ -23,17 +23,6 @@ const ALLOWED: Record<string, string> = {
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ppt: "application/vnd.ms-powerpoint",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  odt: "application/vnd.oasis.opendocument.text",
-  txt: "text/plain",
-  md: "text/plain",
-  csv: "text/csv",
-  py: "text/plain",
-  ipynb: "application/json",
-  sql: "text/plain",
-  zip: "application/zip",
-  png: "image/png",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
 };
 export const ACCEPT = Object.keys(ALLOWED).map((e) => "." + e).join(",");
 

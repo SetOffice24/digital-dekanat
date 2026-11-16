@@ -22,7 +22,7 @@ const nav: NavItem[] = [
   { href: "/", label: "Главная", icon: House, match: (p) => p === "/" },
   { href: "/schedule", label: "Расписание", icon: CalendarDays },
   // домашние задания и материалы — часть «Учёбы», отдельного раздела в меню нет
-  { href: "/grades", label: "Учёба", icon: GraduationCap, match: (p) => p.startsWith("/grades") || p.startsWith("/homework") || p.startsWith("/courses") },
+  { href: "/grades", label: "Учёба", icon: GraduationCap, match: (p) => p.startsWith("/grades") || p.startsWith("/homework") || p.startsWith("/courses") || p.startsWith("/attendance") },
   { href: "/requests", label: "Заявки", icon: FileText },
 ];
 

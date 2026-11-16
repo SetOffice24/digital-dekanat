@@ -2,8 +2,10 @@
 import { useState, useTransition } from "react";
 import { Check, LoaderCircle, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { recognizeAbsenceAction, saveAttendanceAction } from "./actions";
 import type { AbsenceGuess } from "@/server/ai/attendance";
+
+type SaveFn = (lessonId: string, absentIds: string[]) => Promise<{ ok?: string; error?: string }>;
+type RecognizeFn = (lessonId: string, text: string) => Promise<{ guess?: AbsenceGuess; error?: string }>;
 
 type S = { id: string; name: string; present: boolean | null };
 
@@ -12,7 +14,7 @@ type S = { id: string; name: string; present: boolean | null };
  * Сверху — помощник: пишете «нет Зорина и Лесновой», он показывает, кого понял, и предлагает кнопку.
  * Сохраняет всегда человек.
  */
-export function AttendanceForm({ lessonId, students, marked }: { lessonId: string; students: S[]; marked: boolean }) {
+export function AttendanceForm({ lessonId, students, marked, save: saveAction, recognize: recognizeAction }: { lessonId: string; students: S[]; marked: boolean; save: SaveFn; recognize: RecognizeFn }) {
   const [absent, setAbsent] = useState<Set<string>>(() => new Set(students.filter((s) => s.present === false).map((s) => s.id)));
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
   const [saving, startSave] = useTransition();
@@ -24,7 +26,7 @@ export function AttendanceForm({ lessonId, students, marked }: { lessonId: strin
 
   const save = (ids: string[]) =>
     startSave(async () => {
-      setMsg(await saveAttendanceAction(lessonId, ids));
+      setMsg(await saveAction(lessonId, ids));
     });
 
   const toggle = (id: string) => {
@@ -41,7 +43,7 @@ export function AttendanceForm({ lessonId, students, marked }: { lessonId: strin
     startThink(async () => {
       setGuess(null);
       setGuessErr(null);
-      const r = await recognizeAbsenceAction(lessonId, text);
+      const r = await recognizeAction(lessonId, text);
       if (r.error) setGuessErr(r.error);
       else if (r.guess) setGuess(r.guess);
     });

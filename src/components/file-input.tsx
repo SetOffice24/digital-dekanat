@@ -41,7 +41,7 @@ export function FileInput({ files, onChange, accept, max = 5, maxMb = 10, label 
         </button>
       )}
       <p className="mt-1.5 text-xs text-muted">
-        До {max} файлов, каждый до {maxMb} МБ: PDF, Word, Excel, PowerPoint, текст, код, архив ZIP, изображения.
+        До {max} файлов, каждый до {maxMb} МБ: Word, PDF, Excel или PowerPoint.
       </p>
     </div>
   );

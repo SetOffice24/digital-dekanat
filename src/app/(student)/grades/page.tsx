@@ -263,7 +263,10 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
                   </li>
                 ))}
               </ul>
-              <p className="mt-3 text-xs text-muted">
+              <Link href="/attendance" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-fg hover:underline">
+                Вся история посещаемости <ChevronRight size={15} />
+              </Link>
+              <p className="mt-2 text-xs text-muted">
                 Пропуск по уважительной причине?{" "}
                 <Link href="/requests/new?type=APP_ABSENCE" className="font-medium text-fg underline underline-offset-2">
                   Подать заявление

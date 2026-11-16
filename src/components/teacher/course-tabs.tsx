@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-/** Разделы дисциплины у преподавателя: журнал, материалы, домашние задания. */
-export function CourseTabs({ groupId, courseId, active, toReview = 0 }: { groupId: string; courseId: string; active: "journal" | "materials" | "homework"; toReview?: number }) {
+/** Разделы дисциплины у преподавателя: журнал, посещаемость, материалы, домашние задания. */
+export function CourseTabs({ groupId, courseId, active, toReview = 0 }: { groupId: string; courseId: string; active: "journal" | "attendance" | "materials" | "homework"; toReview?: number }) {
   const base = `/teacher/${groupId}/${courseId}`;
   const tabs = [
     { key: "journal", label: "Журнал", href: base },
+    { key: "attendance", label: "Посещаемость", href: `${base}/attendance` },
     { key: "materials", label: "Материалы", href: `${base}/materials` },
     { key: "homework", label: "Домашние задания", href: `${base}/homework` },
   ] as const;

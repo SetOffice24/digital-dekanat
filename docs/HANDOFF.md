@@ -16,7 +16,7 @@ corepack pnpm db:seed           # пересоздаёт ВСЕ демо-дан�
 corepack pnpm dev               # http://localhost:3000
 ```
 - Превью в Claude Code: конфигурация **`univer`** в `C:\Users\User\Desktop\SetSearch site creation\.claude\launch.json` (preview_start name="univer").
-- Проверки: `corepack pnpm exec tsc --noEmit`, `corepack pnpm lint`, `corepack pnpm test` (40 тестов: authz, teacher, staff-search, bulk-preview, attendance, push, homework — папка `tests/`; нужна засеянная БД).
+- Проверки: `corepack pnpm exec tsc --noEmit`, `corepack pnpm lint`, `corepack pnpm test` (43 теста: authz, teacher, staff-search, bulk-preview, attendance, push, homework — папка `tests/`; нужна засеянная БД).
 - Продакшен-сборка: `corepack pnpm build` (проходит).
 
 ## 3. Тестовые аккаунты (вымышленные) — также `docs/test-accounts.md`
@@ -47,6 +47,10 @@ corepack pnpm dev               # http://localhost:3000
 **Уведомления (16.11):** при переносе/отмене пары — всплывающая карточка в открытом кабинете + автообновление страницы (`src/components/live-notice.tsx`, опрос 10 с) и push на устройства (PWA + Web Push: `public/sw.js`, `src/server/push.ts`, `/api/push`, таблица `PushSubscription`). Ключи VAPID — в `.env`; на сервере `deploy.sh` генерирует их сам при первом деплое. Push на iPhone — только после «На экран „Домой“» (iOS 16.4+).
 
 **Материалы и ДЗ (16.11):** таблицы `Material`, `Assignment`, `Submission`, `Attachment`; файлы — `src/server/files.ts` (диск `DATA_DIR/uploads`, на сервере том `uploads`, скачивание только `/api/files/[id]` с проверкой прав); преподаватель — вкладки дисциплины (`/teacher/[g]/[c]/materials`, `/homework`, `/homework/[id]`); студент — `/homework`, `/homework/[id]`, `/courses/[courseId]`, блок в «Учёбе». Загрузки — через route handlers (`/api/teacher/*`, `/api/homework/[id]`), лимит запроса 26 МБ в `next.config.ts`.
+
+**Посещаемость (16.11, второй заход):** общий модуль `src/server/repos/attendance.ts`; преподаватель — вкладка дисциплины `/teacher/[g]/[c]/attendance`; деканат — раздел `/staff/attendance` и `/staff/attendance/lesson/[id]` (кнопка в расписании); студент — `/attendance` (история, пропуски по заявлениям). Форма отметки — `src/components/attendance-form.tsx` (действия передаются пропсами).
+
+**Файлы ДЗ:** только Word/PDF/Excel/PowerPoint. Демо-файлы — `prisma/fixtures/` (пересоздать: `node scripts/make-fixtures.mjs`).
 
 **Вход для жюри:** на странице входа блок «Демо-доступ» — 4 кнопки входа в тестовые аккаунты без пароля (список логинов зашит на сервере, `DEMO_LOGIN=0` выключает).
 
