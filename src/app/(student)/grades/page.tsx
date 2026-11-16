@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { AlertTriangle, BookOpen, CalendarCheck, CheckCircle2, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, BookOpen, CalendarCheck, CheckCircle2, ChevronRight, TrendingUp } from "lucide-react";
 import { requireStudent } from "@/server/auth";
 import { currentSemester, getAttendance, getEnrollments, getExams, listRequests, summarize } from "@/server/repos/student";
 import { Badge, ButtonLink, Card, EmptyState, PageHeader, SectionTitle } from "@/components/ui";
 import { assessmentLabel, gradeText } from "@/lib/labels";
 import { cn, fmtDateTime, plural, roomLabel } from "@/lib/utils";
+import { listHomework, materialCounts } from "@/server/repos/homework";
+import { hwState } from "@/lib/homework";
 
 export const metadata = { title: "Учёба" };
 
@@ -119,7 +121,9 @@ function PastSemester({ rows }: { rows: Enr[] }) {
 export default async function GradesPage({ searchParams }: { searchParams: Promise<{ sem?: string }> }) {
   const { student } = await requireStudent();
   const sp = await searchParams;
-  const [enrollments, exams, requests, attendance] = await Promise.all([getEnrollments(student), getExams(student), listRequests(student), getAttendance(student)]);
+  const [enrollments, exams, requests, attendance, homework, matCount] = await Promise.all([getEnrollments(student), getExams(student), listRequests(student), getAttendance(student), listHomework(student), materialCounts(student)]);
+  // актуальные задания: сначала «на доработку», потом по сроку
+  const hwActive = homework.filter((h) => h.state !== "accepted").sort((a, b) => Number(b.state === "returned") - Number(a.state === "returned") || a.dueAt.getTime() - b.dueAt.getTime());
   // активное заявление на пересдачу — вместо «подать ещё одно» ведём к нему
   const retakeRequest = requests.find((r) => r.type.code === "APP_RETAKE" && !["DONE", "REJECTED"].includes(r.status));
   const curSem = currentSemester(student);
@@ -200,6 +204,36 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
         </>
       )}
 
+      {/* Домашние задания — 3 ближайших, остальные на отдельной странице */}
+      {homework.length > 0 && (
+        <section className="mt-6">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <h2 className="text-[15px] font-bold">Домашние задания</h2>
+            <Link href="/homework" className="inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-fg">
+              Все <ArrowRight size={15} />
+            </Link>
+          </div>
+          {hwActive.length ? (
+            <div className="divide-y divide-border/60 overflow-hidden rounded-[28px] border border-border/70 bg-surface">
+              {hwActive.slice(0, 3).map((h) => (
+                <Link key={h.id} href={`/homework/${h.id}`} className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-surface-2/60 sm:px-5">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold leading-snug">{h.title}</div>
+                    <div className="mt-0.5 text-sm text-muted">
+                      {h.course.name} · до {fmtDateTime(h.dueAt)}
+                    </div>
+                  </div>
+                  <span className={cn("shrink-0 rounded-full px-3 py-1 text-xs font-semibold", hwState[h.state].cls)}>{hwState[h.state].label}</span>
+                  <ChevronRight size={18} className="shrink-0 text-muted" />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-[28px] border border-border/70 bg-surface px-4 py-3.5 text-sm text-muted sm:px-5">Все задания сданы и приняты.</p>
+          )}
+        </section>
+      )}
+
       {/* Посещаемость — одной строкой, пропуски по нажатию */}
       {attendance.total > 0 && (
         <details className="group mt-6 rounded-[28px] border border-border/70 bg-surface px-4 py-3.5 sm:px-5">
@@ -268,6 +302,9 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
                   </div>
                 </div>
                 <ThresholdBar points={points} max={max} ratio={ratio} credit={e.course.assessment === "CREDIT"} />
+                <Link href={`/courses/${e.course.id}`} className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-fg">
+                  Материалы{matCount[e.course.id] ? ` (${matCount[e.course.id]})` : ""} и задания <ChevronRight size={15} />
+                </Link>
                 {/* Последняя оценка видна сразу, остальные — по нажатию: карточка не превращается в россыпь плашек */}
                 {e.grades.length > 0 && (
                   <details className="group mt-3 border-t border-border/60 pt-2.5 text-sm">

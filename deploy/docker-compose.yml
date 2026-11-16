@@ -24,6 +24,9 @@ services:
     environment:
       DATABASE_URL: postgresql://univer:${DB_PASSWORD}@db:5432/univer
       NODE_ENV: production
+      DATA_DIR: /app/data
+    volumes:
+      - uploads:/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -45,5 +48,6 @@ services:
 
 volumes:
   pgdata:
+  uploads:
   caddy_data:
   caddy_config:

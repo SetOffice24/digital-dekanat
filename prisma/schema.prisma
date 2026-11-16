@@ -90,6 +90,7 @@ model User {
   notifications Notification[]
   events        RequestEvent[]
   pushSubs      PushSubscription[]
+  uploads       Attachment[]
 }
 
 /** Подписка устройства на push-уведомления (Web Push). Одно устройство/браузер — одна запись. */
@@ -149,6 +150,8 @@ model Group {
   exams         Exam[]
   announcements Announcement[]
   deadlines     Deadline[]
+  materials     Material[]
+  assignments   Assignment[]
 }
 
 model Student {
@@ -175,6 +178,7 @@ model Student {
   aiChats      AiChat[]
   aiMessages   AiMessage[]
   attendance   Attendance[]
+  submissions  Submission[]
 }
 
 model Staff {
@@ -194,8 +198,10 @@ model Teacher {
   userId     String?  @unique
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   fullName   String
-  department String
-  lessons    Lesson[]
+  department  String
+  lessons     Lesson[]
+  materials   Material[]
+  assignments Assignment[]
 }
 
 model Course {
@@ -207,6 +213,8 @@ model Course {
   enrollments Enrollment[]
   exams       Exam[]
   deadlines   Deadline[]
+  materials   Material[]
+  assignments Assignment[]
 }
 
 model Lesson {
@@ -426,4 +434,84 @@ model AiMessage {
 
   @@index([chatId, createdAt])
   @@index([studentId, createdAt])
+}
+
+/* ---------- Материалы и домашние задания ---------- */
+
+enum SubmissionStatus {
+  SUBMITTED // на проверке
+  RETURNED // на доработке
+  ACCEPTED // принято
+}
+
+/** Учебный материал по дисциплине для группы: ссылка и/или файлы. */
+model Material {
+  id          String       @id @default(cuid())
+  groupId     String
+  group       Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  courseId    String
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teacherId   String
+  teacher     Teacher      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  url         String?
+  createdAt   DateTime     @default(now())
+  files       Attachment[]
+
+  @@index([groupId, courseId])
+}
+
+/** Домашнее задание группе по дисциплине. */
+model Assignment {
+  id          String       @id @default(cuid())
+  groupId     String
+  group       Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  courseId    String
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teacherId   String
+  teacher     Teacher      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  dueAt       DateTime
+  createdAt   DateTime     @default(now())
+  files       Attachment[]
+  submissions Submission[]
+
+  @@index([groupId, courseId])
+}
+
+/** Сдача студента: одна на задание, повторная отправка заменяет файлы и снова ставит «на проверке». */
+model Submission {
+  id             String           @id @default(cuid())
+  assignmentId   String
+  assignment     Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  comment        String?
+  status         SubmissionStatus @default(SUBMITTED)
+  teacherComment String?
+  submittedAt    DateTime         @default(now())
+  reviewedAt     DateTime?
+  files          Attachment[]
+
+  @@unique([assignmentId, studentId])
+}
+
+/** Файл (на диске в DATA_DIR/uploads под случайным именем). Принадлежит материалу, заданию или сдаче. */
+model Attachment {
+  id           String      @id @default(cuid())
+  name         String
+  mime         String
+  size         Int
+  storageKey   String      @unique
+  uploadedById String
+  uploadedBy   User        @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  materialId   String?
+  material     Material?   @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  assignmentId String?
+  assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  submissionId String?
+  submission   Submission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
 }

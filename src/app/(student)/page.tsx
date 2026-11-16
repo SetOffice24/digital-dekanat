@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui";
 import { addDays, fmtDateTime, fmtDay, fmtShort, isoDate, minutesOf, moscowTime, moscowToday, plural, roomLabel } from "@/lib/utils";
 import { requestStatusLabel } from "@/lib/labels";
 import { AttentionList, type AttentionItem } from "./attention-list";
+import { listHomework } from "@/server/repos/homework";
 
 export const metadata = { title: "Главная" };
 
@@ -33,12 +34,13 @@ export default async function TodayPage() {
   const nowHM = moscowTime();
   const nowMin = minutesOf(nowHM);
 
-  const [lessons14, deadlines, requests, enrollments, exams] = await Promise.all([
+  const [lessons14, deadlines, requests, enrollments, exams, homework] = await Promise.all([
     getLessons(student, today, addDays(today, 14)),
     listDeadlines(student, 7),
     listRequests(student),
     getEnrollments(student),
     getExams(student),
+    listHomework(student),
   ]);
 
   const todayLessons = lessons14.filter((l) => l.date.getTime() === today.getTime());
@@ -63,6 +65,16 @@ export default async function TodayPage() {
       title: r.status === "NEED_INFO" ? "Деканат ждёт ответа" : "Заявка готова",
       text: `${r.type.title} — ${requestStatusLabel[r.status].toLowerCase()}`,
       href: `/requests/${r.id}`,
+    });
+  // домашние задания: вернули на доработку или срок в ближайшие 3 дня, а ещё не сдано
+  for (const h of homework.filter((h) => h.state === "returned" || (h.state === "todo" && h.dueAt < addDays(new Date(), 3))))
+    items.push({
+      key: "h" + h.id,
+      kind: "homework",
+      tone: h.state === "returned" ? "bg-warning-soft text-warning" : "bg-p-lilac text-[#0e0e10]",
+      title: h.state === "returned" ? `На доработку: ${h.title}` : `Сдать ДЗ: ${h.title}`,
+      text: `${h.course.name} · до ${fmtDateTime(h.dueAt)}`,
+      href: `/homework/${h.id}`,
     });
   for (const e of retakes)
     items.push({ key: "e" + e.id, kind: "retake", tone: "bg-danger-soft text-danger", title: `Пересдача: ${e.course.name}`, text: `${fmtDateTime(e.date)}, ${roomLabel(e.room)}`, href: "/grades" });

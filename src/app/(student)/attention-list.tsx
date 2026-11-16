@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, CalendarClock, ChevronDown, Clock, FileCheck2, FileQuestion } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarClock, ChevronDown, ClipboardList, Clock, FileCheck2, FileQuestion } from "lucide-react";
 
-export type AttentionItem = { key: string; title: string; text: string; href: string; tone: string; kind: "need_info" | "ready" | "retake" | "deadline" | "debt" | "changes" };
+export type AttentionItem = { key: string; title: string; text: string; href: string; tone: string; kind: "need_info" | "ready" | "retake" | "deadline" | "debt" | "changes" | "homework" };
 
 const icons = {
   need_info: FileQuestion,
@@ -12,6 +12,7 @@ const icons = {
   deadline: Clock,
   debt: AlertTriangle,
   changes: CalendarClock,
+  homework: ClipboardList,
 };
 
 /** Показываем 3 главных дела, остальные — по кнопке, чтобы главная не была перегружена. */

@@ -27,7 +27,7 @@ export async function listClasses(teacher: SessionTeacher) {
     .sort((a, b) => a.groupName.localeCompare(b.groupName, "ru") || a.courseName.localeCompare(b.courseName, "ru"));
 }
 
-async function teachesPair(teacher: SessionTeacher, groupId: string, courseId: string) {
+export async function teachesPair(teacher: SessionTeacher, groupId: string, courseId: string) {
   return (await prisma.lesson.count({ where: { teacherId: teacher.id, groupId, courseId } })) > 0;
 }
 

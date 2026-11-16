@@ -5,6 +5,8 @@ import { requireTeacher } from "@/server/auth";
 import { getGradebook, MAX_POINTS, WORK_KINDS } from "@/server/repos/teacher";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { GradebookRow } from "./gradebook-row";
+import { CourseTabs } from "@/components/teacher/course-tabs";
+import { listAssignments } from "@/server/repos/homework";
 
 export const metadata = { title: "Журнал" };
 
@@ -16,6 +18,8 @@ export default async function GradebookPage({ params, searchParams }: { params: 
   const { teacher } = await requireTeacher();
   const book = await getGradebook(teacher, groupId, courseId);
   if (!book) notFound();
+  const hw = await listAssignments(teacher, groupId, courseId);
+  const toReview = hw?.reduce((a, x) => a + x.toReview, 0) ?? 0;
   const rows = book.rows.map((r) => ({
     enrollmentId: r.enrollmentId,
     name: r.name,
@@ -37,6 +41,7 @@ export default async function GradebookPage({ params, searchParams }: { params: 
           </Link>
         }
       />
+      <CourseTabs groupId={groupId} courseId={courseId} active="journal" toReview={toReview} />
       {saved > 0 && (
         <p role="status" className="mb-4 flex items-center gap-2 rounded-2xl bg-success-soft px-4 py-3 text-sm font-semibold text-success">
           <Check size={17} /> Сохранено {saved} {saved % 10 === 1 && saved % 100 !== 11 ? "оценка" : [2, 3, 4].includes(saved % 10) && ![12, 13, 14].includes(saved % 100) ? "оценки" : "оценок"} — студенты получили уведомления.

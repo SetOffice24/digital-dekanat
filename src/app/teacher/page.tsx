@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, BookOpen, CalendarDays, Check, MapPin, UserCheck } from "lucide-react";
 import { requireTeacher } from "@/server/auth";
 import { listClasses, teachingDay } from "@/server/repos/teacher";
+import { pendingReviews } from "@/server/repos/homework";
 import { EmptyState, PageHeader } from "@/components/ui";
 import { lessonKindLabel } from "@/lib/labels";
 import { cn, fmtDay, minutesOf, moscowTime, moscowToday, plural, roomLabel } from "@/lib/utils";
@@ -15,7 +16,7 @@ export const metadata = { title: "Сегодня" };
 export default async function TeacherHome() {
   const { teacher } = await requireTeacher();
   const today = moscowToday();
-  const [day, classes] = await Promise.all([teachingDay(teacher, today), listClasses(teacher)]);
+  const [day, classes, toReview] = await Promise.all([teachingDay(teacher, today), listClasses(teacher), pendingReviews(teacher)]);
   const nowMin = minutesOf(moscowTime());
   const active = day?.lessons.filter((l) => l.status !== "CANCELLED") ?? [];
   const next = day?.isToday ? active.find((l) => minutesOf(l.endTime) > nowMin) : active[0];
@@ -32,7 +33,7 @@ export default async function TeacherHome() {
 
   return (
     <>
-      <PageHeader title={`${hello}!`} subtitle={summary} />
+      <PageHeader title={`${hello}!`} subtitle={toReview ? `${summary} Ждут проверки домашних заданий: ${toReview}.` : summary} />
 
       {day && (
         <section className="mb-10">

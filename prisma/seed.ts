@@ -6,6 +6,7 @@ import { PrismaClient, type Prisma, type LessonKind, type Assessment } from "@pr
 import { hash } from "@node-rs/argon2";
 import seedrandom from "seedrandom";
 import { customAlphabet } from "nanoid";
+import { seedHomework } from "./seed-homework";
 
 const prisma = new PrismaClient();
 const rng = seedrandom("univer-demo");
@@ -135,6 +136,11 @@ const buildings = ["Главный корпус", "Корпус Б", "Корпу
 
 async function reset() {
   // порядок удаления с учётом связей
+  await prisma.attachment.deleteMany();
+  await prisma.submission.deleteMany();
+  await prisma.assignment.deleteMany();
+  await prisma.material.deleteMany();
+  await prisma.pushSubscription.deleteMany();
   await prisma.attendance.deleteMany();
   await prisma.aiMessage.deleteMany();
   await prisma.aiChat.deleteMany();
@@ -420,6 +426,9 @@ async function main() {
     await prisma.attendance.createMany({ data: rows });
   }
 
+  /* ---------- материалы и домашние задания ---------- */
+  await seedHomework({ prisma, now, groups, demoTeacherId: demoTeacher.id, teacherUserId: teacherUser.id, staffUserId: staffUser.id, annaId: anna.id, petrId: petr.id, rng });
+
   for (const f of fillers) await gradesFor(f.id, Object.keys(groups).find((k) => groups[k].id === f.groupId)!, {});
 
   // пересдача для Петра
@@ -504,7 +513,7 @@ async function main() {
     });
   }
   const dl = [
-    { title: "Сдать лабораторную №4 по базам данных", days: 2, audience: "GROUP" as const, groupId: groups["ИВТ-24-1"].id },
+    { title: "Записаться на консультацию по курсовой", days: 2, audience: "GROUP" as const, groupId: groups["ИВТ-24-1"].id },
     { title: "Выбор темы курсовой работы", days: 6, audience: "FACULTY" as const, facultyId: faculties["ФИТ"] },
     { title: "Черновик курсовой по финансам", days: 4, audience: "GROUP" as const, groupId: groups["ЭК-23-2"].id },
     { title: "Анкета качества преподавания", days: 9, audience: "ALL" as const },

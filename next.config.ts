@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   serverExternalPackages: ["@node-rs/argon2"],
+  // загрузка файлов материалов и домашних заданий: до 25 МБ за запрос (лимит проверяется и в src/server/files.ts)
+  experimental: { proxyClientMaxBodySize: "26mb" },
   turbopack: {
     rules: {
       "*.css": {

@@ -29,6 +29,9 @@ COPY --from=build /app/public ./public
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/package.json ./package.json
+# файлы материалов и домашних заданий (том uploads в docker-compose)
+RUN mkdir -p /app/data/uploads && chown -R app:app /app/data
+ENV DATA_DIR=/app/data
 USER app
 EXPOSE 3000
 CMD ["node", "server.js"]
