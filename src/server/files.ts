@@ -154,7 +154,13 @@ export async function canAccessAttachment(user: Viewer, attachmentId: string) {
   if (!scope) return null;
   if (user.role === "STUDENT" && user.student) {
     if (a.submission) return a.submission.studentId === user.student.id ? a : null;
-    return scope.groupId === user.student.groupId ? a : null;
+    if (scope.groupId === user.student.groupId) return a;
+    // после перевода: файлы условия задания прежней группы — если студент его сдавал
+    if (a.assignment) {
+      const mine = await prisma.submission.count({ where: { assignment: { files: { some: { id: a.id } } }, studentId: user.student.id } });
+      return mine ? a : null;
+    }
+    return null;
   }
   if (user.role === "TEACHER" && user.teacher) {
     const teaches = await prisma.lesson.count({ where: { teacherId: user.teacher.id, groupId: scope.groupId, courseId: scope.courseId } });

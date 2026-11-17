@@ -60,7 +60,7 @@ const studentSelect = (groupId: string) =>
 
 /** Посещаемость (присутствовал / всего) по студентам группы. */
 async function attendanceByStudent(groupId: string, courseId?: string) {
-  const rows = await prisma.attendance.groupBy({ by: ["studentId", "present"], where: { student: { groupId }, ...(courseId ? { lesson: { courseId } } : {}) }, _count: { _all: true } });
+  const rows = await prisma.attendance.groupBy({ by: ["studentId", "present"], where: { student: { groupId }, lesson: { groupId, ...(courseId ? { courseId } : {}) } }, _count: { _all: true } });
   const m = new Map<string, { present: number; total: number }>();
   for (const r of rows) {
     const x = m.get(r.studentId) ?? { present: 0, total: 0 };

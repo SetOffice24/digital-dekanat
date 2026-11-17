@@ -9,6 +9,7 @@ import { customAlphabet } from "nanoid";
 import { seedHomework } from "./seed-homework";
 import { seedMessages } from "./seed-messages";
 import { seedPhotos } from "./seed-photos";
+import { seedAccounts } from "./seed-accounts";
 
 const prisma = new PrismaClient();
 const rng = seedrandom("univer-demo");
@@ -553,6 +554,7 @@ async function main() {
   await seedMessages({ prisma, now, annaUserId: anna.userId, petrUserId: petr.userId, teacherUserId: teacherUser.id, staffUserId: staffUser.id, annaFacultyId: anna.facultyId, petrFacultyId: petr.facultyId, annaGroupId: anna.groupId });
 
   await seedPhotos({ prisma, now, annaId: anna.id, petrId: petr.id, annaGroupId: anna.groupId, staffUserId: staffUser.id, rng });
+  await seedAccounts({ prisma, now, annaId: anna.id, petrId: petr.id, annaGroupId: anna.groupId, staffUserId: staffUser.id, rng });
 
   console.log("Seed OK:", { lessons: lessonRows.length, students: 2 + fillers.length + classmates.length, staff: 1 });
 }

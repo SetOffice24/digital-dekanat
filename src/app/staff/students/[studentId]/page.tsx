@@ -5,6 +5,9 @@ import { requireStaff } from "@/server/auth";
 import { studentFile } from "@/server/repos/analytics";
 import { staffStudentPhotos } from "@/server/repos/photos";
 import { PhotoReview } from "../photos/review";
+import { ACTION_LABEL, studentAccount } from "@/server/repos/accounts";
+import { listGroups } from "@/server/repos/staff";
+import { AccountControls } from "./account";
 import { PageHeader } from "@/components/ui";
 import { StatusBadge } from "@/components/status-badge";
 import { forecastLabel, isBelow } from "@/lib/grading";
@@ -20,8 +23,9 @@ const fmtAvg = (n: number | null) => (n == null ? "—" : n.toFixed(2).replace("
 export default async function StudentFilePage({ params }: { params: Promise<{ studentId: string }> }) {
   const { staff } = await requireStaff();
   const { studentId } = await params;
-  const [file, photos] = await Promise.all([studentFile(staff, studentId), staffStudentPhotos(staff, studentId)]);
-  if (!file || !photos) notFound();
+  const [file, photos, account, groups] = await Promise.all([studentFile(staff, studentId), staffStudentPhotos(staff, studentId), studentAccount(staff, studentId), listGroups(staff)]);
+  if (!file || !photos || !account) notFound();
+  const u = account.user;
   const pendingPhoto = photos.latest?.status === "PENDING" ? photos.latest : null;
   const { student: s, attendance, homework } = file;
   const fio = [s.lastName, s.firstName, s.middleName].filter(Boolean).join(" ");
@@ -167,6 +171,45 @@ export default async function StudentFilePage({ params }: { params: Promise<{ st
               <dt className="text-muted">Логин</dt>
               <dd>{s.user.login}</dd>
             </dl>
+          </section>
+
+          {/* Аккаунт: статус, вход, действия деканата, журнал */}
+          <section>
+            <h2 className="mb-2 text-[15px] font-bold">Аккаунт</h2>
+            <div className="space-y-3 rounded-[24px] border border-border/70 bg-surface p-4 sm:p-5">
+              {u.blockedAt ? (
+                <p className="rounded-2xl bg-danger-soft px-4 py-2.5 text-sm text-danger">
+                  <b className="font-semibold">Заблокирован {fmtDate(u.blockedAt)}.</b> {u.blockReason}
+                </p>
+              ) : u.mustChangePassword ? (
+                <p className="rounded-2xl bg-p-yellow px-4 py-2.5 text-sm text-[#0e0e10]">Выдан временный пароль — студент ещё не задал свой.</p>
+              ) : null}
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                <dt className="text-muted">Логин</dt>
+                <dd className="break-all">{u.login}</dd>
+                <dt className="text-muted">Последний вход</dt>
+                <dd>{u.lastLoginAt ? fmtDateTime(u.lastLoginAt) : <span className="font-semibold text-danger">ни разу</span>}</dd>
+                <dt className="text-muted">Устройства</dt>
+                <dd>
+                  вход на {u._count.sessions}, push на {u._count.pushSubs}
+                </dd>
+              </dl>
+              <AccountControls studentId={s.id} login={u.login} blocked={Boolean(u.blockedAt)} groupId={account.groupId} subgroup={account.subgroup} groups={groups} />
+              {account.events.length > 0 && (
+                <details className="text-sm">
+                  <summary className="cursor-pointer font-medium text-muted hover:text-fg">История аккаунта ({account.events.length})</summary>
+                  <ul className="mt-2 space-y-1.5">
+                    {account.events.map((e) => (
+                      <li key={e.id}>
+                        <span className="text-muted">{fmtDateTime(e.createdAt)}</span> · {ACTION_LABEL[e.action]}
+                        {e.details ? `: ${e.details}` : ""}
+                        <span className="text-muted"> — {e.actor.staff?.fullName ?? (e.actor.student ? "сам студент" : e.actor.login)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
           </section>
 
           {/* Посещаемость */}

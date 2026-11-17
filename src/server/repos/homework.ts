@@ -94,12 +94,16 @@ export async function getAssignmentForTeacher(teacher: SessionTeacher, id: strin
     include: { files: fileSel, group: { select: { id: true, name: true } }, course: { select: { id: true, name: true } } },
   });
   if (!a || !(await teachesPair(teacher, a.groupId, a.courseId))) return null;
+  // группа + те, кто сдал и потом был переведён: их работы остаются у преподавателя на проверке
   const students = await prisma.student.findMany({
-    where: { groupId: a.groupId },
+    where: { OR: [{ groupId: a.groupId }, { submissions: { some: { assignmentId: id } } }] },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-    select: { id: true, lastName: true, firstName: true, submissions: { where: { assignmentId: id }, include: { files: fileSel } } },
+    select: { id: true, lastName: true, firstName: true, groupId: true, group: { select: { name: true } }, submissions: { where: { assignmentId: id }, include: { files: fileSel } } },
   });
-  return { assignment: a, rows: students.map((s) => ({ studentId: s.id, name: `${s.lastName} ${s.firstName}`, submission: s.submissions[0] ?? null })) };
+  return {
+    assignment: a,
+    rows: students.map((s) => ({ studentId: s.id, name: `${s.lastName} ${s.firstName}`, movedTo: s.groupId !== a.groupId ? s.group.name : null, submission: s.submissions[0] ?? null })),
+  };
 }
 
 /**
@@ -142,9 +146,12 @@ export function homeworkState(dueAt: Date, status: SubmissionStatus | null | und
   return dueAt < now ? "overdue" : "todo";
 }
 
+/** Сдачи прошлой группы после перевода тоже показываем — со статусом и комментарием преподавателя. */
+const mineOrMyGroup = (s: SessionStudent) => ({ OR: [{ groupId: s.groupId }, { submissions: { some: { studentId: s.id } } }] });
+
 export async function listHomework(s: SessionStudent) {
   const rows = await prisma.assignment.findMany({
-    where: { groupId: s.groupId },
+    where: mineOrMyGroup(s),
     orderBy: { dueAt: "asc" },
     include: { course: { select: { id: true, name: true } }, teacher: { select: { fullName: true } }, submissions: { where: { studentId: s.id }, select: { status: true, submittedAt: true } } },
   });
@@ -155,7 +162,7 @@ export async function listHomework(s: SessionStudent) {
 /** Задание своей группы + своя сдача. Чужое → null. */
 export async function getHomework(s: SessionStudent, id: string) {
   const a = await prisma.assignment.findFirst({
-    where: { id, groupId: s.groupId },
+    where: { id, ...mineOrMyGroup(s) },
     include: { files: fileSel, course: { select: { id: true, name: true } }, teacher: { select: { fullName: true } }, submissions: { where: { studentId: s.id }, include: { files: fileSel } } },
   });
   if (!a) return null;
@@ -171,9 +178,11 @@ export class HomeworkError extends Error {}
  * Сдача после срока разрешена — у преподавателя она видна с отметкой «после срока» (решение команды 18.11).
  */
 export async function submitHomework(s: SessionStudent, id: string, comment: string | null, files: File[]) {
-  const a = await prisma.assignment.findFirst({ where: { id, groupId: s.groupId }, select: { id: true } });
+  const a = await prisma.assignment.findFirst({ where: { id, ...mineOrMyGroup(s) }, select: { id: true, groupId: true } });
   if (!a) throw new HomeworkError("Задание не найдено");
   const prev = await prisma.submission.findUnique({ where: { assignmentId_studentId: { assignmentId: id, studentId: s.id } }, include: { files: { select: { id: true, storageKey: true } } } });
+  // задание прежней группы (после перевода) — только доработка уже возвращённой работы, новые сдачи нельзя
+  if (a.groupId !== s.groupId && prev?.status !== "RETURNED") throw new HomeworkError("Это задание вашей прежней группы — сдать его уже нельзя");
   if (prev?.status === "ACCEPTED") throw new HomeworkError("Задание уже принято — менять сдачу нельзя");
   if (!files.some((f) => f && f.size > 0)) throw new HomeworkError("Прикрепите хотя бы один файл");
   const stored = await storeFiles(files, s.userId);

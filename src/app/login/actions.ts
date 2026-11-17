@@ -1,9 +1,9 @@
 "use server";
 import { z } from "zod";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/server/db";
-import { clearAttempts, createSession, destroySession, dummyHash, homeFor, isRateLimited, registerFailedAttempt, verifyPassword } from "@/server/auth";
+import { clearAttempts, createSession, destroySession, dummyHash, hashPassword, homeFor, isRateLimited, registerFailedAttempt, userForPasswordChange, verifyPassword } from "@/server/auth";
 
 const schema = z.object({
   login: z.string().trim().min(1, "Введите логин").max(64),
@@ -33,8 +33,10 @@ export async function loginAction(_: LoginState, form: FormData): Promise<LoginS
     return { error: "Неверный логин или пароль", login };
   }
   clearAttempts(key);
+  // о блокировке говорим только после верного пароля — иначе по ответу можно узнать, что логин существует
+  if (user.blockedAt) return { error: "Аккаунт заблокирован. Обратитесь в деканат: каб. 204, главный корпус.", login };
   await createSession(user.id);
-  redirect(homeFor(user.role));
+  redirect(user.mustChangePassword ? "/change-password" : homeFor(user.role));
 }
 
 /** Демо-доступ для жюри: вход в один из четырёх вымышленных аккаунтов без ввода пароля.
@@ -46,8 +48,31 @@ export async function demoLoginAction(form: FormData) {
   const login = String(form.get("login") ?? "");
   if (!(DEMO_LOGINS as readonly string[]).includes(login)) redirect("/login");
   const user = await prisma.user.findUnique({ where: { login } });
-  if (!user) redirect("/login");
+  if (!user || user.blockedAt) redirect("/login");
   await createSession(user.id);
+  redirect(homeFor(user.role));
+}
+
+const newPassword = z
+  .object({
+    password: z.string().min(8, "Не короче 8 символов").max(128).regex(/[A-Za-zА-Яа-яЁё]/, "Добавьте буквы").regex(/\d/, "Добавьте цифру"),
+    repeat: z.string(),
+  })
+  .refine((d) => d.password === d.repeat, { message: "Пароли не совпадают", path: ["repeat"] });
+
+/** Свой пароль вместо временного: сохраняем, закрываем все прочие сессии, пускаем в кабинет. */
+export async function changePasswordAction(_: LoginState, form: FormData): Promise<LoginState> {
+  const user = await userForPasswordChange();
+  const p = newPassword.safeParse({ password: form.get("password"), repeat: form.get("repeat") });
+  if (!p.success) return { error: p.error.issues[0].message };
+  if (await verifyPassword(user.passwordHash, p.data.password)) return { error: "Новый пароль должен отличаться от временного" };
+  const hash = await hashPassword(p.data.password);
+  const sid = (await cookies()).get("sid")?.value;
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: user.id }, data: { passwordHash: hash, mustChangePassword: false } });
+    await tx.session.deleteMany({ where: { userId: user.id, ...(sid ? { id: { not: sid } } : {}) } });
+    if (user.student) await tx.accountEvent.create({ data: { studentId: user.student.id, actorUserId: user.id, action: "PASSWORD_CHANGED" } });
+  });
   redirect(homeFor(user.role));
 }
 

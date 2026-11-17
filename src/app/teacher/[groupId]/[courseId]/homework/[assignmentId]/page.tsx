@@ -53,7 +53,10 @@ export default async function ReviewPage({ params }: { params: Promise<{ groupId
           return (
             <li key={r.studentId} className={cn("px-4 py-4 sm:px-5", i > 0 && "border-t border-border/60")}>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="font-semibold">{r.name}</div>
+                <div className="font-semibold">
+                  {r.name}
+                  {r.movedTo && <span className="ml-2 text-xs font-normal text-muted">переведён(а) в {r.movedTo}</span>}
+                </div>
                 {s ? (
                   <span className={cn("rounded-full px-3 py-1 text-xs font-semibold", STATUS[s.status].cls)}>{STATUS[s.status].label}</span>
                 ) : (

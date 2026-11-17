@@ -16,7 +16,8 @@ export default async function HomeworkItem({ params }: { params: Promise<{ id: s
   if (!h) notFound(); // чужое или несуществующее — одинаково
   const s = h.submission;
   const st = hwState[h.state];
-  const canSubmit = h.state !== "accepted";
+  const otherGroup = h.groupId !== student.groupId; // задание прежней группы (после перевода) — только просмотр
+  const canSubmit = otherGroup ? h.state === "returned" : h.state !== "accepted";
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -85,6 +86,12 @@ export default async function HomeworkItem({ params }: { params: Promise<{ id: s
             </div>
           </div>
         </section>
+      )}
+
+      {otherGroup && (
+        <p className="mt-6 rounded-2xl bg-surface-2 px-4 py-3 text-sm text-muted">
+          Задание вашей прежней группы. Работа сохранена и остаётся у того же преподавателя{h.state === "returned" ? " — доработку можно отправить ему же" : ""}.
+        </p>
       )}
 
       {canSubmit && (

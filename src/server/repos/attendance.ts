@@ -96,7 +96,8 @@ export async function groupAttendance(staff: SessionStaff, groupId: string) {
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     select: {
       id: true, lastName: true, firstName: true,
-      attendance: { select: { present: true, lesson: { select: { date: true, startTime: true, course: { select: { name: true } } } } }, orderBy: { lesson: { date: "desc" } } },
+      // только пары этой группы: отметки студента в прежней группе остаются в его личной истории
+      attendance: { where: { lesson: { groupId } }, select: { present: true, lesson: { select: { date: true, startTime: true, course: { select: { name: true } } } } }, orderBy: { lesson: { date: "desc" } } },
     },
   });
   const rows = students.map((s) => {

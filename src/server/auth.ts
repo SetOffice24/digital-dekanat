@@ -53,12 +53,19 @@ export function clearAttempts(key: string) {
   attempts.delete(key);
 }
 
+/** Снять счётчики неудачных попыток по логину (с любого IP) — после выдачи временного пароля. Лимиты по IP не трогаем. */
+export function clearAttemptsForLogin(login: string) {
+  const prefix = `${login.toLowerCase()}|`;
+  for (const k of attempts.keys()) if (k.startsWith(prefix)) attempts.delete(k);
+}
+
 /* ---------- сессии ---------- */
 export async function createSession(userId: string) {
   const id = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 3600 * 1000);
   const ua = (await headers()).get("user-agent")?.slice(0, 200) ?? null;
   await prisma.session.create({ data: { id, userId, expiresAt, userAgent: ua } });
+  await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
   const secure = (process.env.APP_URL ?? "").startsWith("https://");
   (await cookies()).set(COOKIE, id, {
     httpOnly: true,
@@ -76,20 +83,46 @@ export async function destroySession() {
   jar.delete(COOKIE);
 }
 
-/** Текущий пользователь (кэшируется на время одного запроса). */
-export const getCurrentUser = cache(async () => {
+/**
+ * Пользователь по cookie сессии, как есть (в том числе с временным паролем).
+ * Заблокированный — null: доступ прекращается сразу, даже если сессия где-то осталась.
+ */
+const sessionUser = cache(async () => {
   const id = (await cookies()).get(COOKIE)?.value;
   if (!id) return null;
   const session = await prisma.session.findUnique({
     where: { id },
     include: { user: { include: { student: true, staff: true, teacher: true } } },
   });
-  if (!session || session.expiresAt < new Date()) return null;
+  if (!session || session.expiresAt < new Date() || session.user.blockedAt) return null;
   return session.user;
 });
 
+/**
+ * Текущий пользователь (кэшируется на время одного запроса).
+ * С временным паролем — null для всего, кроме страницы смены пароля: пока не задан свой, кабинет и API закрыты.
+ */
+export const getCurrentUser = cache(async () => {
+  const user = await sessionUser();
+  return user && !user.mustChangePassword ? user : null;
+});
+
+/** Для страницы «Задайте свой пароль». */
+export async function userForPasswordChange() {
+  const user = await sessionUser();
+  if (!user) redirect("/login");
+  return user;
+}
+
+/** Отправить на смену пароля, если выдан временный (вызывается в require*). */
+async function gatePasswordChange() {
+  const raw = await sessionUser();
+  if (raw?.mustChangePassword) redirect("/change-password");
+}
+
 /** Для страниц и действий студента. Студент берётся ТОЛЬКО из сессии. */
 export async function requireStudent() {
+  await gatePasswordChange();
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role !== "STUDENT" || !user.student) redirect(homeFor(user.role));
@@ -103,6 +136,7 @@ export function homeFor(role: "STUDENT" | "STAFF" | "TEACHER") {
 
 /** Для страниц и действий преподавателя: преподаватель берётся только из сессии. */
 export async function requireTeacher() {
+  await gatePasswordChange();
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role !== "TEACHER" || !user.teacher) redirect("/forbidden");
@@ -111,6 +145,7 @@ export async function requireTeacher() {
 
 /** Для страниц и действий сотрудника деканата. */
 export async function requireStaff() {
+  await gatePasswordChange();
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role !== "STAFF" || !user.staff) redirect("/forbidden");

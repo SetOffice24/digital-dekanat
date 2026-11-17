@@ -83,6 +83,13 @@ model User {
   passwordHash  String
   role          Role
   createdAt     DateTime       @default(now())
+  /// заблокирован деканатом: войти нельзя, сессии удалены
+  blockedAt     DateTime?
+  blockReason   String?
+  /// выдан временный пароль — при входе обязательно задать свой
+  mustChangePassword Boolean @default(false)
+  lastLoginAt   DateTime?
+  accountActions AccountEvent[] @relation("AccountActor")
   sessions      Session[]
   student       Student?
   staff         Staff?
@@ -183,6 +190,7 @@ model Student {
   attendance   Attendance[]
   submissions  Submission[]
   photos       StudentPhoto[]
+  accountEvents AccountEvent[]
   /// код электронного студенческого билета (QR → публичная проверка «действующий студент»)
   idCode       String?            @unique
 }
@@ -610,4 +618,28 @@ model StudentPhoto {
 
   @@index([studentId, status])
   @@index([status])
+}
+
+enum AccountAction {
+  CREATED
+  BLOCKED
+  UNBLOCKED
+  PASSWORD_RESET
+  PASSWORD_CHANGED
+  TRANSFERRED
+}
+
+/// Журнал действий с аккаунтом студента (кто из деканата и что сделал). Пароли сюда не пишем.
+model AccountEvent {
+  id          String        @id @default(cuid())
+  studentId   String
+  student     Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  actorUserId String
+  actor       User          @relation("AccountActor", fields: [actorUserId], references: [id])
+  action      AccountAction
+  details     String?
+  createdAt   DateTime      @default(now())
+
+  @@index([studentId, createdAt])
+  @@index([createdAt])
 }
