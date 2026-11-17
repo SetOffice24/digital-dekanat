@@ -377,8 +377,12 @@ async function main() {
 
   /* ---------- оценки ---------- */
   const examValue = () => pick(["5", "5", "4", "4", "4", "3"]);
-  async function gradesFor(studentId: string, groupName: string, opts: { debtCourse?: string; strong?: boolean }) {
+  async function gradesFor(studentId: string, groupName: string, opts: { debtCourse?: string; strong?: boolean; level?: number }) {
     const g = groups[groupName];
+    // уровень студента (доля от максимума): сильные ~25 %, средние ~60 %, слабые ~15 % — чтобы статистика групп была правдоподобной
+    const r0 = rng();
+    const level = opts.level ?? (opts.strong ? 0.86 : r0 < 0.25 ? 0.84 : r0 < 0.85 ? 0.74 : 0.6);
+    const pointsFor = () => Math.max(6, Math.min(20, Math.round(20 * (level + (rng() - 0.5) * 0.24))));
     const curSem = g.course * 2 - 1; // осенний семестр
     // прошлые семестры
     for (let s = 0; s < g.past.length; s++) {
@@ -398,7 +402,7 @@ async function main() {
       const e = await prisma.enrollment.create({ data: { studentId, courseId: await courseId(def), semester: curSem } });
       const n = int(2, 4);
       for (let k = 0; k < n; k++) {
-        const pts = opts.strong ? int(14, 20) : int(8, 19);
+        const pts = pointsFor();
         await prisma.grade.create({
           data: { enrollmentId: e.id, kind: k === n - 1 ? "MIDTERM" : "CURRENT", value: String(pts), points: pts, date: addDays(todayUTC, -7 * (n - k) - int(0, 3)), note: k === n - 1 ? "Контрольная точка" : pick(["Лабораторная работа", "Практическое задание", "Тест", "Доклад"]) },
         });
@@ -406,7 +410,7 @@ async function main() {
     }
   }
   await gradesFor(anna.id, "ИВТ-24-1", { strong: true });
-  await gradesFor(petr.id, "ЭК-23-2", { debtCourse: "Методы оптимальных решений" });
+  await gradesFor(petr.id, "ЭК-23-2", { debtCourse: "Методы оптимальных решений", level: 0.64 });
   for (const f of classmates) await gradesFor(f.id, Object.keys(groups).find((k) => groups[k].id === f.groupId)!, {});
   /* ---------- посещаемость прошедших пар (демо-группы) ---------- */
   {

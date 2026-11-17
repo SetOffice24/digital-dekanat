@@ -16,7 +16,7 @@ corepack pnpm db:seed           # пересоздаёт ВСЕ демо-дан�
 corepack pnpm dev               # http://localhost:3000
 ```
 - Превью в Claude Code: конфигурация **`univer`** в `C:\Users\User\Desktop\SetSearch site creation\.claude\launch.json` (preview_start name="univer").
-- Проверки: `corepack pnpm exec tsc --noEmit`, `corepack pnpm lint`, `corepack pnpm test` (43 теста: authz, teacher, staff-search, bulk-preview, attendance, push, homework — папка `tests/`; нужна засеянная БД).
+- Проверки: `corepack pnpm exec tsc --noEmit`, `corepack pnpm lint`, `corepack pnpm test` (49 тестов — папка `tests/`; нужна засеянная БД).
 - Продакшен-сборка: `corepack pnpm build` (проходит).
 
 ## 3. Тестовые аккаунты (вымышленные) — также `docs/test-accounts.md`
@@ -52,6 +52,8 @@ corepack pnpm dev               # http://localhost:3000
 
 **Файлы ДЗ:** только Word/PDF/Excel/PowerPoint. Демо-файлы — `prisma/fixtures/` (пересоздать: `node scripts/make-fixtures.mjs`).
 
+**Успеваемость (18.11):** `src/server/repos/analytics.ts`; деканат — раздел «Студенты» (`/staff/students` ведомость + Excel `/api/staff/gradebook`, `/staff/students/groups`, `/staff/students/[id]` личное дело, `/staff/attendance` вкладкой); преподаватель — статистика над журналом, `/teacher/[g]/[c]/student/[id]`, сводка в «Все мои группы». Прогноз оценки — `src/lib/grading.ts`. Следующий этап — сообщения (карточка `docs/agents/ideas/I-20261118-soobshcheniya.md`).
+
 **Вход для жюри:** на странице входа блок «Демо-доступ» — 4 кнопки входа в тестовые аккаунты без пароля (список логинов зашит на сервере, `DEMO_LOGIN=0` выключает).
 
 **Безопасность:** данные только через репозитории (`src/server/repos/*`) с фильтром по пользователю из сессии; чужое → 404; пароли argon2id, лимит попыток; секреты только в `.env`; ИИ только через `/api/assistant`.
@@ -63,6 +65,7 @@ corepack pnpm dev               # http://localhost:3000
 - Репозиторий: `github.com/SetOffice24/digital-dekanat` (приватный). **Push и любые действия на сервере — только по явной команде пользователя.**
 - Платные генерации (OpenAI Image через `C:\Users\User\Desktop\SetSearch site creation\SetSearch.ai\tools\gen-image.mjs`, ключ — пользовательская переменная Windows `OPENAI_API_KEY`, `NODE_USE_ENV_PROXY=1`) — только с согласия, называть количество.
 - Fable — для архитектуры/аудита; Opus — сборка и оркестрация; Sonnet-субагенты — изолированные куски (кабинет сотрудника, журнал преподавателя) с чётким брифом «не трогай файлы X».
+- Общие правила для любых ИИ-агентов — `AGENTS.md`. Предложения и асинхронные обсуждения между агентами — `docs/agents/ideas/`: одна идея — отдельная карточка, итог обсуждения не заменяет явное решение команды о реализации.
 
 ## 6. Открытые задачи (по приоритету)
 1. **Деплой:** push на GitHub (ждёт команды) → SSH-осмотр VPS → `deploy/.env` (DB_PASSWORD, SITE_HOST, APP_URL) → `deploy/deploy.sh --seed` → проверка HTTPS-ссылки с телефона. Вход на сервер может требовать пароль — его вводит пользователь.
@@ -82,3 +85,7 @@ corepack pnpm dev               # http://localhost:3000
 - **Chrome подставляет сохранённый логин** при входе → поле дописывается («dekanatteacher»); при тестах задавать значения через form_input. Скриншоты в Chrome не снимаются, если окно в фоне — визуал проверять во встроенном браузере.
 - В новых Chrome `scrollIntoView` возвращает Promise → в `useEffect` всегда фигурные скобки.
 - Глобальные CSS-правила — только в `@layer base`, иначе перебивают утилиты Tailwind 4.
+- **Обратные слэши теряются в `node -e` / heredoc через bash-инструмент** (регулярки `/\s+/` превращались в `/s+/`, `printf '%s\n'` — в перенос строки) → код с `\` править точечным редактированием файла, а не shell-скриптом; после правки проверять результат.
+- **Dev-сервер иногда не подхватывает изменённый файл** (страница отдаёт старую версию даже после перезагрузки) → перезапустить dev-сервер.
+- **Фоновый PostgreSQL (`db:local`) может завершиться сам** (выход с кодом 4) → снова `corepack pnpm db:local`; затем при необходимости `db:seed`.
+- **Тесты меняют демо-данные** (сдают ДЗ, ставят отметки) → после `corepack pnpm test` перед ручной проверкой или демо снова выполнить `db:seed`.

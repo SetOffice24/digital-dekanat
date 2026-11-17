@@ -3,6 +3,7 @@ import { ArrowRight, BookOpen, CalendarDays, Check, MapPin, UserCheck } from "lu
 import { requireTeacher } from "@/server/auth";
 import { listClasses, teachingDay } from "@/server/repos/teacher";
 import { pendingReviews } from "@/server/repos/homework";
+import { teacherOverview } from "@/server/repos/analytics";
 import { EmptyState, PageHeader } from "@/components/ui";
 import { lessonKindLabel } from "@/lib/labels";
 import { cn, fmtDay, minutesOf, moscowTime, moscowToday, plural, roomLabel } from "@/lib/utils";
@@ -16,7 +17,8 @@ export const metadata = { title: "Сегодня" };
 export default async function TeacherHome() {
   const { teacher } = await requireTeacher();
   const today = moscowToday();
-  const [day, classes, toReview] = await Promise.all([teachingDay(teacher, today), listClasses(teacher), pendingReviews(teacher)]);
+  const [day, classes, toReview, overview] = await Promise.all([teachingDay(teacher, today), listClasses(teacher), pendingReviews(teacher), teacherOverview(teacher)]);
+  const ov = new Map(overview.map((o) => [o.groupId + o.courseId, o]));
   const nowMin = minutesOf(moscowTime());
   const active = day?.lessons.filter((l) => l.status !== "CANCELLED") ?? [];
   const next = day?.isToday ? active.find((l) => minutesOf(l.endTime) > nowMin) : active[0];
@@ -100,7 +102,14 @@ export default async function TeacherHome() {
                   <span className="block truncate font-semibold">{c.courseName}</span>
                   <span className="block text-sm text-muted">
                     {c.studentCount} {plural(c.studentCount, "студент", "студента", "студентов")}
+                    {ov.get(c.groupId + c.courseId)?.avgRatio != null && ` · средний ${Math.round(ov.get(c.groupId + c.courseId)!.avgRatio! * 100)}%`}
                   </span>
+                  {(() => {
+                    // коротко, что требует внимания: ниже порога, пропуски подряд, несданные ДЗ
+                    const o = ov.get(c.groupId + c.courseId);
+                    const parts = o ? [o.below && `ниже порога: ${o.below}`, o.streak && `пропускают подряд: ${o.streak}`, o.missing && `не сдали ДЗ: ${o.missing}`].filter(Boolean) : [];
+                    return parts.length ? <span className="block text-sm font-medium text-danger">{parts.join(" · ")}</span> : null;
+                  })()}
                 </span>
                 <ArrowRight size={18} className="shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-fg" />
               </Link>

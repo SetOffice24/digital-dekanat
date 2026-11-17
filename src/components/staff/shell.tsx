@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, FileText, LogOut, Megaphone, UserCheck, type LucideIcon } from "lucide-react";
+import { CalendarDays, FileText, GraduationCap, LogOut, Megaphone, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/logo";
 import { logoutAction } from "@/app/login/actions";
@@ -9,9 +9,10 @@ import { university } from "@/config/university";
 
 const nav: { href: string; label: string; icon: LucideIcon; exact?: boolean; match?: (p: string) => boolean }[] = [
   { href: "/staff", label: "Заявки", icon: FileText, match: (p: string) => p === "/staff" || p.startsWith("/staff/requests") },
-  { href: "/staff/announcements", label: "Объявления", icon: Megaphone },
+  // успеваемость, статистика групп, посещаемость и личные дела — в одном разделе
+  { href: "/staff/students", label: "Студенты", icon: GraduationCap, match: (p: string) => p.startsWith("/staff/students") || p.startsWith("/staff/attendance") },
   { href: "/staff/schedule", label: "Расписание", icon: CalendarDays },
-  { href: "/staff/attendance", label: "Посещаемость", icon: UserCheck },
+  { href: "/staff/announcements", label: "Объявления", icon: Megaphone },
 ];
 
 /** Кабинет сотрудника: шапка с вкладками на всю ширину экрана, контент до 1600 px. */

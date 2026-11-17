@@ -1,11 +1,12 @@
 "use client";
+import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
 import { Check, Plus, X } from "lucide-react";
 import { Button, Input, Select } from "@/components/ui";
 import { addGradeAction, deleteGradeAction, type GradeState } from "./actions";
 
 export type RowGrade = { id: string; kind: string; points: number | null; value: string; date: string; note: string | null };
-export type Row = { enrollmentId: string; name: string; subgroup: number; grades: RowGrade[]; total: number };
+export type Row = { enrollmentId: string; name: string; href: string; subgroup: number; grades: RowGrade[]; total: number };
 
 const initial: GradeState = {};
 
@@ -58,7 +59,9 @@ export function GradebookRow({ row, kinds, max }: { row: Row; kinds: readonly st
   return (
     <li className="rounded-[28px] border border-border/70 bg-surface p-4 md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,2fr)_4rem_auto] md:items-center md:gap-4 md:rounded-none md:border-0 md:border-b md:bg-transparent md:px-2 md:py-3 md:last:border-b-0">
       <div className="min-w-0">
-        <div className="font-semibold leading-tight">{row.name}</div>
+        <Link href={row.href} className="font-semibold leading-tight underline-offset-2 hover:underline">
+          {row.name}
+        </Link>
         <div className="mt-0.5 text-xs text-muted">подгруппа {row.subgroup}</div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5 md:mt-0">
