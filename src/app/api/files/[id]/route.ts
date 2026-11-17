@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/server/auth";
-import { canAccessAttachment, readStored } from "@/server/files";
+import { canAccessAttachment, contentDisposition, readStored } from "@/server/files";
 
 export const runtime = "nodejs";
 
@@ -17,7 +17,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     headers: {
       "Content-Type": a.mime,
       "Content-Length": String(data.length),
-      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(a.name)}`,
+      "Content-Disposition": contentDisposition(a.name),
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "private, no-store",
     },

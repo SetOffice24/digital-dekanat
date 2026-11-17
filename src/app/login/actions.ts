@@ -18,15 +18,18 @@ export async function loginAction(_: LoginState, form: FormData): Promise<LoginS
   const { login, password } = parsed.data;
 
   const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || "local";
+  // первый адрес в X-Forwarded-For задаёт клиент (можно подделать и обойти лимит); последний дописывает наш Caddy
+  const ip = h.get("x-forwarded-for")?.split(",").pop()?.trim() || h.get("x-real-ip") || "local";
   const key = `${login.toLowerCase()}|${ip}`;
-  if (isRateLimited(key)) return { error: "Слишком много попыток. Подождите 15 минут и попробуйте снова.", login };
+  const ipKey = `ip|${ip}`;
+  if (isRateLimited(key) || isRateLimited(ipKey, 50)) return { error: "Слишком много попыток. Подождите 15 минут и попробуйте снова.", login };
 
   const user = await prisma.user.findUnique({ where: { login: login.toLowerCase() } });
   // verify выполняется и для несуществующего логина — одинаковое время ответа
   const ok = await verifyPassword(user?.passwordHash ?? (await dummyHash()), password);
   if (!user || !ok) {
     registerFailedAttempt(key);
+    registerFailedAttempt(ipKey); // перебор разных логинов с одного адреса
     return { error: "Неверный логин или пароль", login };
   }
   clearAttempts(key);

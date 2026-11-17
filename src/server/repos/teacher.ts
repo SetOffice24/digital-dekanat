@@ -28,8 +28,11 @@ export async function listClasses(teacher: SessionTeacher) {
     .sort((a, b) => a.groupName.localeCompare(b.groupName, "ru") || a.courseName.localeCompare(b.courseName, "ru"));
 }
 
+/** Окно «текущего периода»: пары за последние 150 дней (и будущие). Прошлогодние группы преподавателю больше не доступны. */
+export const currentPeriod = () => ({ date: { gte: new Date(Date.now() - 150 * 86400_000) } });
+
 export async function teachesPair(teacher: SessionTeacher, groupId: string, courseId: string) {
-  return (await prisma.lesson.count({ where: { teacherId: teacher.id, groupId, courseId } })) > 0;
+  return (await prisma.lesson.count({ where: { teacherId: teacher.id, groupId, courseId, ...currentPeriod() } })) > 0;
 }
 
 export async function getGradebook(teacher: SessionTeacher, groupId: string, courseId: string) {

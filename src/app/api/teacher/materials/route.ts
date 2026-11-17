@@ -19,7 +19,7 @@ const schema = z.object({
 /** Добавить материал (ссылка и/или файлы) группе по своей дисциплине. */
 export async function POST(req: Request) {
   const user = await getCurrentUser();
-  if (!user?.teacher) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user?.role !== "TEACHER" || !user.teacher) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const form = await req.formData().catch(() => null);
   if (!form) return NextResponse.json({ error: "Не удалось прочитать форму" }, { status: 400 });
   const parsed = schema.safeParse({ groupId: form.get("groupId"), courseId: form.get("courseId"), title: form.get("title"), description: form.get("description") ?? undefined, url: form.get("url") ?? undefined });

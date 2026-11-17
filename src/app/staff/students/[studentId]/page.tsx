@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ChevronRight, MessagesSquare } from "lucide-react";
+import { ArrowLeft, ChevronRight, Download, MessagesSquare } from "lucide-react";
 import { requireStaff } from "@/server/auth";
 import { studentFile } from "@/server/repos/analytics";
+import { staffStudentPhotos } from "@/server/repos/photos";
+import { PhotoReview } from "../photos/review";
 import { PageHeader } from "@/components/ui";
 import { StatusBadge } from "@/components/status-badge";
 import { forecastLabel, isBelow } from "@/lib/grading";
@@ -17,8 +19,10 @@ const fmtAvg = (n: number | null) => (n == null ? "—" : n.toFixed(2).replace("
 /** Личное дело студента для деканата: всё о студенте на одной странице. Студент другого факультета — 404. */
 export default async function StudentFilePage({ params }: { params: Promise<{ studentId: string }> }) {
   const { staff } = await requireStaff();
-  const file = await studentFile(staff, (await params).studentId);
-  if (!file) notFound();
+  const { studentId } = await params;
+  const [file, photos] = await Promise.all([studentFile(staff, studentId), staffStudentPhotos(staff, studentId)]);
+  if (!file || !photos) notFound();
+  const pendingPhoto = photos.latest?.status === "PENDING" ? photos.latest : null;
   const { student: s, attendance, homework } = file;
   const fio = [s.lastName, s.firstName, s.middleName].filter(Boolean).join(" ");
   const hwOpen = homework.filter((h) => h.state === "overdue" || h.state === "returned").length;
@@ -121,6 +125,30 @@ export default async function StudentFilePage({ params }: { params: Promise<{ st
           {/* Данные */}
           <section>
             <h2 className="mb-2 text-[15px] font-bold">Данные студента</h2>
+            {/* Фото для документов: действующее (скачать для пропуска) и новое на проверке */}
+            <div className="mb-2 flex flex-wrap gap-4 rounded-[24px] border border-border/70 bg-surface p-4 sm:p-5">
+              {photos.current ? (
+                <div className="flex items-end gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- защищённый маршрут */}
+                  <img src={`/api/photos/${photos.current.id}`} alt="Фото студента" width={90} height={120} className="h-[120px] w-[90px] rounded-xl object-cover" />
+                  <a href={`/api/photos/${photos.current.id}?download=1`} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border px-3 text-sm font-medium hover:border-ink">
+                    <Download size={15} /> Для пропуска
+                  </a>
+                </div>
+              ) : (
+                <p className="text-sm text-muted">{pendingPhoto ? "Действующего фото пока нет." : "Фото для документов не загружено."}</p>
+              )}
+              {pendingPhoto && (
+                <div className="flex min-w-0 gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- защищённый маршрут */}
+                  <img src={`/api/photos/${pendingPhoto.id}`} alt="Новое фото на проверке" width={90} height={120} className="h-[120px] w-[90px] shrink-0 rounded-xl object-cover ring-2 ring-p-yellow" />
+                  <div className="min-w-0 space-y-2">
+                    <p className="text-sm">Новое фото на проверке</p>
+                    <PhotoReview id={pendingPhoto.id} />
+                  </div>
+                </div>
+              )}
+            </div>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-[24px] border border-border/70 bg-surface p-4 text-sm sm:p-5">
               <dt className="text-muted">Направление</dt>
               <dd>

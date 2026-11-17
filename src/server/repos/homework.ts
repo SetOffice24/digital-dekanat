@@ -4,7 +4,7 @@ import "server-only";
  * Преподаватель — только свои пары (группа + дисциплина, где у него есть занятия).
  * Студент — только задания своей группы и только свои сдачи.
  */
-import type { SubmissionStatus } from "@prisma/client";
+import { Prisma, type SubmissionStatus } from "@prisma/client";
 import { prisma } from "../db";
 import { notify } from "../notify";
 import { removeStored, storeFiles } from "../files";
@@ -27,16 +27,26 @@ export async function listMaterials(teacher: SessionTeacher, groupId: string, co
 export async function addMaterial(teacher: SessionTeacher, userId: string, groupId: string, courseId: string, data: { title: string; description?: string; url?: string }, files: File[]) {
   await assertPair(teacher, groupId, courseId);
   const stored = await storeFiles(files, userId);
-  const m = await prisma.material.create({ data: { groupId, courseId, teacherId: teacher.id, ...data, files: { create: stored } } });
-  const course = await prisma.course.findUnique({ where: { id: courseId }, select: { name: true } });
-  const students = await prisma.student.findMany({ where: { groupId }, select: { userId: true } });
-  await notify(students.map((s) => s.userId), { kind: "SYSTEM", title: `Новый материал: ${course?.name ?? ""}`, body: data.title, link: `/courses/${courseId}` });
+  const m = await prisma.material
+    .create({ data: { groupId, courseId, teacherId: teacher.id, ...data, files: { create: stored } } })
+    .catch(async (e) => {
+      await removeStored(stored.map((f) => f.storageKey));
+      throw e;
+    });
+  // уведомление — после сохранения; его сбой не должен превращать сохранённый материал в ошибку
+  try {
+    const course = await prisma.course.findUnique({ where: { id: courseId }, select: { name: true } });
+    const students = await prisma.student.findMany({ where: { groupId }, select: { userId: true } });
+    await notify(students.map((s) => s.userId), { kind: "SYSTEM", title: `Новый материал: ${course?.name ?? ""}`, body: data.title, link: `/courses/${courseId}`, dedupeKey: `material:${m.id}` });
+  } catch (e) {
+    console.error("notify failed", e);
+  }
   return m;
 }
 
 export async function deleteMaterial(teacher: SessionTeacher, id: string) {
   const m = await prisma.material.findUnique({ where: { id }, include: { files: { select: { storageKey: true } } } });
-  if (!m || !(await teachesPair(teacher, m.groupId, m.courseId))) return false;
+  if (!m || m.teacherId !== teacher.id) return false;
   await prisma.material.delete({ where: { id } });
   await removeStored(m.files.map((f) => f.storageKey));
   return true;
@@ -60,11 +70,20 @@ export async function listAssignments(teacher: SessionTeacher, groupId: string, 
 export async function createAssignment(teacher: SessionTeacher, userId: string, groupId: string, courseId: string, data: { title: string; description: string; dueAt: Date }, files: File[]) {
   await assertPair(teacher, groupId, courseId);
   const stored = await storeFiles(files, userId);
-  const a = await prisma.assignment.create({ data: { groupId, courseId, teacherId: teacher.id, ...data, files: { create: stored } } });
-  const course = await prisma.course.findUnique({ where: { id: courseId }, select: { name: true } });
-  const students = await prisma.student.findMany({ where: { groupId }, select: { userId: true } });
-  const due = new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(data.dueAt);
-  await notify(students.map((s) => s.userId), { kind: "DEADLINE", title: `Домашнее задание: ${course?.name ?? ""}`, body: `«${data.title}» — сдать до ${due}`, link: `/homework/${a.id}` });
+  const a = await prisma.assignment
+    .create({ data: { groupId, courseId, teacherId: teacher.id, ...data, files: { create: stored } } })
+    .catch(async (e) => {
+      await removeStored(stored.map((f) => f.storageKey));
+      throw e;
+    });
+  try {
+    const course = await prisma.course.findUnique({ where: { id: courseId }, select: { name: true } });
+    const students = await prisma.student.findMany({ where: { groupId }, select: { userId: true } });
+    const due = new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(data.dueAt);
+    await notify(students.map((s) => s.userId), { kind: "DEADLINE", title: `Домашнее задание: ${course?.name ?? ""}`, body: `«${data.title}» — сдать до ${due}`, link: `/homework/${a.id}`, dedupeKey: `assignment:${a.id}` });
+  } catch (e) {
+    console.error("notify failed", e);
+  }
   return a;
 }
 
@@ -83,14 +102,22 @@ export async function getAssignmentForTeacher(teacher: SessionTeacher, id: strin
   return { assignment: a, rows: students.map((s) => ({ studentId: s.id, name: `${s.lastName} ${s.firstName}`, submission: s.submissions[0] ?? null })) };
 }
 
-export async function reviewSubmission(teacher: SessionTeacher, submissionId: string, status: "ACCEPTED" | "RETURNED", comment: string | null) {
+/**
+ * Принять / вернуть сдачу. Проверка привязана к версии: если студент успел прислать новую — «stale», ничего не меняем
+ * (иначе преподаватель «принял» бы файлы, которых не видел). Повтор того же решения — без нового уведомления.
+ */
+export async function reviewSubmission(teacher: SessionTeacher, submissionId: string, version: number, status: "ACCEPTED" | "RETURNED", comment: string | null): Promise<true | "stale" | null> {
   const s = await prisma.submission.findUnique({
     where: { id: submissionId },
     include: { assignment: { select: { id: true, title: true, groupId: true, courseId: true, course: { select: { name: true } } } }, student: { select: { userId: true } } },
   });
   if (!s || !(await teachesPair(teacher, s.assignment.groupId, s.assignment.courseId))) return null;
-  await prisma.submission.update({ where: { id: submissionId }, data: { status, teacherComment: comment, reviewedAt: new Date() } });
+  if (s.version !== version) return "stale";
+  if (s.status === status && s.teacherComment === comment) return true;
+  const { count } = await prisma.submission.updateMany({ where: { id: submissionId, version }, data: { status, teacherComment: comment, reviewedAt: new Date() } });
+  if (!count) return "stale";
   await notify([s.student.userId], {
+    dedupeKey: `review:${submissionId}:v${version}:${status}`,
     kind: "GRADE",
     title: status === "ACCEPTED" ? `Домашнее задание принято` : `Домашнее задание — на доработку`,
     body: `${s.assignment.course.name}: «${s.assignment.title}»${comment ? `. Комментарий: ${comment}` : ""}`,
@@ -138,7 +165,11 @@ export async function getHomework(s: SessionStudent, id: string) {
 
 export class HomeworkError extends Error {}
 
-/** Отправить (или переотправить) домашнее задание. Новая отправка заменяет прежние файлы. Принятое — не меняется. */
+/**
+ * Отправить (или переотправить) домашнее задание. Новая отправка заменяет прежние файлы и увеличивает версию.
+ * Принятое — не меняется (проверяется внутри транзакции условием, чтобы не проскочить мимо одновременного «Принять»).
+ * Сдача после срока разрешена — у преподавателя она видна с отметкой «после срока» (решение команды 18.11).
+ */
 export async function submitHomework(s: SessionStudent, id: string, comment: string | null, files: File[]) {
   const a = await prisma.assignment.findFirst({ where: { id, groupId: s.groupId }, select: { id: true } });
   if (!a) throw new HomeworkError("Задание не найдено");
@@ -146,16 +177,25 @@ export async function submitHomework(s: SessionStudent, id: string, comment: str
   if (prev?.status === "ACCEPTED") throw new HomeworkError("Задание уже принято — менять сдачу нельзя");
   if (!files.some((f) => f && f.size > 0)) throw new HomeworkError("Прикрепите хотя бы один файл");
   const stored = await storeFiles(files, s.userId);
-  const sub = await prisma.$transaction(async (tx) => {
-    if (prev) await tx.attachment.deleteMany({ where: { submissionId: prev.id } });
-    return tx.submission.upsert({
-      where: { assignmentId_studentId: { assignmentId: id, studentId: s.id } },
-      create: { assignmentId: id, studentId: s.id, comment, files: { create: stored } },
-      update: { comment, status: "SUBMITTED", submittedAt: new Date(), reviewedAt: null, teacherComment: null, files: { create: stored } },
+  try {
+    const sub = await prisma.$transaction(async (tx) => {
+      if (!prev) return tx.submission.create({ data: { assignmentId: id, studentId: s.id, comment, files: { create: stored } } });
+      const { count } = await tx.submission.updateMany({
+        where: { id: prev.id, version: prev.version, status: { not: "ACCEPTED" } },
+        data: { comment, status: "SUBMITTED", submittedAt: new Date(), reviewedAt: null, teacherComment: null, version: { increment: 1 } },
+      });
+      if (!count) throw new HomeworkError("Сдача изменилась (её только что проверили или вы отправили её в другой вкладке) — обновите страницу");
+      await tx.attachment.deleteMany({ where: { submissionId: prev.id } });
+      await tx.attachment.createMany({ data: stored.map((f) => ({ ...f, submissionId: prev.id })) });
+      return tx.submission.findUniqueOrThrow({ where: { id: prev.id } });
     });
-  });
-  if (prev) await removeStored(prev.files.map((f) => f.storageKey));
-  return sub;
+    if (prev) await removeStored(prev.files.map((f) => f.storageKey));
+    return sub;
+  } catch (e) {
+    await removeStored(stored.map((f) => f.storageKey));
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") throw new HomeworkError("Работа уже отправлена в другой вкладке — обновите страницу");
+    throw e;
+  }
 }
 
 /** Материалы дисциплины для своей группы. */

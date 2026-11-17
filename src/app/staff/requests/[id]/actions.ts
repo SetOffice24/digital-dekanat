@@ -22,6 +22,10 @@ export async function changeStatusAction(_: FormState, form: FormData): Promise<
   }
   const r = await changeRequestStatus(staff, id, status, message || null);
   if (!r) return { error: "Заявка не найдена" };
+  if (r === "invalid") {
+    revalidatePath(`/staff/requests/${id}`);
+    return { error: "Статус заявки уже изменился — обновите страницу" };
+  }
   revalidatePath(`/staff/requests/${id}`);
   revalidatePath("/staff/requests");
   revalidatePath("/staff");

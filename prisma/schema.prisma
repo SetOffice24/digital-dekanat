@@ -182,6 +182,9 @@ model Student {
   aiMessages   AiMessage[]
   attendance   Attendance[]
   submissions  Submission[]
+  photos       StudentPhoto[]
+  /// код электронного студенческого билета (QR → публичная проверка «действующий студент»)
+  idCode       String?            @unique
 }
 
 model Staff {
@@ -493,6 +496,8 @@ model Submission {
   student        Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
   comment        String?
   status         SubmissionStatus @default(SUBMITTED)
+  /// растёт при каждой отправке; проверка преподавателя привязана к версии, которую он видел
+  version        Int              @default(1)
   teacherComment String?
   submittedAt    DateTime         @default(now())
   reviewedAt     DateTime?
@@ -580,4 +585,29 @@ model Message {
   files          Attachment[]
 
   @@index([conversationId, createdAt])
+}
+
+/* ---------- Фото студента ---------- */
+
+enum PhotoStatus {
+  PENDING // на проверке в деканате
+  APPROVED // принято — идёт на студенческий билет и пропуск
+  REJECTED // не подходит, причина в comment
+}
+
+/** Фото 3×4 для документов. Хранится на диске (DATA_DIR/photos), уже обрезанное и пережатое в JPEG без метаданных. */
+model StudentPhoto {
+  id           String      @id @default(cuid())
+  studentId    String
+  student      Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  storageKey   String      @unique
+  size         Int
+  status       PhotoStatus @default(PENDING)
+  comment      String?
+  createdAt    DateTime    @default(now())
+  reviewedAt   DateTime?
+  reviewedById String?
+
+  @@index([studentId, status])
+  @@index([status])
 }

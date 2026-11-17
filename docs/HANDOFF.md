@@ -16,7 +16,7 @@ corepack pnpm db:seed           # пересоздаёт ВСЕ демо-дан�
 corepack pnpm dev               # http://localhost:3000
 ```
 - Превью в Claude Code: конфигурация **`univer`** в `C:\Users\User\Desktop\SetSearch site creation\.claude\launch.json` (preview_start name="univer").
-- Проверки: `corepack pnpm exec tsc --noEmit`, `corepack pnpm lint`, `corepack pnpm test` (56 тестов — папка `tests/`; нужна засеянная БД).
+- Проверки: `corepack pnpm exec tsc --noEmit`, `corepack pnpm lint`, `corepack pnpm test` (65 тестов — папка `tests/`; нужна засеянная БД).
 - Продакшен-сборка: `corepack pnpm build` (проходит).
 
 ## 3. Тестовые аккаунты (вымышленные) — также `docs/test-accounts.md`
@@ -54,7 +54,11 @@ corepack pnpm dev               # http://localhost:3000
 
 **Успеваемость (18.11):** `src/server/repos/analytics.ts`; деканат — раздел «Студенты» (`/staff/students` ведомость + Excel `/api/staff/gradebook`, `/staff/students/groups`, `/staff/students/[id]` личное дело, `/staff/attendance` вкладкой); преподаватель — статистика над журналом, `/teacher/[g]/[c]/student/[id]`, сводка в «Все мои группы». Прогноз оценки — `src/lib/grading.ts`. 
 
-**Сообщения (18.11):** `src/server/repos/messages.ts` (права и видимость), `src/components/messages/*`, страницы `/messages`, `/teacher/messages`, `/staff/messages`, API `/api/messages/*`, таблицы `Conversation`/`ConversationParticipant`/`Message`, демо — `prisma/seed-messages.ts`. Дальше — разбор `docs/audits/homework-2026-11-18.md` и `docs/security-audit-2026-11-17.md`.
+**Сообщения (18.11):** `src/server/repos/messages.ts` (права и видимость), `src/components/messages/*`, страницы `/messages`, `/teacher/messages`, `/staff/messages`, API `/api/messages/*`, таблицы `Conversation`/`ConversationParticipant`/`Message`, демо — `prisma/seed-messages.ts`. Аудиты ДЗ и безопасности разобраны 18.11 (см. ниже).
+
+**Фото и электронный студенческий (18.11):** таблица `StudentPhoto` (PENDING → APPROVED / REJECTED), `Student.idCode`; обработка — `src/server/photos.ts` (sharp, диск `DATA_DIR/photos`), права и модерация — `src/server/repos/photos.ts`; студент — `/profile` (билет + «Фото для документов», загрузка `/api/photos`); деканат — вкладка `/staff/students/photos` (очередь, группа целиком, «Для пропуска» = `/api/photos/[id]?download=1`) и блок в личном деле; публичная проверка — `/verify/student/[code]`. Демо: у Анны и части ИВТ-24-1 фото приняты, у Петра и Никиты Зорина — на проверке.
+
+**Исправления по аудитам (18.11):** ДЗ — версия сдачи (`Submission.version`), проверка привязана к версии, сдача и «Принять» не перетирают друг друга; файлы — проверка содержимого, откат частично записанных; push только по новым уведомлениям (dedupeKey); доступ преподавателя — пары за последние 150 дней, материал удаляет только автор; заявки — таблица переходов статусов (`REQUEST_TRANSITIONS`); push-подписку чужого устройства не перехватить; вход — IP из последнего X-Forwarded-For + общий лимит на IP; API без Origin → 403; `deploy.sh` предупреждает о демо-входе. Не исправлено: аудит сообщений `docs/audits/messages-2026-11-18.md` (13 находок, пункты 6–7 закрыты общими правками файлов).
 
 **Вход для жюри:** на странице входа блок «Демо-доступ» — 4 кнопки входа в тестовые аккаунты без пароля (список логинов зашит на сервере, `DEMO_LOGIN=0` выключает).
 

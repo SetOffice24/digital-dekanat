@@ -20,7 +20,7 @@ const schema = z.object({
 /** Выдать домашнее задание группе: срок, описание, файлы (по желанию). Студенты получают уведомление. */
 export async function POST(req: Request) {
   const user = await getCurrentUser();
-  if (!user?.teacher) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user?.role !== "TEACHER" || !user.teacher) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const form = await req.formData().catch(() => null);
   if (!form) return NextResponse.json({ error: "Не удалось прочитать форму" }, { status: 400 });
   const parsed = schema.safeParse(Object.fromEntries(["groupId", "courseId", "title", "description", "dueDate", "dueTime"].map((k) => [k, form.get(k) ?? undefined])));

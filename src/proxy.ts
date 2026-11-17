@@ -11,9 +11,14 @@ export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (req.method !== "GET" && req.method !== "HEAD" && pathname.startsWith("/api/")) {
+    // браузер всегда шлёт Origin для POST/DELETE с fetch и форм; запрос без него к API — не из нашего интерфейса
     const origin = req.headers.get("origin");
-    const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-    if (origin && host && new URL(origin).host !== host) {
+    const host = req.headers.get("host");
+    let originHost: string | null = null;
+    try {
+      originHost = origin ? new URL(origin).host : null;
+    } catch {}
+    if (!originHost || !host || originHost !== host) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }

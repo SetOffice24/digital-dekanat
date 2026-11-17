@@ -5,13 +5,17 @@ import { requireTeacher } from "@/server/auth";
 import { reviewSubmission } from "@/server/repos/homework";
 
 /** Принять сдачу или вернуть на доработку (тогда комментарий обязателен). Студент получает уведомление. */
-export async function reviewAction(submissionId: string, status: "ACCEPTED" | "RETURNED", comment: string): Promise<{ ok?: boolean; error?: string }> {
+export async function reviewAction(submissionId: string, version: number, status: "ACCEPTED" | "RETURNED", comment: string): Promise<{ ok?: boolean; error?: string }> {
   const { teacher } = await requireTeacher();
-  const p = z.object({ id: z.string().min(1).max(40), status: z.enum(["ACCEPTED", "RETURNED"]), comment: z.string().trim().max(1000) }).safeParse({ id: submissionId, status, comment });
+  const p = z.object({ id: z.string().min(1).max(40), version: z.number().int().min(1), status: z.enum(["ACCEPTED", "RETURNED"]), comment: z.string().trim().max(1000) }).safeParse({ id: submissionId, version, status, comment });
   if (!p.success) return { error: "Не удалось сохранить" };
   if (p.data.status === "RETURNED" && p.data.comment.length < 3) return { error: "Напишите, что исправить" };
-  const r = await reviewSubmission(teacher, p.data.id, p.data.status, p.data.comment || null);
-  if (!r) return { error: "Сдача не найдена" };
+  const r = await reviewSubmission(teacher, p.data.id, p.data.version, p.data.status, p.data.comment || null);
+  if (r === null) return { error: "Сдача не найдена" };
+  if (r === "stale") {
+    revalidatePath("/teacher/[groupId]/[courseId]/homework", "layout");
+    return { error: "Студент уже прислал новую версию — обновите страницу и проверьте её" };
+  }
   revalidatePath("/teacher/[groupId]/[courseId]/homework", "layout");
   return { ok: true };
 }

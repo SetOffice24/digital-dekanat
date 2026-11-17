@@ -31,6 +31,15 @@ describe("подписки на push", () => {
     expect(await savePushSubscription(anna.id, { endpoint: "https://x.test/" + "a".repeat(1100), keys }, null)).toBe(false);
   });
 
+  it("чужой endpoint с другими ключами не перехватить; тот же браузер (те же ключи) — можно", async () => {
+    const other = { p256dh: keys.p256dh.slice(0, -4) + "AAAA", auth: "AAAAAAAAAAAAAAAAAAAAAA" };
+    expect(await savePushSubscription(petr.id, { endpoint, keys: other }, null)).toBe(false);
+    expect((await db.pushSubscription.findUniqueOrThrow({ where: { endpoint } })).userId).toBe(anna.id);
+    // вошли в том же браузере под другим аккаунтом и вернулись — ключи совпадают
+    expect(await savePushSubscription(petr.id, { endpoint, keys }, null)).toBe(true);
+    expect(await savePushSubscription(anna.id, { endpoint, keys }, null)).toBe(true);
+  });
+
   it("чужую подписку удалить нельзя, свою — можно", async () => {
     expect(await removePushSubscription(petr.id, endpoint)).toBe(false);
     expect(await db.pushSubscription.count({ where: { endpoint } })).toBe(1);

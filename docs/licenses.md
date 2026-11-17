@@ -12,5 +12,6 @@
 - Шрифт Unbounded — SIL Open Font License 1.1 (пакет `@fontsource-variable/unbounded`).
 - Шрифт Onest — SIL Open Font License 1.1 (пакет `@fontsource-variable/onest`).
 - `web-push` — MIT (отправка push-уведомлений).
+- `sharp` — Apache-2.0 (обработка фото студентов: обрезка 3:4, перекодирование в JPEG, удаление EXIF; рисунки-силуэты демо-фото в `prisma/seed-photos.ts`). Демо-фото — нарисованные силуэты, не фотографии реальных людей.
 - `docx`, `exceljs`, `pptxgenjs` — MIT; только для разработки: генерация демо-файлов Word/Excel/PowerPoint (`scripts/make-fixtures.mjs`). Сами файлы в `prisma/fixtures/` — собственные вымышленные учебные материалы проекта.
 - Иконки PWA (`public/icons/*`) — нарисованы из собственного логотипа проекта.

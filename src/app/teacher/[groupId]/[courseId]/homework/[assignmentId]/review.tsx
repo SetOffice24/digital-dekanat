@@ -4,7 +4,7 @@ import { Check, LoaderCircle, RotateCcw } from "lucide-react";
 import { reviewAction } from "./actions";
 
 /** Принять / вернуть на доработку. Для возврата — обязательный комментарий, что исправить. */
-export function ReviewControls({ submissionId, status }: { submissionId: string; status: "SUBMITTED" | "RETURNED" | "ACCEPTED" }) {
+export function ReviewControls({ submissionId, version, status }: { submissionId: string; version: number; status: "SUBMITTED" | "RETURNED" | "ACCEPTED" }) {
   const [mode, setMode] = useState<"idle" | "return">("idle");
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -12,7 +12,7 @@ export function ReviewControls({ submissionId, status }: { submissionId: string;
   const run = (s: "ACCEPTED" | "RETURNED") =>
     start(async () => {
       setError(null);
-      const r = await reviewAction(submissionId, s, comment);
+      const r = await reviewAction(submissionId, version, s, comment);
       if (r.error) setError(r.error);
       else {
         setMode("idle");
@@ -48,7 +48,7 @@ export function ReviewControls({ submissionId, status }: { submissionId: string;
           </button>
         </div>
       ) : status === "ACCEPTED" ? (
-        <button type="button" onClick={() => setMode("return")} className="text-sm font-medium text-muted underline underline-offset-2 hover:text-fg">
+        <button type="button" onClick={() => window.confirm("Работа уже принята. Вернуть её студенту на доработку?") && setMode("return")} className="text-sm font-medium text-muted underline underline-offset-2 hover:text-fg">
           Вернуть на доработку
         </button>
       ) : null}

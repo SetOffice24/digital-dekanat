@@ -7,12 +7,15 @@ import { mondayOf, moscowToday } from "@/lib/utils";
 
 export async function saveCheckinAction(mood: number) {
   const { student } = await requireStudent();
-  const m = z.number().int().min(1).max(5).parse(mood);
-  await saveCheckin(student, mondayOf(moscowToday()), m);
+  const m = z.number().int().min(1).max(5).safeParse(mood);
+  if (!m.success) return;
+  await saveCheckin(student, mondayOf(moscowToday()), m.data);
 }
 
 export async function markReadAction(id?: string) {
   const { user } = await requireStudent();
-  await markRead(user.id, id ? z.string().max(40).parse(id) : undefined);
+  const nid = z.string().min(1).max(40).optional().safeParse(id);
+  if (!nid.success) return;
+  await markRead(user.id, nid.data);
   revalidatePath("/notifications");
 }

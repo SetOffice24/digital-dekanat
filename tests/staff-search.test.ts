@@ -3,7 +3,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient, type Staff } from "@prisma/client";
-import { countByStatus, listRequests, nextOpenRequest } from "@/server/repos/staff";
+import { changeRequestStatus, countByStatus, listRequests, nextOpenRequest } from "@/server/repos/staff";
 
 const db = new PrismaClient();
 let staff: Staff;
@@ -45,5 +45,17 @@ describe("поиск заявок деканатом", () => {
     expect(next!.id).not.toBe(cur.id);
     const full = await db.request.findUniqueOrThrow({ where: { id: next!.id } });
     expect(["NEW", "IN_REVIEW"]).toContain(full.status);
+  });
+});
+
+describe("статусы заявок: только допустимые переходы", () => {
+  it("из «Новой» сразу в «Выдана» нельзя; «Отклонённая» — конечная; «Новая» → «В работе» — можно", async () => {
+    const r = await db.request.findFirstOrThrow({ where: { status: "NEW" } });
+    expect(await changeRequestStatus(staff, r.id, "DONE", null)).toBe("invalid");
+    expect(await changeRequestStatus(staff, r.id, "READY", null)).toBe("invalid");
+    expect(await changeRequestStatus(staff, r.id, "IN_REVIEW", null)).not.toBe("invalid");
+    expect((await db.request.findUniqueOrThrow({ where: { id: r.id } })).status).toBe("IN_REVIEW");
+    const rejected = await db.request.findFirst({ where: { status: { in: ["REJECTED", "DONE"] } } });
+    if (rejected) expect(await changeRequestStatus(staff, rejected.id, "IN_REVIEW", null)).toBe("invalid");
   });
 });

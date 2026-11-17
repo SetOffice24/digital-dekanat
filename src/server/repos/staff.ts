@@ -17,7 +17,7 @@ export type SessionStaff = Pick<Staff, "id" | "userId" | "facultyId">;
 
 const verifyCode = customAlphabet("23456789ABCDEFGHJKLMNPQRSTUVWXYZ", 12);
 
-const studentScope = (s: SessionStaff): Prisma.StudentWhereInput => (s.facultyId ? { facultyId: s.facultyId } : {});
+export const studentScope = (s: SessionStaff): Prisma.StudentWhereInput => (s.facultyId ? { facultyId: s.facultyId } : {});
 const groupScope = (s: SessionStaff): Prisma.GroupWhereInput => (s.facultyId ? { program: { facultyId: s.facultyId } } : {});
 
 const OPEN: RequestStatus[] = ["NEW", "IN_REVIEW", "NEED_INFO"];
@@ -131,26 +131,36 @@ export async function assignToMe(staff: SessionStaff, id: string) {
 }
 
 /** Смена статуса: событие + (для справок в READY) выдача Certificate + уведомление студенту. */
+/** Допустимые переходы статуса заявки (те же, что кнопки в карточке). «Выдана» и «Отклонена» — конечные. */
+export const REQUEST_TRANSITIONS: Record<RequestStatus, RequestStatus[]> = {
+  NEW: ["IN_REVIEW", "NEED_INFO", "REJECTED"],
+  IN_REVIEW: ["READY", "DONE", "NEED_INFO", "REJECTED"],
+  NEED_INFO: ["IN_REVIEW", "REJECTED"],
+  READY: ["DONE"],
+  DONE: [],
+  REJECTED: [],
+};
+
+/** Сменить статус. null — заявки нет или она вне области сотрудника; "invalid" — такой переход запрещён или статус уже сменили. */
 export async function changeRequestStatus(staff: SessionStaff, id: string, status: RequestStatus, message: string | null) {
   const r = await prisma.request.findFirst({
     where: { id, student: studentScope(staff) },
     include: { type: true, student: { select: { userId: true } }, certificate: true },
   });
   if (!r) return null;
+  if (!REQUEST_TRANSITIONS[r.status].includes(status)) return "invalid" as const;
 
-  await prisma.$transaction(async (tx) => {
-    await tx.request.update({
-      where: { id },
-      data: {
-        status,
-        assigneeId: r.assigneeId ?? staff.id,
-        events: { create: { fromStatus: r.status, toStatus: status, authorUserId: staff.userId, message } },
-      },
-    });
+  const changed = await prisma.$transaction(async (tx) => {
+    // условие на прежний статус: два сотрудника одновременно не проведут заявку двумя разными путями
+    const { count } = await tx.request.updateMany({ where: { id, status: r.status }, data: { status, assigneeId: r.assigneeId ?? staff.id } });
+    if (!count) return false;
+    await tx.requestEvent.create({ data: { requestId: id, fromStatus: r.status, toStatus: status, authorUserId: staff.userId, message } });
     if (status === "READY" && r.type.isCertificate && !r.certificate) {
       await tx.certificate.create({ data: { requestId: id, verifyCode: verifyCode(), validUntil: addDays(new Date(), 180) } });
     }
+    return true;
   });
+  if (!changed) return "invalid" as const;
 
   await notify([r.student.userId], {
     kind: "REQUEST_STATUS",

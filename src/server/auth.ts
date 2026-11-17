@@ -33,14 +33,14 @@ const attempts = new Map<string, { count: number; until: number }>();
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 10;
 
-export function isRateLimited(key: string) {
+export function isRateLimited(key: string, max = MAX_ATTEMPTS) {
   const a = attempts.get(key);
   if (!a) return false;
   if (Date.now() > a.until) {
     attempts.delete(key);
     return false;
   }
-  return a.count >= MAX_ATTEMPTS;
+  return a.count >= max;
 }
 
 export function registerFailedAttempt(key: string) {

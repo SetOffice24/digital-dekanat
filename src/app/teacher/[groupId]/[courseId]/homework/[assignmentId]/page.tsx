@@ -75,7 +75,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ groupId
                     ))}
                   </div>
                   {s.teacherComment && s.status !== "SUBMITTED" && <p className="mt-2 text-sm text-muted">Ваш комментарий: {s.teacherComment}</p>}
-                  <ReviewControls submissionId={s.id} status={s.status} />
+                  <ReviewControls submissionId={s.id} version={s.version} status={s.status} />
                 </>
               )}
             </li>

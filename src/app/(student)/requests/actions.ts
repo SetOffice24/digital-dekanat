@@ -40,7 +40,9 @@ export async function answerRequestAction(id: string, _: FormState, form: FormDa
   const { student } = await requireStudent();
   const msg = z.string().trim().min(2, "Напишите ответ").max(1000).safeParse(form.get("message"));
   if (!msg.success) return { error: msg.error.issues[0].message };
-  const ok = await answerRequest(student, z.string().max(40).parse(id), msg.data);
+  const rid = z.string().min(1).max(40).safeParse(id);
+  if (!rid.success) return { error: "Заявка не найдена" };
+  const ok = await answerRequest(student, rid.data, msg.data);
   if (!ok) return { error: "Ответ уже не требуется" };
   revalidatePath(`/requests/${id}`);
   return {};

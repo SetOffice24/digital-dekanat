@@ -46,6 +46,9 @@ export async function savePushSubscription(userId: string, sub: { endpoint: stri
   const ok =
     /^https:\/\/[^\s]+$/.test(sub.endpoint) && sub.endpoint.length <= 1000 && B64URL.test(sub.keys.p256dh) && sub.keys.p256dh.length <= 200 && B64URL.test(sub.keys.auth) && sub.keys.auth.length <= 100;
   if (!ok) return false;
+  const existing = await prisma.pushSubscription.findUnique({ where: { endpoint: sub.endpoint }, select: { userId: true, p256dh: true, auth: true } });
+  // чужой endpoint можно «перехватить» только тем же браузером (совпадают ключи) — иначе чужие push ушли бы не тому
+  if (existing && existing.userId !== userId && (existing.p256dh !== sub.keys.p256dh || existing.auth !== sub.keys.auth)) return false;
   await prisma.pushSubscription.upsert({
     where: { endpoint: sub.endpoint },
     create: { userId, endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth, userAgent: userAgent?.slice(0, 200) },
