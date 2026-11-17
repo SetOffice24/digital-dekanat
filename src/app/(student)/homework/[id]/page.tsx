@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MessageSquareText, Paperclip } from "lucide-react";
+import { ArrowLeft, MessageSquareText, Paperclip, MessagesSquare } from "lucide-react";
 import { requireStudent } from "@/server/auth";
 import { getHomework } from "@/server/repos/homework";
 import { ACCEPT, MAX_FILE_MB, MAX_FILES } from "@/server/files";
@@ -33,6 +33,7 @@ export default async function HomeworkItem({ params }: { params: Promise<{ id: s
       <p className="mt-2 text-[15px]">
         Сдать до <b className="font-semibold">{fmtDateTime(h.dueAt)}</b>
       </p>
+      <div className="mt-3"><Link href={`/messages/new?ctx=ASSIGNMENT&id=${h.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-semibold hover:border-ink"><MessagesSquare size={16} /> Вопрос преподавателю</Link></div>
 
       {/* Статус — одной плашкой с понятной подсказкой */}
       <div className={cn("mt-4 rounded-2xl px-4 py-3", st.cls)}>

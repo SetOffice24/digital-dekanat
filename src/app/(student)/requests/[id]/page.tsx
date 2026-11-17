@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import QRCode from "qrcode";
-import { ArrowLeft, Check, Download, ExternalLink, Stamp, X } from "lucide-react";
+import { ArrowLeft, Check, Download, ExternalLink, Stamp, X, MessagesSquare } from "lucide-react";
 import { requireStudent } from "@/server/auth";
 import { getRequest } from "@/server/repos/student";
 import { Card, SectionTitle } from "@/components/ui";
@@ -51,6 +51,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
         </div>
         <StatusBadge status={r.status} />
       </div>
+      <div className="mb-4"><Link href={`/messages/new?ctx=REQUEST&id=${r.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-semibold hover:border-ink"><MessagesSquare size={16} /> Написать в деканат по этой заявке</Link></div>
 
       <div className="grid grid-cols-1 gap-x-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] lg:items-start">
       <div className="min-w-0">

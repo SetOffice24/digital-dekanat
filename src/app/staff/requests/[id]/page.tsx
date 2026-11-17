@@ -58,7 +58,7 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
           <Card>
             <SectionTitle>Студент</SectionTitle>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-              <dt className="text-muted">ФИО</dt><dd><Link href={`/staff/students/${s.id}`} className="font-semibold underline-offset-2 hover:underline">{fio}</Link> <span className="text-xs text-muted">· личное дело</span></dd>
+              <dt className="text-muted">ФИО</dt><dd><Link href={`/staff/students/${s.id}`} className="font-semibold underline-offset-2 hover:underline">{fio}</Link> <span className="text-xs text-muted">· личное дело · <Link href={`/staff/messages/new?to=${s.userId}&ctx=REQUEST&id=${r.id}`} className="underline underline-offset-2 hover:text-fg">написать студенту</Link></span></dd>
               <dt className="text-muted">Группа</dt><dd>{s.group.name}</dd>
               <dt className="text-muted">Курс</dt><dd>{s.course}</dd>
               <dt className="text-muted">Факультет</dt><dd>{s.faculty.name}</dd>

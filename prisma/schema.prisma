@@ -91,6 +91,9 @@ model User {
   events        RequestEvent[]
   pushSubs      PushSubscription[]
   uploads       Attachment[]
+  conversations ConversationParticipant[]
+  messages      Message[]
+  conversationsStarted Conversation[] @relation("ConversationStarter")
 }
 
 /** Подписка устройства на push-уведомления (Web Push). Одно устройство/браузер — одна запись. */
@@ -513,5 +516,68 @@ model Attachment {
   assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   submissionId String?
   submission   Submission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  messageId    String?
+  message      Message?    @relation(fields: [messageId], references: [id], onDelete: Cascade)
   createdAt    DateTime    @default(now())
+}
+
+/* ---------- Сообщения ---------- */
+
+enum ConversationKind {
+  DIRECT // студент ↔ преподаватель его дисциплины
+  DEANERY // переписка с деканатом как отделом (студент или преподаватель ↔ любой сотрудник деканата)
+}
+
+enum ConversationStatus {
+  OPEN
+  RESOLVED
+}
+
+/** Диалог. Повод (заявка / дисциплина / задание) — необязательная ссылка для контекста. */
+model Conversation {
+  id           String                    @id @default(cuid())
+  kind         ConversationKind
+  status       ConversationStatus        @default(OPEN)
+  subject      String
+  /// для обращений в деканат: факультет студента (маршрутизация); null — общий деканат
+  facultyId    String?
+  startedById  String
+  startedBy    User                      @relation("ConversationStarter", fields: [startedById], references: [id], onDelete: Cascade)
+  contextType  String?
+  contextId    String?
+  contextLabel String?
+  createdAt    DateTime                  @default(now())
+  lastMessageAt DateTime                 @default(now())
+  resolvedAt   DateTime?
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@index([kind, facultyId, status])
+  @@index([lastMessageAt])
+}
+
+/** Участник диалога и момент последнего прочтения. Сотрудники деканата добавляются при первом ответе/прочтении. */
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body           String
+  createdAt      DateTime     @default(now())
+  files          Attachment[]
+
+  @@index([conversationId, createdAt])
 }

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/logo";
 import { logoutAction } from "@/app/login/actions";
 import { university } from "@/config/university";
+import { MessagesLink } from "@/components/messages/messages-link";
 
 const nav: { href: string; label: string; icon: LucideIcon; exact?: boolean; match?: (p: string) => boolean }[] = [
   { href: "/staff", label: "Заявки", icon: FileText, match: (p: string) => p === "/staff" || p.startsWith("/staff/requests") },
@@ -39,6 +40,7 @@ export function StaffShell({ children, name, position }: { children: React.React
             <div className="truncate text-sm font-bold">{name}</div>
             <div className="truncate text-xs text-muted">{position}</div>
           </div>
+          <MessagesLink href="/staff/messages" className="size-11" />
           <form action={logoutAction}>
             <button type="submit" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label="Выйти">
               <LogOut size={20} />

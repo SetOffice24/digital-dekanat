@@ -287,7 +287,7 @@ export async function teacherStudentCard(teacher: SessionTeacher, groupId: strin
   const s = await prisma.student.findFirst({
     where: { id: studentId, groupId },
     select: {
-      id: true, lastName: true, firstName: true, middleName: true, subgroup: true, group: { select: { name: true, course: true } },
+      id: true, userId: true, lastName: true, firstName: true, middleName: true, subgroup: true, group: { select: { name: true, course: true } },
       enrollments: { where: { courseId }, orderBy: { semester: "desc" }, take: 1, select: { id: true, semester: true, courseId: true, course: { select: { id: true, name: true, assessment: true } }, grades: { orderBy: { date: "asc" }, select: { kind: true, value: true, points: true, date: true, note: true } } } },
       attendance: { where: { lesson: { courseId } }, orderBy: { lesson: { date: "desc" } }, select: { present: true, lesson: { select: { date: true, startTime: true, kind: true } } } },
       submissions: { where: { assignment: { courseId, groupId } }, select: { assignmentId: true, status: true, submittedAt: true } },

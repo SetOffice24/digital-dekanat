@@ -4,6 +4,7 @@ import { LogOut } from "lucide-react";
 import { Wordmark } from "@/components/logo";
 import { logoutAction } from "@/app/login/actions";
 import { university } from "@/config/university";
+import { MessagesLink } from "@/components/messages/messages-link";
 
 /** Кабинет преподавателя: простая шапка без навигации — раздел один. */
 export function TeacherShell({ children, name, department }: { children: React.ReactNode; name: string; department: string }) {
@@ -19,6 +20,7 @@ export function TeacherShell({ children, name, department }: { children: React.R
             <div className="truncate text-sm font-bold">{name}</div>
             <div className="hidden truncate text-xs text-muted sm:block">{department}</div>
           </div>
+          <MessagesLink href="/teacher/messages" className="size-11" />
           <form action={logoutAction}>
             <button type="submit" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label="Выйти">
               <LogOut size={20} />

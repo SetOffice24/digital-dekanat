@@ -69,7 +69,7 @@ export async function removeStored(keys: string[]) {
   await Promise.all(keys.filter((k) => /^[a-f0-9]{36}$/.test(k)).map((k) => fs.unlink(path.join(dir(), k)).catch(() => {})));
 }
 
-type Viewer = { id: string; role: "STUDENT" | "STAFF" | "TEACHER"; student: { id: string; groupId: string } | null; teacher: { id: string } | null };
+type Viewer = { id: string; role: "STUDENT" | "STAFF" | "TEACHER"; student: { id: string; groupId: string } | null; teacher: { id: string } | null; staff?: { facultyId: string | null } | null };
 
 /** Может ли пользователь скачать файл. Студент — материалы/задания своей группы и свои сдачи; преподаватель — свои дисциплины. */
 export async function canAccessAttachment(user: Viewer, attachmentId: string) {
@@ -80,9 +80,20 @@ export async function canAccessAttachment(user: Viewer, attachmentId: string) {
       material: { select: { groupId: true, courseId: true } },
       assignment: { select: { groupId: true, courseId: true } },
       submission: { select: { studentId: true, assignment: { select: { groupId: true, courseId: true } } } },
+      message: { select: { conversationId: true } },
     },
   });
   if (!a) return null;
+  // вложение сообщения — тем, кто видит диалог (участник; деканат — обращения своего факультета)
+  if (a.message) {
+    const visible = await prisma.conversation.count({
+      where: {
+        id: a.message.conversationId,
+        ...(user.role === "STAFF" && user.staff ? { kind: "DEANERY" as const, ...(user.staff.facultyId ? { facultyId: user.staff.facultyId } : {}) } : { participants: { some: { userId: user.id } } }),
+      },
+    });
+    return visible ? a : null;
+  }
   const scope = a.material ?? a.assignment ?? a.submission?.assignment;
   if (!scope) return null;
   if (user.role === "STUDENT" && user.student) {

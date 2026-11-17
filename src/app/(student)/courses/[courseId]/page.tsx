@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, BookOpen, ChevronRight, ExternalLink, Paperclip } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronRight, ExternalLink, Paperclip, MessagesSquare } from "lucide-react";
 import { requireStudent } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { listHomework, listMaterialsForStudent } from "@/server/repos/homework";
@@ -24,7 +24,7 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
       <Link href="/grades" className="mb-3 inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-muted hover:text-fg">
         <ArrowLeft size={16} /> Учёба
       </Link>
-      <PageHeader title={enr.course.name} subtitle="Материалы и домашние задания" />
+      <PageHeader title={enr.course.name} subtitle="Материалы и домашние задания" action={<Link href={`/messages/new?ctx=COURSE&id=${courseId}`} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-semibold hover:border-ink"><MessagesSquare size={16} /> Написать преподавателю</Link>} />
 
       {hw.length > 0 && (
         <section className="mb-6">

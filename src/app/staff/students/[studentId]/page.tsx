@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight, MessagesSquare } from "lucide-react";
 import { requireStaff } from "@/server/auth";
 import { studentFile } from "@/server/repos/analytics";
 import { PageHeader } from "@/components/ui";
@@ -28,7 +28,7 @@ export default async function StudentFilePage({ params }: { params: Promise<{ st
       <Link href={`/staff/students?group=${s.group.id}`} className="mb-3 inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-muted hover:text-fg">
         <ArrowLeft size={16} /> Ведомость {s.group.name}
       </Link>
-      <PageHeader title={fio} subtitle={`${s.group.name} · ${s.course} курс · ${s.faculty.name}`} />
+      <PageHeader title={fio} subtitle={`${s.group.name} · ${s.course} курс · ${s.faculty.name}`} action={<Link href={`/staff/messages/new?to=${s.userId}`} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-semibold hover:border-ink"><MessagesSquare size={16} /> Написать студенту</Link>} />
 
       {/* Главное одной строкой */}
       <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MessagesSquare } from "lucide-react";
 import { requireTeacher } from "@/server/auth";
 import { getGradebook } from "@/server/repos/teacher";
 import { teacherStudentCard } from "@/server/repos/analytics";
@@ -28,7 +28,7 @@ export default async function TeacherStudentPage({ params }: { params: Promise<{
       <Link href={`/teacher/${groupId}/${courseId}`} className="mb-4 inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-muted hover:text-fg">
         <ArrowLeft size={16} /> Журнал
       </Link>
-      <PageHeader title={[s.lastName, s.firstName, s.middleName].filter(Boolean).join(" ")} subtitle={`${s.group.name}, подгруппа ${s.subgroup} · ${book.course.name}`} />
+      <PageHeader title={[s.lastName, s.firstName, s.middleName].filter(Boolean).join(" ")} subtitle={`${s.group.name}, подгруппа ${s.subgroup} · ${book.course.name}`} action={<Link href={`/teacher/messages/new?to=${s.userId}&ctx=COURSE&id=${courseId}`} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-semibold hover:border-ink"><MessagesSquare size={16} /> Написать студенту</Link>} />
 
       <div className="mb-6 grid grid-cols-3 gap-2">
         <div className="rounded-2xl border border-border/70 bg-surface p-3">

@@ -7,6 +7,7 @@ import { hash } from "@node-rs/argon2";
 import seedrandom from "seedrandom";
 import { customAlphabet } from "nanoid";
 import { seedHomework } from "./seed-homework";
+import { seedMessages } from "./seed-messages";
 
 const prisma = new PrismaClient();
 const rng = seedrandom("univer-demo");
@@ -136,6 +137,8 @@ const buildings = ["Главный корпус", "Корпус Б", "Корпу
 
 async function reset() {
   // порядок удаления с учётом связей
+  await prisma.message.deleteMany();
+  await prisma.conversation.deleteMany();
   await prisma.attachment.deleteMany();
   await prisma.submission.deleteMany();
   await prisma.assignment.deleteMany();
@@ -544,6 +547,9 @@ async function main() {
     { kind: "REQUEST_STATUS", title: "Нужно уточнение по заявке", body: "Деканат задал вопрос по заявлению на пересдачу.", link: `/requests/${petrRetake.id}`, hoursAgo: 90 },
     { kind: "GRADE", title: "Назначена пересдача", body: `«Методы оптимальных решений» — ${dm(addDays(todayUTC, 5))} в 15:40, ауд. 306.`, link: "/grades", hoursAgo: 30 },
     { kind: "SCHEDULE_CHANGE", ...(changes["ЭК-23-2"]?.cancelled ?? { title: "Занятие отменено", body: "Одно из занятий на этой неделе отменено.", link: "/schedule" }), hoursAgo: 18 },  ]);
+
+  /* ---------- демо-переписка ---------- */
+  await seedMessages({ prisma, now, annaUserId: anna.userId, petrUserId: petr.userId, teacherUserId: teacherUser.id, staffUserId: staffUser.id, annaFacultyId: anna.facultyId, petrFacultyId: petr.facultyId, annaGroupId: anna.groupId });
 
   console.log("Seed OK:", { lessons: lessonRows.length, students: 2 + fillers.length + classmates.length, staff: 1 });
 }

@@ -9,6 +9,7 @@ import { AssistantProvider, OpenAssistant } from "./assistant/provider";
 import { Mascot } from "./assistant/mascot";
 import { university } from "@/config/university";
 import { LiveNotice, type Latest } from "./live-notice";
+import { MessagesLink } from "./messages/messages-link";
 
 /**
  * Простая навигация: 4 раздела + 3 действия.
@@ -71,6 +72,8 @@ export function StudentShell({ children, name, firstName, group, initials }: { c
             <OpenAssistant className={cn(capsule, "hidden border-transparent bg-surface pl-2 pr-5 hover:border-border lg:inline-flex")}>
               <Mascot size={30} /> Помощник
             </OpenAssistant>
+
+            <MessagesLink href="/messages" />
 
             <Link href="/notifications" aria-label={`Уведомления${unread ? `, непрочитанных: ${unread}` : ""}`} className={cn("relative flex size-12 items-center justify-center rounded-full border transition", onNotes ? "border-ink bg-ink text-ink-fg" : "border-transparent bg-surface hover:border-border")}>
               <Bell size={20} />

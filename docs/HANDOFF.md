@@ -16,7 +16,7 @@ corepack pnpm db:seed           # пересоздаёт ВСЕ демо-дан�
 corepack pnpm dev               # http://localhost:3000
 ```
 - Превью в Claude Code: конфигурация **`univer`** в `C:\Users\User\Desktop\SetSearch site creation\.claude\launch.json` (preview_start name="univer").
-- Проверки: `corepack pnpm exec tsc --noEmit`, `corepack pnpm lint`, `corepack pnpm test` (49 тестов — папка `tests/`; нужна засеянная БД).
+- Проверки: `corepack pnpm exec tsc --noEmit`, `corepack pnpm lint`, `corepack pnpm test` (56 тестов — папка `tests/`; нужна засеянная БД).
 - Продакшен-сборка: `corepack pnpm build` (проходит).
 
 ## 3. Тестовые аккаунты (вымышленные) — также `docs/test-accounts.md`
@@ -52,7 +52,9 @@ corepack pnpm dev               # http://localhost:3000
 
 **Файлы ДЗ:** только Word/PDF/Excel/PowerPoint. Демо-файлы — `prisma/fixtures/` (пересоздать: `node scripts/make-fixtures.mjs`).
 
-**Успеваемость (18.11):** `src/server/repos/analytics.ts`; деканат — раздел «Студенты» (`/staff/students` ведомость + Excel `/api/staff/gradebook`, `/staff/students/groups`, `/staff/students/[id]` личное дело, `/staff/attendance` вкладкой); преподаватель — статистика над журналом, `/teacher/[g]/[c]/student/[id]`, сводка в «Все мои группы». Прогноз оценки — `src/lib/grading.ts`. Следующий этап — сообщения (карточка `docs/agents/ideas/I-20261118-soobshcheniya.md`).
+**Успеваемость (18.11):** `src/server/repos/analytics.ts`; деканат — раздел «Студенты» (`/staff/students` ведомость + Excel `/api/staff/gradebook`, `/staff/students/groups`, `/staff/students/[id]` личное дело, `/staff/attendance` вкладкой); преподаватель — статистика над журналом, `/teacher/[g]/[c]/student/[id]`, сводка в «Все мои группы». Прогноз оценки — `src/lib/grading.ts`. 
+
+**Сообщения (18.11):** `src/server/repos/messages.ts` (права и видимость), `src/components/messages/*`, страницы `/messages`, `/teacher/messages`, `/staff/messages`, API `/api/messages/*`, таблицы `Conversation`/`ConversationParticipant`/`Message`, демо — `prisma/seed-messages.ts`. Дальше — разбор `docs/audits/homework-2026-11-18.md` и `docs/security-audit-2026-11-17.md`.
 
 **Вход для жюри:** на странице входа блок «Демо-доступ» — 4 кнопки входа в тестовые аккаунты без пароля (список логинов зашит на сервере, `DEMO_LOGIN=0` выключает).
 
