@@ -9,6 +9,7 @@ import { buildStaffContext, staffReply } from "@/server/ai/staff";
 import { addMessage, createChat, getChat, recentMessages } from "@/server/repos/assistant";
 import { describeDraft } from "@/server/ai/drafts";
 import type { AiLink } from "@/server/ai/common";
+import type { Suggestion, Widget } from "@/server/ai/router";
 
 /* лимит: 20 сообщений за 10 минут на пользователя */
 const hits = new Map<string, number[]>();
@@ -20,7 +21,8 @@ function limited(id: string) {
   return arr.length > 20;
 }
 
-const body = z.object({ message: z.string().trim().min(1).max(1000), chatId: z.string().max(40).optional() });
+// tool — кнопка уточнения выбрала функцию явно (без повторного распознавания)
+const body = z.object({ message: z.string().trim().min(1).max(1000), chatId: z.string().max(40).optional(), tool: z.string().regex(/^[a-z]{2,20}$/).optional() });
 
 /**
  * Сообщение помощнику (студент, преподаватель, деканат). Без chatId — создаётся новый чат.
@@ -45,12 +47,13 @@ export async function POST(req: Request) {
   const recent = await recentMessages(owner, chatId, 10);
   const history = recent.reverse().map((m) => ({ role: m.role === "USER" ? ("user" as const) : ("assistant" as const), content: m.content }));
 
-  let r: { text: string; draft?: unknown; links?: AiLink[]; source: string };
-  if (user.role === "STUDENT" && user.student) r = await reply(history, await buildStudentContext(user.student));
-  else if (user.role === "TEACHER" && user.teacher) r = await teacherReply(history, await buildTeacherContext(user.teacher));
-  else if (user.role === "STAFF" && user.staff) r = await staffReply(history, await buildStaffContext(user.staff));
+  const forced = parsed.data.tool;
+  let r: { text: string; draft?: unknown; links?: AiLink[]; widget?: Widget; suggestions?: Suggestion[]; source: string };
+  if (user.role === "STUDENT" && user.student) r = await reply(history, await buildStudentContext(user.student), forced);
+  else if (user.role === "TEACHER" && user.teacher) r = await teacherReply(history, await buildTeacherContext(user.teacher), forced);
+  else if (user.role === "STAFF" && user.staff) r = await staffReply(history, await buildStaffContext(user.staff), forced);
   else return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const saved = await addMessage(owner, chatId, "ASSISTANT", r.text, (r.draft ?? undefined) as Prisma.InputJsonValue | undefined, r.links?.length ? r.links : undefined);
-  return NextResponse.json({ chatId, id: saved.id, text: r.text, draft: await describeDraft(r.draft ?? null, user), links: r.links ?? [], source: r.source });
+  const saved = await addMessage(owner, chatId, "ASSISTANT", r.text, (r.draft ?? undefined) as Prisma.InputJsonValue | undefined, r.links?.length ? r.links : undefined, r.widget, r.suggestions?.length ? r.suggestions : undefined);
+  return NextResponse.json({ chatId, id: saved.id, text: r.text, draft: await describeDraft(r.draft ?? null, user), links: r.links ?? [], widget: r.widget ?? null, suggestions: r.suggestions ?? [], source: r.source });
 }

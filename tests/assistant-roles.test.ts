@@ -119,15 +119,15 @@ describe("новые сценарии помощника", () => {
     const { rulesReply } = await import("@/server/ai/assistant");
     const anna = await db.student.findFirstOrThrow({ where: { user: { login: "anna.lesnova" } } });
     const ctx = await buildStudentContext(anna);
-    const sub = rulesReply("Сдай лабораторную №5", ctx);
+    const sub = await rulesReply("Сдай лабораторную №5", ctx);
     expect(sub.draft && "kind" in sub.draft && sub.draft.kind).toBe("SUBMISSION");
     const a = sub.draft && "kind" in sub.draft ? await db.assignment.findUniqueOrThrow({ where: { id: sub.draft.assignmentId } }) : null;
     expect(a?.title).toMatch(/№5/);
     expect(a?.groupId).toBe(anna.groupId);
-    const g = rulesReply("Как у меня дела по базам данных", ctx);
+    const g = await rulesReply("Как у меня дела по базам данных", ctx);
     expect(g.text).toMatch(/Базы данных/);
     expect(g.text).not.toMatch(/Алгоритмы/);
-    expect(rulesReply("Сколько я пропустил?", ctx).text).toMatch(/Посещаемость/);
+    expect((await rulesReply("Сколько я пропустил?", ctx)).text).toMatch(/Посещаемость/);
   });
 
   it("преподаватель: однофамильцы — не угадываем; по имени — нужный студент; текст после «что»", async () => {

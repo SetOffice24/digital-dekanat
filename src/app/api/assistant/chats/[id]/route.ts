@@ -13,7 +13,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       id: chat.id,
       title: chat.title,
       messages: await Promise.all(
-        chat.messages.map(async (m) => ({ id: m.id, role: m.role === "USER" ? "user" : "assistant", text: m.content, draft: await describeDraft(m.draft, user), links: Array.isArray(m.links) ? m.links : [] })),
+        chat.messages.map(async (m) => ({ id: m.id, role: m.role === "USER" ? "user" : "assistant", text: m.content, draft: await describeDraft(m.draft, user), links: Array.isArray(m.links) ? m.links : [], widget: m.widget ?? null, suggestions: Array.isArray(m.suggestions) ? m.suggestions : [] })),
       ),
     },
     { headers: { "Cache-Control": "no-store" } },

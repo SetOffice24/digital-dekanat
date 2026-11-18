@@ -6,10 +6,12 @@ import { ArrowUp, ArrowUpRight, BookOpenCheck, CalendarClock, CalendarDays, Circ
 import { cn } from "@/lib/utils";
 import { Mascot } from "./mascot";
 import { DraftCard } from "./draft-card";
+import { WidgetView, type WidgetRef } from "./widgets";
 import type { DraftCard as Card } from "@/server/ai/drafts";
 
 type AiLink = { href: string; label: string };
-type Msg = { id: string; role: "user" | "assistant"; text: string; draft: Card | null; links?: AiLink[]; pending?: boolean; error?: boolean };
+type Suggestion = { label: string; message: string; tool?: string };
+type Msg = { id: string; role: "user" | "assistant"; text: string; draft: Card | null; links?: AiLink[]; widget?: WidgetRef | null; suggestions?: Suggestion[]; pending?: boolean; error?: boolean };
 export type AssistantRole = "STUDENT" | "TEACHER" | "STAFF";
 type ChatItem = { id: string; title: string; updatedAt: string };
 
@@ -127,19 +129,20 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer", role = "ST
     refreshChats();
   }
 
-  async function send(text: string) {
+  /** Отправить фразу. tool — кнопка уже выбрала функцию; label — что показать в пузыре пользователя. */
+  async function send(text: string, tool?: string, label?: string) {
     const t = text.trim();
     if (!t || busy) return;
     setInput("");
     setBusy(true);
     const tmp = `tmp-${Date.now()}`;
-    setMsgs((m) => [...m, { id: tmp + "u", role: "user", text: t, draft: null }, { id: tmp, role: "assistant", text: "", draft: null, pending: true }]);
+    setMsgs((m) => [...m, { id: tmp + "u", role: "user", text: label ?? t, draft: null }, { id: tmp, role: "assistant", text: "", draft: null, pending: true }]);
     try {
-      const res = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: t, chatId: chatId ?? undefined }) });
+      const res = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: t, chatId: chatId ?? undefined, tool }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Ошибка");
       if (!chatId) setChatId(data.chatId);
-      setMsgs((m) => m.map((x) => (x.id === tmp ? { id: data.id, role: "assistant", text: data.text, draft: data.draft, links: data.links } : x)));
+      setMsgs((m) => m.map((x) => (x.id === tmp ? { id: data.id, role: "assistant", text: data.text, draft: data.draft, links: data.links, widget: data.widget, suggestions: data.suggestions } : x)));
       refreshChats();
     } catch (e) {
       setMsgs((m) => m.map((x) => (x.id === tmp ? { ...x, pending: false, error: true, text: (e as Error).message || "Не удалось получить ответ. Попробуйте ещё раз." } : x)));
@@ -271,7 +274,17 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer", role = "ST
                           ))}
                         </div>
                       )}
+                      {m.widget && <WidgetView widget={m.widget} ask={send} onNavigate={onClose} />}
                       {m.draft && <DraftCard messageId={m.id} card={m.draft} onNavigate={onClose} />}
+                      {m.suggestions && m.suggestions.length > 0 && (
+                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                          {m.suggestions.map((sg) => (
+                            <button key={sg.label + (sg.tool ?? "")} type="button" disabled={busy} onClick={() => send(sg.message, sg.tool, sg.label)} className="inline-flex min-h-9 items-center rounded-full bg-surface-2 px-3.5 text-sm font-medium transition hover:bg-primary-soft hover:text-primary disabled:opacity-50">
+                              {sg.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ),

@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/server/auth";
-import { moveLesson } from "@/server/repos/staff";
+import { cancelLesson, moveLesson } from "@/server/repos/staff";
 import { getDraftMessage, markDraftDone } from "@/server/repos/assistant";
 import { bells } from "@/config/university";
 import { parseIsoDate } from "@/lib/utils";
@@ -37,4 +37,15 @@ export async function moveFromDraftAction(messageId: string, values: z.input<typ
   await markDraftDone({ userId: user.id }, messageId, { movedText: text });
   revalidatePath("/staff/schedule");
   return { ok: { text } };
+}
+
+/** Отменить пару из мини-раздела «Расписание группы» в чате. Та же функция, что на странице расписания; причина обязательна. */
+export async function cancelFromChatAction(lessonId: string, reason: string): Promise<{ ok?: boolean; error?: string }> {
+  const { staff } = await requireStaff();
+  const p = z.object({ id: z.string().min(1).max(40), reason: z.string().trim().min(3, "Укажите причину — её увидят студенты").max(300) }).safeParse({ id: lessonId, reason });
+  if (!p.success) return { error: p.error.issues[0].message };
+  const l = await cancelLesson(staff, p.data.id, p.data.reason);
+  if (!l) return { error: "Пара не найдена или уже отменена" };
+  revalidatePath("/staff/schedule");
+  return { ok: true };
 }

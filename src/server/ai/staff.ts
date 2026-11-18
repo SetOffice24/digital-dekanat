@@ -13,12 +13,13 @@ import { photoQueueCount } from "../repos/photos";
 import { requestStatusLabel } from "@/lib/labels";
 import { addDays, fmtDay, moscowToday, plural, relativeTime } from "@/lib/utils";
 import { bells } from "@/config/university";
+import { examplesOf, classifyWithModel, route, type Suggestion, type Tool, type ToolResult, type Widget } from "./router";
 import { bestMentions, findGroup, gatewayJson, hasAny, norm, parseDay, type AiLink, type ChatMsg } from "./common";
 
 export type AnnouncementDraft = { kind: "ANNOUNCEMENT"; audience: "ALL" | "FACULTY" | "GROUP"; groupId: string; title: string; body: string };
 /** Перенос пары: какую (lessonId), куда (дата, пара по звонкам, аудитория), причина. */
 export type MoveDraft = { kind: "MOVE"; groupId: string; lessonId: string; date: string; bell: string; room: string; reason: string };
-export type StaffReply = { text: string; draft?: AnnouncementDraft | MoveDraft; links?: AiLink[]; source: "gateway" | "rules" };
+export type StaffReply = { text: string; draft?: AnnouncementDraft | MoveDraft; links?: AiLink[]; widget?: Widget; suggestions?: Suggestion[]; source: "gateway" | "rules"; via?: string };
 
 /**
  * «Перенеси пару ИВТ-24-1 по дискретной математике со среды на пятницу 12:20 в 401, причина: конференция».
@@ -27,7 +28,8 @@ export type StaffReply = { text: string; draft?: AnnouncementDraft | MoveDraft; 
 export async function moveFromText(text: string, ctx: StaffContext): Promise<MoveDraft | null> {
   const group = findGroup(text, ctx.groups);
   if (!group) return null;
-  const split = text.search(/\sна\s/i);
+  // «… с 20.11 на пятницу …»; кнопка «Перенести» из расписания присылает «… с 20.11 на» (куда — выберут в карточке)
+  const split = text.search(/\sна(\s|$)/i);
   const from = split >= 0 ? text.slice(0, split) : "";
   const to = split >= 0 ? text.slice(split) : text;
   const today = moscowToday();
@@ -80,91 +82,148 @@ export function announcementFromText(text: string, ctx: StaffContext): Announcem
   return { kind: "ANNOUNCEMENT", audience, groupId: group?.id ?? "", title, body: body.length > 3 ? body : "" };
 }
 
-export async function rulesStaff(message: string, ctx: StaffContext): Promise<StaffReply> {
+/** Поиск заявок по номеру или фамилии (фамилия может быть в косвенном падеже). */
+async function findRequests(message: string, ctx: StaffContext) {
   const m = norm(message);
-  const s = ctx.staff;
-  const group = findGroup(message, ctx.groups);
-  const r = (text: string, links?: AiLink[], draft?: AnnouncementDraft | MoveDraft): StaffReply => ({ text, links, draft, source: "rules" });
+  const num = m.match(/№\s*(\d+)|(?:^|\s)(\d{2,6})(?:\s|$)/);
+  const surname = message.match(/[А-ЯЁ][а-яё]{2,}/g)?.filter((w) => !["Найди", "Покажи", "Заявка", "Заявки", "Заявку", "Справка", "Сколько", "Какие", "Новые", "Открой"].includes(w));
+  const q = num ? (num[1] ?? num[2]) : surname?.[0];
+  if (!q) return null;
+  let found = (await listRequests(ctx.staff, { q })).slice(0, 6);
+  if (!found.length && /[ауе]$|ой$|ым$/.test(q)) found = (await listRequests(ctx.staff, { q: q.replace(/(ой|ым|[ауе])$/, "") })).slice(0, 6);
+  return { q, found };
+}
 
-  // объявление — черновик
-  if (hasAny(m, "объяви", "объявлен", "оповест", "разошли", "сообщи групп", "сообщи студент", "напиши групп", "напиши студентам", "напиши всем", "сообщи всем", "предупреди")) {
-    const d = announcementFromText(message, ctx);
-    const where = d.audience === "GROUP" ? `группе ${group?.name}` : d.audience === "FACULTY" ? "всему факультету" : "всем студентам";
-    return r(`Подготовил объявление ${where}. Проверьте заголовок и текст — и нажмите «Опубликовать»: студенты получат уведомление.`, undefined, d);
-  }
+/**
+ * Инструменты помощника деканата: входящие заявки (мини-раздел с «Взять в работу»), поиск заявки и студента,
+ * расписание группы (с отменой и переносом), фото на проверке, аккаунты, объявление и перенос (черновики).
+ */
+export const staffTools: Tool<StaffContext>[] = [
+  {
+    name: "inbox",
+    title: "Входящие заявки",
+    keywords: [["заяв", 2], ["новые заявк", 4], ["сколько заявок", 4], ["сколько новых", 4], ["входящ", 4], ["что в работе", 3]],
+    examples: ["Сколько новых заявок?", "Покажи входящие", "Что в работе?"],
+    not: ["найди", "№"],
+    run: (msg, ctx) => {
+      const c = ctx.counts;
+      const status = /в работе/.test(norm(msg)) ? "IN_REVIEW" : "NEW";
+      const oldest = ctx.newest.at(-1);
+      return {
+        text: `Новых — ${c.NEW ?? 0}, в работе — ${c.IN_REVIEW ?? 0}, ждут студента — ${c.NEED_INFO ?? 0}, готовы к выдаче — ${c.READY ?? 0}.` + (oldest && status === "NEW" ? ` Самая давняя новая — №${oldest.number}, ${relativeTime(oldest.createdAt)}.` : ""),
+        widget: { type: "staff.inbox", params: { status } },
+      };
+    },
+  },
+  {
+    name: "findrequest",
+    title: "Найти заявку",
+    keywords: [["найди заявк", 5], ["заявку", 2], ["заявка №", 5], ["заявка номер", 5], ["заявки студент", 3]],
+    examples: ["Найди заявку Озёрова", "Заявка № 12"],
+    run: async (msg, ctx) => {
+      const r = await findRequests(msg, ctx);
+      if (!r) return { text: "Назовите номер заявки или фамилию студента, например: «найди заявку Озёрова»." };
+      if (!r.found.length) return { text: `Заявок по запросу «${r.q}» не нашёл.` };
+      return {
+        text: `Нашёл ${r.found.length}:\n${r.found.map((x) => `• №${x.number} «${x.type.title}» — ${x.student.lastName} ${x.student.firstName}, ${x.student.group.name}, ${requestStatusLabel[x.status].toLowerCase()}`).join("\n")}`,
+        links: r.found.slice(0, 3).map((x) => ({ href: `/staff/requests/${x.id}`, label: `№${x.number}` })),
+      };
+    },
+  },
+  {
+    name: "groupday",
+    title: "Расписание группы",
+    keywords: [["распис", 3], ["пары", 2], ["пара ", 1.5], ["завтра", 1], ["сегодня", 1], ["аудитор", 1.5], ["занят", 2], ["отмени", 3]],
+    examples: ["Пары ИВТ-24-1 завтра", "Расписание ЭК-23-2 на пятницу", "Отмени пару ИВТ-24-1"],
+    not: ["перенес", "перенос"],
+    run: (msg, ctx) => {
+      const group = findGroup(msg, ctx.groups);
+      if (!group) return { text: "Какой группы? Например: «пары ИВТ-24-1 завтра».", suggestions: ctx.groups.slice(0, 4).map((g) => ({ label: g.name, message: `Пары ${g.name} сегодня`, tool: "groupday" })) };
+      const day = parseDay(msg) ?? moscowToday();
+      return {
+        text: `${group.name}, ${fmtDay(day).toLowerCase()}. У пары можно отменить или перенести её прямо здесь — студенты получат уведомление.`,
+        widget: { type: "staff.groupday", params: { groupId: group.id, date: day.toISOString().slice(0, 10) } },
+      };
+    },
+  },
+  {
+    name: "move",
+    title: "Перенести пару",
+    keywords: [["перенес", 4], ["перенос", 4], ["переставь", 4], ["передвинь", 4]],
+    examples: ["Перенеси пару ИВТ-24-1 по операционным системам с четверга на пятницу 12:20 в 401, причина: конференция"],
+    run: async (message, ctx) => {
+      const group = findGroup(message, ctx.groups);
+      const d = await moveFromText(message, ctx);
+      if (!d) return { text: "Для какой группы перенести пару? Например: «перенеси пару ИВТ-24-1 по дискретной математике со среды на пятницу 12:20 в 401, причина: конференция»." };
+      const l = d.lessonId ? await prisma.lesson.findUnique({ where: { id: d.lessonId }, select: { date: true, startTime: true, course: { select: { name: true } } } }) : null;
+      return {
+        text: l
+          ? `Нашёл пару: ${l.course.name}, ${fmtDay(l.date).toLowerCase()}, ${l.startTime} (${group?.name}). Проверьте, что это она, новую дату, время, аудиторию и причину — и нажмите «Перенести»: студенты получат уведомление.`
+          : `Не смог однозначно определить, какую пару ${group?.name} переносить — выберите её в карточке, проверьте новую дату и время и нажмите «Перенести».`,
+        draft: d,
+      };
+    },
+  },
+  {
+    name: "announce",
+    title: "Объявление",
+    keywords: [["объяви", 4], ["объявлен", 4], ["оповест", 4], ["разошли", 4], ["сообщи групп", 4], ["сообщи студент", 4], ["напиши групп", 4], ["напиши студентам", 4], ["напиши всем", 4], ["сообщи всем", 4], ["предупреди", 3]],
+    examples: ["Объяви ИВТ-24-1: лекция в понедельник переносится в 401"],
+    run: (message, ctx) => {
+      const group = findGroup(message, ctx.groups);
+      const d = announcementFromText(message, ctx);
+      const where = d.audience === "GROUP" ? `группе ${group?.name}` : d.audience === "FACULTY" ? "всему факультету" : "всем студентам";
+      return { text: `Подготовил объявление ${where}. Проверьте заголовок и текст — и нажмите «Опубликовать»: студенты получат уведомление.`, draft: d };
+    },
+  },
+  {
+    name: "photos",
+    title: "Фото на проверке",
+    keywords: [["фото", 4], ["фотограф", 4]],
+    examples: ["Сколько фото ждут проверки?", "Покажи фото на проверке"],
+    run: (_msg, ctx) => ({
+      text: ctx.photos ? `На проверке ${ctx.photos} фото. Принять или отклонить с причиной можно прямо здесь.` : "Новых фото на проверке нет.",
+      widget: ctx.photos ? { type: "staff.photos", params: {} } : undefined,
+      links: [{ href: "/staff/students/photos", label: "Фото студентов" }],
+    }),
+  },
+  {
+    name: "accounts",
+    title: "Аккаунты",
+    keywords: [["не входил", 4], ["не заходил", 4], ["аккаунт", 4], ["пароль", 3], ["заблок", 3], ["неактивн", 3]],
+    examples: ["Кто из ИВТ-24-1 не входил?", "Сколько заблокированных аккаунтов"],
+    run: async (message, ctx) => {
+      const group = findGroup(message, ctx.groups);
+      const { stats } = await accountsOverview(ctx.staff, { groupId: group?.id });
+      return {
+        text: `${group ? `Группа ${group.name}` : "Ваша область"}: ${stats.total} ${plural(stats.total, "студент", "студента", "студентов")}, ни разу не входили — ${stats.never}.` + (hasAny(norm(message), "пароль") ? " Временный пароль выдаётся в личном деле студента — блок «Аккаунт»." : ""),
+        widget: { type: "staff.accounts", params: { groupId: group?.id ?? "" } },
+      };
+    },
+  },
+  {
+    name: "student",
+    title: "Найти студента",
+    keywords: [["найди студент", 5], ["студент", 1.5], ["личное дело", 4], ["открой", 1.5], ["покажи студент", 4]],
+    examples: ["Найди студента Леснова", "Личное дело Озёрова"],
+    run: async (message, ctx) => {
+      const word = message.match(/[А-ЯЁ][а-яё]{3,}/g)?.find((w) => !["Найди", "Покажи", "Открой", "Студент", "Студентка", "Студента", "Личное", "Где", "Кто"].includes(w));
+      if (!word) return { text: "Назовите фамилию, например: «найди студента Леснова»." };
+      const st = await prisma.student.findMany({ where: { ...studentScope(ctx.staff), OR: variants(word).flatMap((v) => [{ lastName: { contains: v } }, { lastName: { contains: v.replace(/(а|у|ой|ым)$/, "") } }]) }, take: 5, select: { id: true, lastName: true, firstName: true, group: { select: { name: true } } } });
+      if (!st.length) return { text: `Студентов с фамилией «${word}» в вашей области нет.` };
+      return { text: `Нашёл: ${st.map((x) => `${x.lastName} ${x.firstName} (${x.group.name})`).join(", ")}.`, links: st.map((x) => ({ href: `/staff/students/${x.id}`, label: `${x.lastName} ${x.firstName[0]}.` })) };
+    },
+  },
+];
 
-  // перенос пары — черновик, переносит сотрудник
-  if (hasAny(m, "перенес", "перенос", "переставь", "передвинь")) {
-    const d = await moveFromText(message, ctx);
-    if (!d) return r("Для какой группы перенести пару? Например: «перенеси пару ИВТ-24-1 по дискретной математике со среды на пятницу 12:20 в 401, причина: конференция».");
-    const l = d.lessonId ? await prisma.lesson.findUnique({ where: { id: d.lessonId }, select: { date: true, startTime: true, course: { select: { name: true } } } }) : null;
-    return r(
-      l
-        ? `Нашёл пару: ${l.course.name}, ${fmtDay(l.date).toLowerCase()}, ${l.startTime} (${group?.name}). Проверьте, что это она, новую дату, время, аудиторию и причину — и нажмите «Перенести»: студенты получат уведомление.`
-        : `Не смог однозначно определить, какую пару ${group?.name} переносить — выберите её в карточке, проверьте новую дату и время и нажмите «Перенести».`,
-      undefined,
-      d,
-    );
-  }
+const staffHelp = (): ToolResult => ({
+  text: "Здравствуйте! Я помогаю с рутиной деканата: входящие заявки с действиями прямо в чате, поиск заявки и студента, расписание группы с отменой и переносом, фото на проверке, аккаунты, объявления. Готовлю черновики — публикуете и переносите вы.",
+  suggestions: examplesOf(staffTools, ["inbox", "groupday", "photos", "accounts", "announce", "findrequest"]),
+});
 
-  // фото
-  if (hasAny(m, "фото"))return r(ctx.photos ? `На проверке ${ctx.photos} ${plural(ctx.photos, "фото", "фото", "фото")}.` : "Новых фото на проверке нет.", [{ href: "/staff/students/photos", label: "Фото студентов" }]);
-
-  // аккаунты
-  if (hasAny(m, "не входил", "не заходил", "аккаунт", "пароль", "заблок", "неактивн")) {
-    const { stats } = await accountsOverview(s, { groupId: group?.id });
-    return r(
-      `${group ? `Группа ${group.name}` : "Ваша область"}: ${stats.total} ${plural(stats.total, "студент", "студента", "студентов")}. Ни разу не входили — ${stats.never}, не заходили 14 дней — ${stats.inactive}, ждут смены пароля — ${stats.temp}, заблокированы — ${stats.blocked}.` +
-        (hasAny(m, "пароль") ? "\nВременный пароль выдаётся в личном деле студента — блок «Аккаунт»." : ""),
-      [{ href: `/staff/students/accounts?f=never${group ? `&group=${group.id}` : ""}`, label: "Кто не входил" }, { href: "/staff/students/accounts", label: "Все аккаунты" }],
-    );
-  }
-
-  // расписание группы
-  if (group && hasAny(m, "расписан", "пара", "пары", "завтра", "сегодня", "аудитор", "занят")) {
-    const day = parseDay(message) ?? moscowToday();
-    const lessons = await prisma.lesson.findMany({ where: { groupId: group.id, date: day }, orderBy: { startTime: "asc" }, select: { startTime: true, room: true, status: true, subgroup: true, changeNote: true, course: { select: { name: true } }, teacher: { select: { fullName: true } } } });
-    if (!lessons.length) return r(`У ${group.name} ${fmtDay(day).toLowerCase()} пар нет.`);
-    return r(
-      `${group.name}, ${fmtDay(day).toLowerCase()}:\n${lessons.map((l) => `• ${l.startTime} — ${l.course.name}${l.subgroup ? ` (${l.subgroup} подгр.)` : ""}, ауд. ${l.room}, ${l.teacher.fullName}${l.status === "CANCELLED" ? " — отменена" : l.status === "MOVED" ? ` — ${l.changeNote ?? "перенесена"}` : ""}`).join("\n")}`,
-      [{ href: `/staff/schedule?group=${group.id}`, label: "Расписание группы" }],
-    );
-  }
-
-  // заявки: поиск по фамилии / номеру или сводка
-  if (hasAny(m, "заяв", "справк")) {
-    const num = m.match(/№\s*(\d+)|\b(\d{2,6})\b/);
-    const surname = message.match(/[А-ЯЁ][а-яё]{2,}(?:ой|ова|ева|ина|ин|ов|ев|ий|ая|ко|ук|юк)?/g)?.filter((w) => !["Найди", "Покажи", "Заявка", "Заявки", "Справка", "Сколько", "Какие"].includes(w));
-    const q = num ? (num[1] ?? num[2]) : surname?.[0];
-    if (q) {
-      // фамилия может быть в косвенном падеже: «заявку Озёрова» → «Озёров»
-      let found = (await listRequests(s, { q })).slice(0, 6);
-      if (!found.length && /[ауе]$|ой$|ым$/.test(q)) found = (await listRequests(s, { q: q.replace(/(ой|ым|[ауе])$/, "") })).slice(0, 6);
-      if (!found.length) return r(`Заявок по запросу «${q}» не нашёл.`);
-      return r(
-        `Нашёл ${found.length}:\n${found.map((x) => `• №${x.number} «${x.type.title}» — ${x.student.lastName} ${x.student.firstName}, ${x.student.group.name}, ${requestStatusLabel[x.status].toLowerCase()}`).join("\n")}`,
-        found.slice(0, 3).map((x) => ({ href: `/staff/requests/${x.id}`, label: `№${x.number}` })),
-      );
-    }
-    const c = ctx.counts;
-    const oldest = ctx.newest.at(-1);
-    return r(
-      `Новых — ${c.NEW ?? 0}, в работе — ${c.IN_REVIEW ?? 0}, ждут студента — ${c.NEED_INFO ?? 0}, готовы к выдаче — ${c.READY ?? 0}.` + (oldest ? `\nСамая давняя новая: №${oldest.number} «${oldest.type.title}», ${oldest.student.lastName} ${oldest.student.firstName}, ${relativeTime(oldest.createdAt)}.` : ""),
-      [{ href: "/staff", label: "Открыть заявки" }, ...(oldest ? [{ href: `/staff/requests/${oldest.id}`, label: `Заявка №${oldest.number}` }] : [])],
-    );
-  }
-
-  // студент по фамилии
-  const word = message.match(/[А-ЯЁ][а-яё]{3,}/g)?.find((w) => !["Найди", "Покажи", "Открой", "Студент", "Студентка", "Личное", "Где", "Кто"].includes(w));
-  if (word && hasAny(m, "студент", "найди", "личное дело", "покажи", "открой")) {
-    const st = await prisma.student.findMany({ where: { ...studentScope(s), OR: variants(word).map((v) => ({ lastName: { contains: v } })) }, take: 5, select: { id: true, lastName: true, firstName: true, group: { select: { name: true } } } });
-    if (!st.length) return r(`Студентов с фамилией «${word}» в вашей области нет.`);
-    return r(`Нашёл: ${st.map((x) => `${x.lastName} ${x.firstName} (${x.group.name})`).join(", ")}.`, st.map((x) => ({ href: `/staff/students/${x.id}`, label: `${x.lastName} ${x.firstName[0]}.` })));
-  }
-
-  return r(
-    `Здравствуйте! Я помогаю с рутиной деканата. Могу:\n• рассказать о заявках: «сколько новых заявок», «найди заявку Озёрова», «заявка № 12»\n• показать расписание группы: «пары ИВТ-24-1 завтра»\n• подсказать по аккаунтам и фото: «кто из ИВТ-24-1 не входил»\n• подготовить объявление: «объяви ИВТ-24-1: лекция в понедельник переносится в 401»\n• перенести пару: «перенеси пару ИВТ-24-1 по дискретной математике со среды на пятницу 12:20 в 401, причина: конференция»\n\nЯ только готовлю черновик — публикуете вы.`,
-  );
+export async function rulesStaff(message: string, ctx: StaffContext, forced?: string): Promise<StaffReply> {
+  const r = await route(message, staffTools, ctx, { forced, help: staffHelp, classify: classifyWithModel });
+  return { text: r.text, draft: r.draft as AnnouncementDraft | MoveDraft | undefined, links: r.links, widget: r.widget, suggestions: r.suggestions, source: "rules", via: r.via };
 }
 
 const draftSchema = z.object({ kind: z.literal("ANNOUNCEMENT"), audience: z.enum(["ALL", "FACULTY", "GROUP"]), groupId: z.string().max(40).default(""), title: z.string().max(120), body: z.string().max(3000) });
@@ -178,8 +237,11 @@ function sanitize(d: unknown, ctx: StaffContext): AnnouncementDraft | undefined 
   return { ...p.data, audience, groupId: g?.id ?? "" };
 }
 
-export async function staffReply(history: ChatMsg[], ctx: StaffContext): Promise<StaffReply> {
+/** Сначала правила (распознавание инструмента); что не узнали — модели через шлюз (если подключена). */
+export async function staffReply(history: ChatMsg[], ctx: StaffContext, forced?: string): Promise<StaffReply> {
   const last = history[history.length - 1]?.content ?? "";
+  const viaRules = await rulesStaff(last, ctx, forced);
+  if (viaRules.via !== "help") return viaRules;
   const system = `Ты — помощник сотрудника деканата «Универа». Отвечай по-русски, кратко, деловым тоном.
 Используй только данные из контекста; не выдумывай номера заявок и фамилии.
 Сам ты ничего не публикуешь и не меняешь. Если просят объявление — подготовь черновик, его опубликует сотрудник кнопкой.
@@ -191,10 +253,8 @@ ${ctx.groups.map((g) => `${g.id} — ${g.name}`).join("\n")}
 
 КОНТЕКСТ:
 ${ctx.text}`;
-  // перенос пары разбираем правилами и в режиме модели: нужно точно найти занятие в расписании
-  if (hasAny(norm(last), "перенес", "перенос", "переставь", "передвинь")) return rulesStaff(last, ctx);
   const g = await gatewayJson(system, history);
   if (g) return { text: g.text, draft: sanitize(g.draft, ctx), source: "gateway" };
-  return rulesStaff(last, ctx);
+  return viaRules;
 }
 

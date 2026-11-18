@@ -29,11 +29,11 @@ export function createChat(o: ChatOwner, firstMessage: string) {
   return prisma.aiChat.create({ data: { userId: o.userId, studentId: o.studentId ?? null, title } });
 }
 
-export async function addMessage(o: ChatOwner, chatId: string, role: "USER" | "ASSISTANT", content: string, draft?: Prisma.InputJsonValue, links?: Prisma.InputJsonValue) {
+export async function addMessage(o: ChatOwner, chatId: string, role: "USER" | "ASSISTANT", content: string, draft?: Prisma.InputJsonValue, links?: Prisma.InputJsonValue, widget?: Prisma.InputJsonValue, suggestions?: Prisma.InputJsonValue) {
   const chat = await prisma.aiChat.findFirst({ where: { id: chatId, userId: o.userId }, select: { id: true } });
   if (!chat) throw new Error("chat not found");
   const [msg] = await prisma.$transaction([
-    prisma.aiMessage.create({ data: { chatId, studentId: o.studentId ?? null, role, content, draft, links } }),
+    prisma.aiMessage.create({ data: { chatId, studentId: o.studentId ?? null, role, content, draft, links, widget, suggestions } }),
     prisma.aiChat.update({ where: { id: chatId }, data: { updatedAt: new Date() } }),
   ]);
   return msg;

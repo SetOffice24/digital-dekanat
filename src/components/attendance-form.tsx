@@ -14,11 +14,11 @@ type S = { id: string; name: string; present: boolean | null };
  * Сверху — помощник: пишете «нет Зорина и Лесновой», он показывает, кого понял, и предлагает кнопку.
  * Сохраняет всегда человек.
  */
-export function AttendanceForm({ lessonId, students, marked, save: saveAction, recognize: recognizeAction }: { lessonId: string; students: S[]; marked: boolean; save: SaveFn; recognize: RecognizeFn }) {
+export function AttendanceForm({ lessonId, students, marked, save: saveAction, recognize: recognizeAction, initialText }: { lessonId: string; students: S[]; marked: boolean; save: SaveFn; recognize: RecognizeFn; initialText?: string }) {
   const [absent, setAbsent] = useState<Set<string>>(() => new Set(students.filter((s) => s.present === false).map((s) => s.id)));
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
   const [saving, startSave] = useTransition();
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText ?? ""); // из чата помощника: «не было Зорина» уже в поле
   const [guess, setGuess] = useState<AbsenceGuess | null>(null);
   const [guessErr, setGuessErr] = useState<string | null>(null);
   const [thinking, startThink] = useTransition();

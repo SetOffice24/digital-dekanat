@@ -451,6 +451,10 @@ model AiMessage {
   draft     Json?
   /// ссылки-подсказки под ответом («Открыть заявки»)
   links     Json?
+  /// мини-раздел в ответе (расписание, оценки, входящие…): тип и параметры, данные подгружаются при показе
+  widget    Json?
+  /// кнопки-уточнения и следующие шаги под ответом
+  suggestions Json?
   createdAt DateTime @default(now())
 
   @@index([chatId, createdAt])
