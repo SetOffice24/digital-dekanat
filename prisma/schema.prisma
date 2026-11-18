@@ -101,6 +101,7 @@ model User {
   conversations ConversationParticipant[]
   messages      Message[]
   conversationsStarted Conversation[] @relation("ConversationStarter")
+  aiChats       AiChat[]
 }
 
 /** Подписка устройства на push-уведомления (Web Push). Одно устройство/браузер — одна запись. */
@@ -423,27 +424,33 @@ model WellbeingCheckin {
   @@unique([studentId, weekStart])
 }
 
+/// Чат с помощником — у любой роли (студент, преподаватель, деканат); владелец — userId.
 model AiChat {
   id        String      @id @default(cuid())
-  studentId String
-  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentId String?
+  student   Student?    @relation(fields: [studentId], references: [id], onDelete: Cascade)
   title     String
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   messages  AiMessage[]
 
   @@index([studentId, updatedAt])
+  @@index([userId, updatedAt])
 }
 
 model AiMessage {
   id        String   @id @default(cuid())
   chatId    String
   chat      AiChat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  studentId String
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
   role      ChatRole
   content   String
   draft     Json?
+  /// ссылки-подсказки под ответом («Открыть заявки»)
+  links     Json?
   createdAt DateTime @default(now())
 
   @@index([chatId, createdAt])

@@ -7,6 +7,8 @@ import { Wordmark } from "@/components/logo";
 import { logoutAction } from "@/app/login/actions";
 import { university } from "@/config/university";
 import { MessagesLink } from "@/components/messages/messages-link";
+import { AssistantProvider, OpenAssistant } from "@/components/assistant/provider";
+import { Mascot } from "@/components/assistant/mascot";
 
 const nav: { href: string; label: string; icon: LucideIcon; exact?: boolean; match?: (p: string) => boolean }[] = [
   { href: "/staff", label: "Заявки", icon: FileText, match: (p: string) => p === "/staff" || p.startsWith("/staff/requests") },
@@ -21,6 +23,7 @@ export function StaffShell({ children, name, position }: { children: React.React
   const path = usePathname();
   const active = (n: (typeof nav)[number]) => (n.match ? n.match(path) : n.exact ? path === n.href : path === n.href || path.startsWith(n.href + "/"));
   return (
+    <AssistantProvider firstName={name} role="STAFF">
     <div className="sky-glow flex min-h-dvh flex-col">
       <header className="sticky top-0 z-20 border-b border-border/60 bg-bg/75 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[100rem] items-center gap-3 px-4 py-3 sm:px-6 md:px-8 lg:px-10">
@@ -40,6 +43,10 @@ export function StaffShell({ children, name, position }: { children: React.React
             <div className="truncate text-sm font-bold">{name}</div>
             <div className="truncate text-xs text-muted">{position}</div>
           </div>
+          <OpenAssistant className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-border bg-surface p-1 text-sm font-semibold transition hover:border-ink sm:pr-4">
+            <Mascot size={32} />
+            <span className="max-sm:sr-only">Помощник</span>
+          </OpenAssistant>
           <MessagesLink href="/staff/messages" className="size-11" />
           <form action={logoutAction}>
             <button type="submit" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label="Выйти">
@@ -64,5 +71,6 @@ export function StaffShell({ children, name, position }: { children: React.React
         <div className="mx-auto max-w-[100rem]">{university.disclaimer}</div>
       </footer>
     </div>
+    </AssistantProvider>
   );
 }

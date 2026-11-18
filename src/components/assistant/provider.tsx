@@ -1,13 +1,13 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { AssistantPanel } from "./assistant-panel";
+import { AssistantPanel, type AssistantRole } from "./assistant-panel";
 import { cn } from "@/lib/utils";
 
 const Ctx = createContext<{ open: () => void; close: () => void }>({ open: () => {}, close: () => {} });
 export const useAssistant = () => useContext(Ctx);
 
 /** Помощник как выездная панель поверх любого раздела (на телефоне — на весь экран). */
-export function AssistantProvider({ firstName, children }: { firstName: string; children: React.ReactNode }) {
+export function AssistantProvider({ firstName, role = "STUDENT", children }: { firstName: string; role?: AssistantRole; children: React.ReactNode }) {
   const [isOpen, setOpen] = useState(false);
   const open = useCallback(() => setOpen(true), []);
   const close = useCallback(() => setOpen(false), []);
@@ -29,10 +29,10 @@ export function AssistantProvider({ firstName, children }: { firstName: string; 
       {children}
 
       {isOpen && (
-        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="ИИ-помощник деканата">
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Помощник">
           <button className="animate-fade-in absolute inset-0 bg-[#1b1d26]/40 backdrop-blur-[2px]" onClick={close} aria-label="Закрыть помощника" tabIndex={-1} />
           <div className={cn("animate-slide-in absolute inset-y-0 right-0 flex w-full flex-col overflow-hidden bg-surface shadow-2xl", "md:inset-y-3 md:right-3 md:w-[min(1180px,calc(100vw-1.5rem))] md:rounded-[28px] lg:w-[min(1180px,calc(100vw-300px))]")}>
-            <AssistantPanel firstName={firstName} onClose={close} />
+            <AssistantPanel firstName={firstName} role={role} onClose={close} />
           </div>
         </div>
       )}

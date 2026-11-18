@@ -17,6 +17,7 @@ import { Prisma, type ConversationKind, type Role } from "@prisma/client";
 import { prisma } from "../db";
 import { sendPush } from "../push";
 import { storeFiles, removeStored } from "../files";
+import { variants } from "./staff";
 
 export type Viewer = {
   id: string;
@@ -116,12 +117,12 @@ export type InboxFilter = "new" | "open" | "resolved" | "all";
 function searchWhere(q?: string): Prisma.ConversationWhereInput {
   const n = q?.trim().slice(0, 60);
   if (!n) return {};
-  const like = { contains: n, mode: "insensitive" as const };
+  // варианты написания — база с локалью C не сравнивает кириллицу без учёта регистра
+  const likes = variants(n).map((v) => ({ contains: v }));
   return {
     OR: [
-      { subject: like },
-      { contextLabel: like },
-      { participants: { some: { user: { OR: [{ student: { OR: [{ lastName: like }, { firstName: like }] } }, { teacher: { fullName: like } }, { staff: { fullName: like } }] } } } },
+      ...likes.flatMap((like) => [{ subject: like }, { contextLabel: like }]),
+      { participants: { some: { user: { OR: likes.flatMap((like) => [{ student: { OR: [{ lastName: like }, { firstName: like }] } }, { teacher: { fullName: like } }, { staff: { fullName: like } }]) } } } },
       ...("деканат".includes(n.toLowerCase()) || n.toLowerCase().startsWith("декан") ? [{ kind: "DEANERY" as const }] : []),
     ],
   };

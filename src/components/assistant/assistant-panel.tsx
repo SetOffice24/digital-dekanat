@@ -1,27 +1,63 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { ArrowUp, CalendarDays, CircleHelp, FileCheck2, MessageSquarePlus, PanelLeft, RotateCcw, Stamp, Trash2, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowUp, ArrowUpRight, BookOpenCheck, CalendarDays, CircleHelp, ClipboardCheck, FileCheck2, Inbox, Megaphone, MessageSquarePlus, PanelLeft, RotateCcw, Stamp, Trash2, UserX, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Mascot } from "./mascot";
 import { DraftCard } from "./draft-card";
 import type { DraftCard as Card } from "@/server/ai/drafts";
 
-type Msg = { id: string; role: "user" | "assistant"; text: string; draft: Card | null; pending?: boolean; error?: boolean };
+type AiLink = { href: string; label: string };
+type Msg = { id: string; role: "user" | "assistant"; text: string; draft: Card | null; links?: AiLink[]; pending?: boolean; error?: boolean };
+export type AssistantRole = "STUDENT" | "TEACHER" | "STAFF";
 type ChatItem = { id: string; title: string; updatedAt: string };
 
-const suggestions = [
-  { icon: CalendarDays, text: "Какие пары завтра?" },
-  { icon: FileCheck2, text: "Нужна справка в банк" },
-  { icon: Stamp, text: "Справка для военкомата" },
-  { icon: RotateCcw, text: "Как пересдать долг?" },
-  { icon: CircleHelp, text: "Что ты умеешь?" },
-];
+/** Подсказки и подписи — свои для каждой роли. */
+const ROLE = {
+  STUDENT: {
+    hello: (n: string) => `Привет, ${n}!`,
+    sub: "Я помощник деканата. Чем помочь?",
+    note: "Я вижу только ваши данные: расписание, оценки, заявки и дедлайны.",
+    suggestions: [
+      { icon: CalendarDays, text: "Какие пары завтра?" },
+      { icon: FileCheck2, text: "Нужна справка в банк" },
+      { icon: Stamp, text: "Справка для военкомата" },
+      { icon: RotateCcw, text: "Как пересдать долг?" },
+      { icon: CircleHelp, text: "Что ты умеешь?" },
+    ],
+  },
+  TEACHER: {
+    hello: () => "Здравствуйте!",
+    sub: "Помогу с расписанием, заданиями и проверкой.",
+    note: "Я вижу только ваши пары, группы и задания. Задания выдаёте вы — я готовлю черновик. Оценки не ставлю.",
+    suggestions: [
+      { icon: CalendarDays, text: "Какие у меня пары завтра?" },
+      { icon: BookOpenCheck, text: "Задай ИВТ-24-1 по алгоритмам лабораторную №6 до пятницы" },
+      { icon: ClipboardCheck, text: "Что ждёт проверки?" },
+      { icon: UserX, text: "Кто не сдал лабораторную №5?" },
+      { icon: CircleHelp, text: "Что ты умеешь?" },
+    ],
+  },
+  STAFF: {
+    hello: () => "Здравствуйте!",
+    sub: "Помогу с заявками, расписанием и объявлениями.",
+    note: "Я вижу только студентов и заявки вашей области. Объявления публикуете вы — я готовлю черновик.",
+    suggestions: [
+      { icon: Inbox, text: "Сколько новых заявок?" },
+      { icon: CalendarDays, text: "Пары ИВТ-24-1 завтра" },
+      { icon: Megaphone, text: "Объяви ИВТ-24-1: лекция в понедельник переносится в 401" },
+      { icon: UserX, text: "Кто из ИВТ-24-1 не входил?" },
+      { icon: CircleHelp, text: "Что ты умеешь?" },
+    ],
+  },
+} as const;
 
 const fetcher = (u: string) => fetch(u).then((r) => (r.ok ? r.json() : Promise.reject(r.status)));
 const monthFmt = new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" });
 
-export function AssistantPanel({ firstName, onClose, mode = "drawer" }: { firstName: string; onClose?: () => void; mode?: "drawer" | "page" }) {
+export function AssistantPanel({ firstName, onClose, mode = "drawer", role = "STUDENT" }: { firstName: string; onClose?: () => void; mode?: "drawer" | "page"; role?: AssistantRole }) {
+  const R = ROLE[role];
   const { data: chatData, mutate: refreshChats } = useSWR<{ chats: ChatItem[] }>("/api/assistant/chats", fetcher);
   const chats = useMemo(() => chatData?.chats ?? [], [chatData]);
   const [chatId, setChatId] = useState<string | null>(null);
@@ -100,7 +136,7 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer" }: { firstN
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Ошибка");
       if (!chatId) setChatId(data.chatId);
-      setMsgs((m) => m.map((x) => (x.id === tmp ? { id: data.id, role: "assistant", text: data.text, draft: data.draft } : x)));
+      setMsgs((m) => m.map((x) => (x.id === tmp ? { id: data.id, role: "assistant", text: data.text, draft: data.draft, links: data.links } : x)));
       refreshChats();
     } catch (e) {
       setMsgs((m) => m.map((x) => (x.id === tmp ? { ...x, pending: false, error: true, text: (e as Error).message || "Не удалось получить ответ. Попробуйте ещё раз." } : x)));
@@ -194,16 +230,16 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer" }: { firstN
           ) : msgs.length === 0 ? (
             <div className="flex min-h-full flex-col items-center justify-center py-10 text-center">
               <Mascot size={112} />
-              <p className="mt-4 font-display text-xl font-semibold">Привет, {firstName}!</p>
-              <p className="mt-1 text-sm text-muted">Я помощник деканата. Чем помочь?</p>
+              <p className="mt-4 font-display text-xl font-semibold">{R.hello(firstName)}</p>
+              <p className="mt-1 text-sm text-muted">{R.sub}</p>
               <div className="mt-6 flex max-w-xl flex-wrap justify-center gap-2">
-                {suggestions.map((s) => (
+                {R.suggestions.map((s) => (
                   <button key={s.text} onClick={() => send(s.text)} disabled={busy} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-surface-2 px-4 text-sm font-medium transition hover:bg-primary-soft hover:text-primary">
                     <s.icon size={16} /> {s.text}
                   </button>
                 ))}
               </div>
-              <p className="mt-6 max-w-sm text-xs text-muted">Я вижу только ваши данные: расписание, оценки, заявки и дедлайны.</p>
+              <p className="mt-6 max-w-sm text-xs text-muted">{R.note}</p>
             </div>
           ) : (
             <div className="mx-auto max-w-3xl space-y-6 py-4">
@@ -222,6 +258,15 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer" }: { firstN
                         </p>
                       ) : (
                         <p className={cn("whitespace-pre-line pt-1 text-[15px] leading-relaxed", m.error && "text-danger")}>{m.text}</p>
+                      )}
+                      {m.links && m.links.length > 0 && (
+                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                          {m.links.map((l) => (
+                            <Link key={l.href + l.label} href={l.href} onClick={onClose} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-border px-3 text-sm font-medium hover:border-ink">
+                              {l.label} <ArrowUpRight size={14} />
+                            </Link>
+                          ))}
+                        </div>
                       )}
                       {m.draft && <DraftCard messageId={m.id} card={m.draft} onNavigate={onClose} />}
                     </div>
@@ -264,7 +309,7 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer" }: { firstN
               <ArrowUp size={20} />
             </button>
           </form>
-          <p className="mt-1.5 text-center text-[11px] text-muted">Помощник может ошибаться. Важное уточняйте в деканате.</p>
+          <p className="mt-1.5 text-center text-[11px] text-muted">{role === "STUDENT" ? "Помощник может ошибаться. Важное уточняйте в деканате." : "Помощник может ошибаться — проверяйте черновики перед отправкой."}</p>
         </div>
       </section>
     </div>

@@ -4,7 +4,9 @@ import Link from "next/link";
 import { Check, FileCheck2, LoaderCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { orderFromDraftAction } from "@/app/(student)/assistant-actions";
-import type { DraftCard as Card } from "@/server/ai/drafts";
+import type { DraftCard as AnyCard, RequestCard as Card } from "@/server/ai/drafts";
+import { AssignmentDraftCard } from "./assignment-card";
+import { AnnouncementDraftCard } from "./announcement-card";
 
 // быстрые варианты для частого поля «куда»
 const PLACE_HINTS = ["В банк", "По месту работы", "В соцзащиту"];
@@ -13,7 +15,14 @@ const PLACE_HINTS = ["В банк", "По месту работы", "В соцз
  * Карточка действия: помощник распознал справку и заполнил, что понял.
  * Недостающее — заполнить прямо здесь; заявка уходит только по нажатию «Заказать».
  */
-export function DraftCard({ messageId, card, onNavigate }: { messageId: string; card: Card; onNavigate?: () => void }) {
+/** Карточка черновика под ответом помощника — своя для каждого действия. */
+export function DraftCard({ messageId, card, onNavigate }: { messageId: string; card: AnyCard; onNavigate?: () => void }) {
+  if (card.kind === "ASSIGNMENT") return <AssignmentDraftCard messageId={messageId} card={card} onNavigate={onNavigate} />;
+  if (card.kind === "ANNOUNCEMENT") return <AnnouncementDraftCard messageId={messageId} card={card} />;
+  return <RequestDraftCard messageId={messageId} card={card} onNavigate={onNavigate} />;
+}
+
+function RequestDraftCard({ messageId, card, onNavigate }: { messageId: string; card: Card; onNavigate?: () => void }) {
   const [values, setValues] = useState<Record<string, string>>(card.values);
   const [paper, setPaper] = useState(card.needsPaper);
   const [errors, setErrors] = useState<Record<string, string>>({});

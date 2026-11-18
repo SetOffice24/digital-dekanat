@@ -10,7 +10,7 @@ import { prisma } from "../db";
 import { clearAttemptsForLogin, hashPassword } from "../auth";
 import { notify } from "../notify";
 import { newIdCode } from "../photos";
-import { studentScope, type SessionStaff } from "./staff";
+import { studentScope, variants, type SessionStaff } from "./staff";
 
 export class AccountError extends Error {}
 
@@ -66,7 +66,8 @@ export async function accountsOverview(staff: SessionStaff, opts: { groupId?: st
     where: {
       ...base,
       ...filterWhere(opts.filter, now),
-      AND: words.map((w) => ({ OR: [{ lastName: { contains: w, mode: "insensitive" as const } }, { firstName: { contains: w, mode: "insensitive" as const } }, { user: { login: { contains: w.toLowerCase() } } }, { recordBookNo: { contains: w } }] })),
+      // кириллица: варианты написания (база с локалью C не сравнивает её без учёта регистра)
+      AND: words.map((w) => ({ OR: [...variants(w).flatMap((v) => [{ lastName: { contains: v } }, { firstName: { contains: v } }]), { user: { login: { contains: w.toLowerCase() } } }, { recordBookNo: { contains: w } }] })),
     },
     orderBy: [{ group: { name: "asc" } }, { lastName: "asc" }, { firstName: "asc" }],
     take: 200,

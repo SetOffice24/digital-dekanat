@@ -54,7 +54,7 @@ export type RequestFilters = { status?: RequestStatus; typeId?: string; q?: stri
  * Написания одного слова: как ввели, «Озёров», «ОЗЁРОВ» (группы), «е» → «ё».
  * Не полагаемся на регистронезависимость БД: при локали C Postgres не сравнивает кириллицу без учёта регистра.
  */
-function variants(w: string) {
+export function variants(w: string) {
   const lower = w.toLowerCase();
   const cap = lower.charAt(0).toUpperCase() + lower.slice(1);
   const out = new Set([w, lower, cap, w.toUpperCase()]);
