@@ -160,7 +160,11 @@ export async function Thread({ v, base, id }: { v: Viewer; base: string; id: str
           );
         })}
       </ol>
-      <ReplyForm id={c.id} accept={ACCEPT} />
+      {data.canReply ? (
+        <ReplyForm id={c.id} accept={ACCEPT} />
+      ) : (
+        <p className="border-t border-border/70 px-4 py-3 text-sm text-muted sm:px-5">Переписка только для чтения: преподаватель больше не ведёт занятия у группы. С вопросами — в деканат.</p>
+      )}
     </div>
   );
 }
@@ -175,7 +179,7 @@ export async function NewMessage({ v, base, to, ctxType, ctxId }: { v: Viewer; b
     if (ctx) {
       context = { type: ctxType, id: ctxId, label: ctx.label };
       // вопрос по дисциплине или заданию — сразу преподавателю этой дисциплины
-      if (ctx.teacherUserIds?.length && !to) filtered = list.filter((r) => ctx.teacherUserIds!.includes(r.key) || r.key === "deanery");
+      if (ctx.teacherUserIds?.length && !to) filtered = list.filter((r) => ctx.teacherUserIds!.includes(r.key) || r.key.startsWith("deanery"));
     }
   }
   const defaultSubject = context ? context.label.charAt(0).toUpperCase() + context.label.slice(1) : undefined;
@@ -185,7 +189,7 @@ export async function NewMessage({ v, base, to, ctxType, ctxId }: { v: Viewer; b
         <ArrowLeft size={16} /> Сообщения
       </Link>
       <h1 className="mb-5 font-head text-[28px] font-semibold tracking-tight">Новое сообщение</h1>
-      <NewMessageForm base={base} recipients={filtered} to={to ?? (filtered.length === 2 && filtered[0].key === "deanery" && ctxType !== "REQUEST" ? filtered[1].key : ctxType === "REQUEST" ? "deanery" : undefined)} context={context} accept={ACCEPT} defaultSubject={defaultSubject} />
+      <NewMessageForm base={base} recipients={filtered} to={to ?? (filtered.length === 2 && filtered[0].key.startsWith("deanery") && ctxType !== "REQUEST" ? filtered[1].key : ctxType === "REQUEST" ? "deanery" : undefined)} context={context} accept={ACCEPT} defaultSubject={defaultSubject} />
     </div>
   );
 }

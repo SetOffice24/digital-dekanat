@@ -16,7 +16,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!form) return NextResponse.json({ error: "Не удалось прочитать форму" }, { status: 400 });
   const files = form.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
   try {
-    await replyToConversation(viewerOf(user), id, { body: String(form.get("body") ?? "").slice(0, 5000), files });
+    const body = String(form.get("body") ?? "");
+    if (body.length > 20000) return NextResponse.json({ error: "Сообщение слишком длинное" }, { status: 400 });
+    const key = z.string().regex(/^[A-Za-z0-9-]{8,64}$/).safeParse(form.get("clientKey"));
+    await replyToConversation(viewerOf(user), id, { body, files, clientKey: key.success ? key.data : null });
     return NextResponse.json({ ok: true });
   } catch (e) {
     if (e instanceof MessageError) return NextResponse.json({ error: e.message }, { status: e.message === "Диалог не найден" ? 404 : 400 });

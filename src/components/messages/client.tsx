@@ -1,9 +1,12 @@
 "use client";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, LoaderCircle, Paperclip, RotateCcw, Search, Send } from "lucide-react";
 import { FileInput } from "@/components/file-input";
 import { cn } from "@/lib/utils";
+
+/** Ключ отправки: одинаковый для повторов одного сообщения (двойное нажатие, повтор после сбоя), новый — после успеха. */
+const newKey = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
 /** Подтягивать новые сообщения без перезагрузки: обновление каждые 8 с, пока вкладка видна. */
 export function AutoRefresh({ ms = 8000 }: { ms?: number }) {
@@ -25,16 +28,23 @@ export function ReplyForm({ id, accept }: { id: string; accept: string }) {
   const [showFiles, setShowFiles] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const busy = useRef(false); // Ctrl+Enter обходит неактивную кнопку — защищаемся и здесь
+  const key = useRef<string | null>(null);
   const send = () => {
-    if (!body.trim() && !files.length) return;
+    if (busy.current || (!body.trim() && !files.length)) return;
+    busy.current = true;
+    key.current ??= newKey();
     const fd = new FormData();
     fd.set("body", body);
+    fd.set("clientKey", key.current);
     files.forEach((f) => fd.append("files", f));
     start(async () => {
       setError(null);
-      const r = await fetch(`/api/messages/${id}`, { method: "POST", body: fd });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) return setError(j.error ?? "Не удалось отправить");
+      const r = await fetch(`/api/messages/${id}`, { method: "POST", body: fd }).catch(() => null);
+      busy.current = false;
+      const j = r ? await r.json().catch(() => ({})) : {};
+      if (!r || !r.ok) return setError(j.error ?? "Не удалось отправить — проверьте связь и нажмите ещё раз");
+      key.current = null;
       setBody("");
       setFiles([]);
       setShowFiles(false);
@@ -118,19 +128,32 @@ export function NewMessageForm({ base, recipients, to, context, accept, defaultS
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const busy = useRef(false);
+  const key = useRef<string | null>(null);
   const list = useMemo(() => {
     const n = q.trim().toLowerCase();
     return (n ? recipients.filter((r) => `${r.title} ${r.sub}`.toLowerCase().includes(n)) : recipients).slice(0, 60);
   }, [q, recipients]);
   const chosen = recipients.find((r) => r.key === picked);
 
+  if (recipients.length === 0)
+    return (
+      <p className="rounded-[24px] border border-border/70 bg-surface p-5 text-sm text-muted">
+        Сейчас вам некому написать: в вашей области нет студентов и преподавателей с текущими занятиями. Если это ошибка — обратитесь к администратору деканата.
+      </p>
+    );
+
   return (
     <form
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
+        if (busy.current) return;
         if (!picked) return setError("Выберите, кому написать");
+        busy.current = true;
+        key.current ??= newKey();
         const fd = new FormData();
+        fd.set("clientKey", key.current);
         fd.set("to", picked);
         fd.set("subject", subject);
         fd.set("body", body);
@@ -141,9 +164,12 @@ export function NewMessageForm({ base, recipients, to, context, accept, defaultS
         files.forEach((f) => fd.append("files", f));
         start(async () => {
           setError(null);
-          const r = await fetch("/api/messages", { method: "POST", body: fd });
-          const j = await r.json().catch(() => ({}));
-          if (!r.ok) return setError(j.error ?? "Не удалось отправить");
+          const r = await fetch("/api/messages", { method: "POST", body: fd }).catch(() => null);
+          const j = r ? await r.json().catch(() => ({})) : {};
+          if (!r || !r.ok) {
+            busy.current = false;
+            return setError(j.error ?? "Не удалось отправить — проверьте связь и нажмите ещё раз");
+          }
           router.push(`${base}/${j.id}`);
         });
       }}

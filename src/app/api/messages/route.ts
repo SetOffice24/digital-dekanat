@@ -8,8 +8,10 @@ export const runtime = "nodejs";
 
 const schema = z.object({
   to: z.string().min(1).max(40),
-  subject: z.string().max(150),
-  body: z.string().max(4000),
+  // длину текста проверяет репозиторий — с понятной ошибкой; здесь только защита от огромных запросов
+  subject: z.string().max(2000),
+  body: z.string().max(20000),
+  clientKey: z.string().regex(/^[A-Za-z0-9-]{8,64}$/).optional(),
   contextType: z.enum(["REQUEST", "COURSE", "ASSIGNMENT"]).optional(),
   contextId: z.string().max(40).optional(),
 });
@@ -26,12 +28,13 @@ export async function POST(req: Request) {
     body: String(form.get("body") ?? ""),
     contextType: form.get("contextType") || undefined,
     contextId: form.get("contextId") || undefined,
+    clientKey: form.get("clientKey") || undefined,
   });
   if (!parsed.success) return NextResponse.json({ error: "Проверьте поля сообщения" }, { status: 400 });
   const files = form.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
-  const { to, subject, body, contextType, contextId } = parsed.data;
+  const { to, subject, body, contextType, contextId, clientKey } = parsed.data;
   try {
-    const c = await startConversation(viewerOf(user), { to, subject, body, files, context: contextType && contextId ? { type: contextType, id: contextId } : null });
+    const c = await startConversation(viewerOf(user), { to, subject, body, files, context: contextType && contextId ? { type: contextType, id: contextId } : null, clientKey });
     return NextResponse.json({ id: c.id });
   } catch (e) {
     if (e instanceof MessageError || e instanceof UploadError) return NextResponse.json({ error: e.message }, { status: 400 });

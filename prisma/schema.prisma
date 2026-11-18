@@ -591,8 +591,11 @@ model Message {
   body           String
   createdAt      DateTime     @default(now())
   files          Attachment[]
+  /// ключ отправки из браузера: повтор того же запроса (двойное нажатие, повтор после сбоя сети) не создаёт дубль
+  clientKey      String?
 
   @@index([conversationId, createdAt])
+  @@unique([authorId, clientKey])
 }
 
 /* ---------- Фото студента ---------- */

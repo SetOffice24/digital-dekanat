@@ -82,6 +82,7 @@ export async function seedMessages(c: Ctx) {
   await conv({
     kind: "DEANERY",
     subject: "Проектор в Лаб. 3",
+    facultyId: c.annaFacultyId, // деканат факультета, где преподаватель ведёт пары
     startedById: c.teacherUserId,
     participants: [
       { userId: c.teacherUserId, readH: 25 },
