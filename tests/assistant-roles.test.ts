@@ -112,3 +112,54 @@ describe("чаты помощника не пересекаются между �
     expect(await deleteChat({ userId: staffUser.id }, chat.id)).toBe(true);
   });
 });
+
+describe("новые сценарии помощника", () => {
+  it("студент: «сдай лабораторную №5» — карточка сдачи этого задания; «по базам данных» — только эта дисциплина", async () => {
+    const { buildStudentContext } = await import("@/server/ai/context");
+    const { rulesReply } = await import("@/server/ai/assistant");
+    const anna = await db.student.findFirstOrThrow({ where: { user: { login: "anna.lesnova" } } });
+    const ctx = await buildStudentContext(anna);
+    const sub = rulesReply("Сдай лабораторную №5", ctx);
+    expect(sub.draft && "kind" in sub.draft && sub.draft.kind).toBe("SUBMISSION");
+    const a = sub.draft && "kind" in sub.draft ? await db.assignment.findUniqueOrThrow({ where: { id: sub.draft.assignmentId } }) : null;
+    expect(a?.title).toMatch(/№5/);
+    expect(a?.groupId).toBe(anna.groupId);
+    const g = rulesReply("Как у меня дела по базам данных", ctx);
+    expect(g.text).toMatch(/Базы данных/);
+    expect(g.text).not.toMatch(/Алгоритмы/);
+    expect(rulesReply("Сколько я пропустил?", ctx).text).toMatch(/Посещаемость/);
+  });
+
+  it("преподаватель: однофамильцы — не угадываем; по имени — нужный студент; текст после «что»", async () => {
+    const { messageFromText, buildTeacherContext: build } = await import("@/server/ai/teacher");
+    const ctx = await build(teacher);
+    const dup = ctx.students.filter((s) => s.lastName === "Зорин");
+    if (dup.length > 1) expect(messageFromText("Напиши Зорину, что отчёт нужно доделать", ctx).studentUserId).toBe("");
+    const nik = ctx.students.find((s) => s.lastName === "Зорин" && s.firstName === "Никита");
+    if (nik) {
+      const d = messageFromText("Напиши Никите Зорину, что отчёт нужно доделать", ctx);
+      expect(d.studentUserId).toBe(nik.userId);
+      expect(d.body).toBe("Отчёт нужно доделать");
+    }
+  });
+
+  it("деканат: перенос — неоднозначную пару не подставляем; по дисциплине и дню — нужная пара", async () => {
+    const { moveFromText } = await import("@/server/ai/staff");
+    const ctx = await buildStaffContext(staff);
+    const vague = await moveFromText("перенеси пару ИВТ-24-1 на понедельник 3 пару в ауд. 305", ctx);
+    expect(vague?.lessonId).toBe("");
+    expect(vague?.room).toBe("305");
+    const group = ctx.groups.find((g) => g.name === "ИВТ-24-1")!;
+    const next = await db.lesson.findFirst({ where: { groupId: group.id, status: { not: "CANCELLED" }, date: { gte: moscowToday() } }, orderBy: [{ date: "asc" }, { startTime: "asc" }], include: { course: true } });
+    if (next) {
+      const sameCourseThatDay = await db.lesson.count({ where: { groupId: group.id, courseId: next.courseId, date: next.date, status: { not: "CANCELLED" } } });
+      const day = ["воскресенье", "понедельник", "вторник", "среду", "четверг", "пятницу", "субботу"][next.date.getUTCDay()];
+      const d = await moveFromText(`перенеси пару ИВТ-24-1 по ${next.course.name.toLowerCase()} с ${day === "среду" ? "среды" : day} на пятницу 12:20 в 401`, ctx);
+      if (sameCourseThatDay === 1 && next.date.getTime() > moscowToday().getTime()) expect(d?.lessonId).toBe(next.id);
+      expect(d?.bell).toBe("12:20|13:50");
+    }
+    // чужой факультет не видит пары группы в карточке
+    const card = await describeDraft({ kind: "MOVE", groupId: group.id, lessonId: "", date: "", bell: "", room: "", reason: "" }, { role: "STAFF", staff: { facultyId: outsider.facultyId } });
+    expect(card?.kind === "MOVE" && card.lessons.length).toBe(0);
+  });
+});

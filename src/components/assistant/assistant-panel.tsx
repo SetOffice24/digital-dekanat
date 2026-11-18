@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { ArrowUp, ArrowUpRight, BookOpenCheck, CalendarDays, CircleHelp, ClipboardCheck, FileCheck2, Inbox, Megaphone, MessageSquarePlus, PanelLeft, RotateCcw, Stamp, Trash2, UserX, X } from "lucide-react";
+import { ArrowUp, ArrowUpRight, BookOpenCheck, CalendarClock, CalendarDays, CircleHelp, ClipboardCheck, FileCheck2, GraduationCap, Inbox, Megaphone, MessageSquareText, MessageSquarePlus, PanelLeft, Trash2, Upload, UserX, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Mascot } from "./mascot";
 import { DraftCard } from "./draft-card";
@@ -21,9 +21,10 @@ const ROLE = {
     note: "Я вижу только ваши данные: расписание, оценки, заявки и дедлайны.",
     suggestions: [
       { icon: CalendarDays, text: "Какие пары завтра?" },
+      { icon: BookOpenCheck, text: "Что мне сдать?" },
+      { icon: Upload, text: "Сдай лабораторную №5" },
+      { icon: GraduationCap, text: "Как у меня дела по оценкам?" },
       { icon: FileCheck2, text: "Нужна справка в банк" },
-      { icon: Stamp, text: "Справка для военкомата" },
-      { icon: RotateCcw, text: "Как пересдать долг?" },
       { icon: CircleHelp, text: "Что ты умеешь?" },
     ],
   },
@@ -36,6 +37,7 @@ const ROLE = {
       { icon: BookOpenCheck, text: "Задай ИВТ-24-1 по алгоритмам лабораторную №6 до пятницы" },
       { icon: ClipboardCheck, text: "Что ждёт проверки?" },
       { icon: UserX, text: "Кто не сдал лабораторную №5?" },
+      { icon: MessageSquareText, text: "Напомни ИВТ-24-1 про лабораторную №5" },
       { icon: CircleHelp, text: "Что ты умеешь?" },
     ],
   },
@@ -47,6 +49,7 @@ const ROLE = {
       { icon: Inbox, text: "Сколько новых заявок?" },
       { icon: CalendarDays, text: "Пары ИВТ-24-1 завтра" },
       { icon: Megaphone, text: "Объяви ИВТ-24-1: лекция в понедельник переносится в 401" },
+      { icon: CalendarClock, text: "Перенеси пару ИВТ-24-1 на пятницу 12:20 в 401" },
       { icon: UserX, text: "Кто из ИВТ-24-1 не входил?" },
       { icon: CircleHelp, text: "Что ты умеешь?" },
     ],

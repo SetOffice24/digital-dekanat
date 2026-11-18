@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStudent } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { createRequest } from "@/server/repos/student";
-import { getDraftMessage, markDraftOrdered } from "@/server/repos/assistant";
+import { getDraftMessage, markDraftDone, markDraftOrdered } from "@/server/repos/assistant";
 import { parseFields, payloadSchema } from "@/lib/request-fields";
 
 export type OrderResult = { ok?: { id: string; number: number }; error?: string; fieldErrors?: Record<string, string> };
@@ -38,4 +38,20 @@ export async function orderFromDraftAction(messageId: string, values: Record<str
   revalidatePath("/requests");
   revalidatePath("/");
   return { ok: { id: r.id, number: r.number } };
+}
+
+/**
+ * Карточка «Сдать задание» в чате: файлы уходят обычным путём (/api/homework/[id], те же проверки),
+ * после этого карточка отмечается отправленной — только если сдача действительно есть.
+ */
+export async function markSubmissionSentAction(messageId: string, assignmentId: string): Promise<{ ok?: boolean }> {
+  const { student } = await requireStudent();
+  const ids = z.object({ m: z.string().min(1).max(40), a: z.string().min(1).max(40) }).safeParse({ m: messageId, a: assignmentId });
+  if (!ids.success) return {};
+  const msg = await getDraftMessage(student, ids.data.m);
+  if ((msg?.draft as { kind?: string } | null)?.kind !== "SUBMISSION") return {};
+  const sub = await prisma.submission.count({ where: { assignmentId: ids.data.a, studentId: student.id } });
+  if (!sub) return {};
+  await markDraftDone(student, ids.data.m, { sentAssignmentId: ids.data.a });
+  return { ok: true };
 }

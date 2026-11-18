@@ -11,12 +11,51 @@ import { countByStatus, listGroups, listRequests, studentScope, variants, type S
 import { accountsOverview } from "../repos/accounts";
 import { photoQueueCount } from "../repos/photos";
 import { requestStatusLabel } from "@/lib/labels";
-import { fmtDay, moscowToday, plural, relativeTime } from "@/lib/utils";
-import { findGroup, gatewayJson, hasAny, norm, parseDay, type AiLink, type ChatMsg } from "./common";
+import { addDays, fmtDay, moscowToday, plural, relativeTime } from "@/lib/utils";
+import { bells } from "@/config/university";
+import { bestMentions, findGroup, gatewayJson, hasAny, norm, parseDay, type AiLink, type ChatMsg } from "./common";
 
 export type AnnouncementDraft = { kind: "ANNOUNCEMENT"; audience: "ALL" | "FACULTY" | "GROUP"; groupId: string; title: string; body: string };
-export type StaffReply = { text: string; draft?: AnnouncementDraft; links?: AiLink[]; source: "gateway" | "rules" };
+/** Перенос пары: какую (lessonId), куда (дата, пара по звонкам, аудитория), причина. */
+export type MoveDraft = { kind: "MOVE"; groupId: string; lessonId: string; date: string; bell: string; room: string; reason: string };
+export type StaffReply = { text: string; draft?: AnnouncementDraft | MoveDraft; links?: AiLink[]; source: "gateway" | "rules" };
 
+/**
+ * «Перенеси пару ИВТ-24-1 по дискретной математике со среды на пятницу 12:20 в 401, причина: конференция».
+ * До «на» — какую пару (дисциплина, день), после — куда. Неясное остаётся пустым: сотрудник выберет в карточке.
+ */
+export async function moveFromText(text: string, ctx: StaffContext): Promise<MoveDraft | null> {
+  const group = findGroup(text, ctx.groups);
+  if (!group) return null;
+  const split = text.search(/\sна\s/i);
+  const from = split >= 0 ? text.slice(0, split) : "";
+  const to = split >= 0 ? text.slice(split) : text;
+  const today = moscowToday();
+  const lessons = await prisma.lesson.findMany({
+    where: { groupId: group.id, status: { not: "CANCELLED" }, date: { gte: today, lt: addDays(today, 21) } },
+    orderBy: [{ date: "asc" }, { startTime: "asc" }],
+    select: { id: true, date: true, startTime: true, course: { select: { name: true } } },
+  });
+  // какую пару: дисциплина и/или день из части «до на». Не нашли однозначно — не угадываем:
+  // поле остаётся пустым и сотрудник выбирает пару сам (ошибка здесь = перенос не той пары у целой группы)
+  const fromDay = from ? parseDay(from) : null;
+  const sameDay = (l: (typeof lessons)[number]) => !fromDay || l.date.getTime() === fromDay.getTime();
+  const courseHits = bestMentions(from || text, lessons, (l) => l.course.name);
+  const candidates = courseHits.length ? courseHits.filter(sameDay) : fromDay ? lessons.filter(sameDay) : [];
+  const lesson = candidates.length === 1 || (courseHits.length && candidates.length) ? candidates[0] : undefined;
+  const day = parseDay(to);
+  const t = norm(to);
+  const hhmm = t.match(/(\d{1,2})[:.](\d{2})/);
+  const nth = t.match(/(\d)\s*(?:-?ю|-?я)?\s*пар/)?.[1];
+  const bell = hhmm
+    ? bells.find((b) => b.start === `${hhmm[1].padStart(2, "0")}:${hhmm[2]}`)
+    : nth
+      ? bells.find((b) => b.n === Number(nth))
+      : undefined;
+  const room = to.match(/(?:ауд(?:итори[юия])?\.?\s*|\sв\s+)([А-ЯA-Z]?-?\d{2,4}[а-яa-z]?)(?![:.\d])/i)?.[1] ?? "";
+  const reason = text.match(/(?:причина|из-за|потому что)\s*:?\s*([\s\S]{3,})$/i)?.[1].trim() ?? "";
+  return { kind: "MOVE", groupId: group.id, lessonId: lesson?.id ?? "", date: day ? day.toISOString().slice(0, 10) : "", bell: bell ? `${bell.start}|${bell.end}` : "", room, reason: reason.replace(/^./, (c) => c.toUpperCase()) };
+}
 export async function buildStaffContext(s: SessionStaff & { fullName: string }) {
   const [counts, groups, photos, newest] = await Promise.all([countByStatus(s), listGroups(s), photoQueueCount(s), listRequests(s, { status: "NEW" })]);
   const lines: string[] = [];
@@ -34,7 +73,7 @@ export function announcementFromText(text: string, ctx: StaffContext): Announcem
   const t = norm(text);
   const audience: AnnouncementDraft["audience"] = group ? "GROUP" : ctx.staff.facultyId || hasAny(t, "факультет") ? "FACULTY" : "ALL";
   // текст — после двоеточия или после «что …»; иначе вся фраза без служебного начала
-  const after = text.match(/[:—]\s*([\s\S]{3,})$/)?.[1] ?? text.match(/\bчто\s+([\s\S]{3,})$/i)?.[1] ?? text.replace(/^.*?(объявлени\S*|оповести\S*|сообщи\S*|напиши\S*|разошли\S*)\s*(групп\S*\s*\S*)?/i, "");
+  const after = text.match(/[:—]\s*([\s\S]{3,})$/)?.[1] ?? text.match(/(?:^|\s)что\s+([\s\S]{3,})$/i)?.[1] ?? text.replace(/^.*?(объявлени\S*|оповести\S*|сообщи\S*|напиши\S*|разошли\S*)\s*(групп\S*\s*\S*)?/i, "");
   const body = after.trim().replace(/^./, (c) => c.toUpperCase());
   const first = body.split(/[.!?\n]/)[0].trim();
   const title = first.length > 3 ? (first.length > 80 ? first.slice(0, 77) + "…" : first) : "Объявление";
@@ -45,7 +84,7 @@ export async function rulesStaff(message: string, ctx: StaffContext): Promise<St
   const m = norm(message);
   const s = ctx.staff;
   const group = findGroup(message, ctx.groups);
-  const r = (text: string, links?: AiLink[], draft?: AnnouncementDraft): StaffReply => ({ text, links, draft, source: "rules" });
+  const r = (text: string, links?: AiLink[], draft?: AnnouncementDraft | MoveDraft): StaffReply => ({ text, links, draft, source: "rules" });
 
   // объявление — черновик
   if (hasAny(m, "объяви", "объявлен", "оповест", "разошли", "сообщи групп", "сообщи студент", "напиши групп", "напиши студентам", "напиши всем", "сообщи всем", "предупреди")) {
@@ -54,8 +93,22 @@ export async function rulesStaff(message: string, ctx: StaffContext): Promise<St
     return r(`Подготовил объявление ${where}. Проверьте заголовок и текст — и нажмите «Опубликовать»: студенты получат уведомление.`, undefined, d);
   }
 
+  // перенос пары — черновик, переносит сотрудник
+  if (hasAny(m, "перенес", "перенос", "переставь", "передвинь")) {
+    const d = await moveFromText(message, ctx);
+    if (!d) return r("Для какой группы перенести пару? Например: «перенеси пару ИВТ-24-1 по дискретной математике со среды на пятницу 12:20 в 401, причина: конференция».");
+    const l = d.lessonId ? await prisma.lesson.findUnique({ where: { id: d.lessonId }, select: { date: true, startTime: true, course: { select: { name: true } } } }) : null;
+    return r(
+      l
+        ? `Нашёл пару: ${l.course.name}, ${fmtDay(l.date).toLowerCase()}, ${l.startTime} (${group?.name}). Проверьте, что это она, новую дату, время, аудиторию и причину — и нажмите «Перенести»: студенты получат уведомление.`
+        : `Не смог однозначно определить, какую пару ${group?.name} переносить — выберите её в карточке, проверьте новую дату и время и нажмите «Перенести».`,
+      undefined,
+      d,
+    );
+  }
+
   // фото
-  if (hasAny(m, "фото")) return r(ctx.photos ? `На проверке ${ctx.photos} ${plural(ctx.photos, "фото", "фото", "фото")}.` : "Новых фото на проверке нет.", [{ href: "/staff/students/photos", label: "Фото студентов" }]);
+  if (hasAny(m, "фото"))return r(ctx.photos ? `На проверке ${ctx.photos} ${plural(ctx.photos, "фото", "фото", "фото")}.` : "Новых фото на проверке нет.", [{ href: "/staff/students/photos", label: "Фото студентов" }]);
 
   // аккаунты
   if (hasAny(m, "не входил", "не заходил", "аккаунт", "пароль", "заблок", "неактивн")) {
@@ -110,7 +163,7 @@ export async function rulesStaff(message: string, ctx: StaffContext): Promise<St
   }
 
   return r(
-    `Здравствуйте! Я помогаю с рутиной деканата. Могу:\n• рассказать о заявках: «сколько новых заявок», «найди заявку Озёрова», «заявка № 12»\n• показать расписание группы: «пары ИВТ-24-1 завтра»\n• подсказать по аккаунтам и фото: «кто из ИВТ-24-1 не входил»\n• подготовить объявление: «объяви ИВТ-24-1: лекция в понедельник переносится в 401»\n\nЯ только готовлю черновик — публикуете вы.`,
+    `Здравствуйте! Я помогаю с рутиной деканата. Могу:\n• рассказать о заявках: «сколько новых заявок», «найди заявку Озёрова», «заявка № 12»\n• показать расписание группы: «пары ИВТ-24-1 завтра»\n• подсказать по аккаунтам и фото: «кто из ИВТ-24-1 не входил»\n• подготовить объявление: «объяви ИВТ-24-1: лекция в понедельник переносится в 401»\n• перенести пару: «перенеси пару ИВТ-24-1 по дискретной математике со среды на пятницу 12:20 в 401, причина: конференция»\n\nЯ только готовлю черновик — публикуете вы.`,
   );
 }
 
@@ -138,6 +191,8 @@ ${ctx.groups.map((g) => `${g.id} — ${g.name}`).join("\n")}
 
 КОНТЕКСТ:
 ${ctx.text}`;
+  // перенос пары разбираем правилами и в режиме модели: нужно точно найти занятие в расписании
+  if (hasAny(norm(last), "перенес", "перенос", "переставь", "передвинь")) return rulesStaff(last, ctx);
   const g = await gatewayJson(system, history);
   if (g) return { text: g.text, draft: sanitize(g.draft, ctx), source: "gateway" };
   return rulesStaff(last, ctx);

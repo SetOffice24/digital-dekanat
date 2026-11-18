@@ -14,12 +14,20 @@ export function findGroup<T extends { name: string }>(text: string, groups: T[])
   return [...groups].sort((a, b) => b.name.length - a.name.length).find((g) => flat.includes(norm(g.name).replace(/[\s-]/g, "")));
 }
 
-/** Основа слова для сравнения названий: «алгоритмам» ~ «алгоритмы». */
-const stem = (w: string) => (w.length > 5 ? w.slice(0, w.length - 2) : w);
-export function mentions(text: string, name: string) {
+/** Основа слова для сравнения названий: «алгоритмам» ~ «алгоритмы», «базам» ~ «базы». */
+const stem = (w: string) => w.slice(0, Math.max(3, w.length - 2));
+/** Сколько значимых слов названия встречается во фразе (в любом падеже). */
+export function mentionScore(text: string, name: string) {
   const words = norm(name).split(/[^a-zа-я0-9]+/).filter((w) => w.length >= 4);
   const t = norm(text);
-  return words.some((w) => t.includes(stem(w)));
+  return words.filter((w) => t.includes(stem(w))).length;
+}
+export const mentions = (text: string, name: string) => mentionScore(text, name) > 0;
+/** Лучшие совпадения: «по базам данных» → «Базы данных», а не «Алгоритмы и структуры данных». */
+export function bestMentions<T>(text: string, items: T[], name: (x: T) => string) {
+  const scored = items.map((x) => ({ x, s: mentionScore(text, name(x)) }));
+  const max = Math.max(0, ...scored.map((y) => y.s));
+  return max ? scored.filter((y) => y.s === max).map((y) => y.x) : [];
 }
 
 const WEEKDAYS = ["воскресен", "понедельник", "вторник", "сред", "четверг", "пятниц", "суббот"];

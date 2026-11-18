@@ -8,10 +8,52 @@ import { z } from "zod";
 import { prisma } from "../db";
 import { currentPeriod, type SessionTeacher } from "../repos/teacher";
 import { addDays, fmtDateTime, fmtDay, moscowToday, plural } from "@/lib/utils";
-import { findGroup, gatewayJson, hasAny, mentions, norm, parseDay, parseDue, type AiLink, type ChatMsg } from "./common";
+import { bestMentions, findGroup, gatewayJson, hasAny, norm, parseDay, parseDue, type AiLink, type ChatMsg } from "./common";
 
 export type AssignmentDraft = { kind: "ASSIGNMENT"; groupId: string; courseId: string; title: string; description: string; dueAt: string };
-export type TeacherReply = { text: string; draft?: AssignmentDraft; links?: AiLink[]; source: "gateway" | "rules" };
+/** Сообщение одному студенту (личный диалог) или напоминание группе (уведомление всем студентам группы). */
+export type MessageDraft = { kind: "MESSAGE"; mode: "STUDENT" | "GROUP"; studentUserId: string; groupId: string; subject: string; body: string };
+export type TeacherReply = { text: string; draft?: AssignmentDraft | MessageDraft; links?: AiLink[]; source: "gateway" | "rules" };
+
+/** Студент из фразы по фамилии в любом падеже: «Зорину», «Лесновой» → по основе фамилии. */
+function findStudent(text: string, students: TeacherContextLite["students"]) {
+  const t = norm(text);
+  const hits = students.filter((s) => {
+    const ln = norm(s.lastName);
+    const base = ln.length > 5 ? ln.slice(0, ln.length - 2) : ln.slice(0, Math.max(4, ln.length - 1));
+    return new RegExp(`(^|[^а-я])${base}`).test(t);
+  });
+  // однофамильцы — уточняем по имени; не уточнили — не угадываем, преподаватель выберет в карточке
+  if (hits.length > 1) {
+    const byName = hits.find((s) => t.includes(norm(s.firstName).slice(0, 4)));
+    return byName ? { hit: byName, namesakes: [] } : { hit: undefined, namesakes: hits };
+  }
+  return { hit: hits[0], namesakes: [] };
+}
+type TeacherContextLite = { students: { userId: string; lastName: string; firstName: string; groupId: string }[] };
+
+/** Черновик сообщения: кому (студент или группа), тема, текст. Про задание — подставляем его срок. */
+export function messageFromText(text: string, ctx: TeacherContext): MessageDraft {
+  const found = findStudent(text, ctx.students);
+  const student = found.hit;
+  const namesakes = found.namesakes.length > 1;
+  const group = findGroup(text, ctx.groups) ?? (student || namesakes ? undefined : ctx.groups.length === 1 ? ctx.groups[0] : undefined);
+  const t = norm(text);
+  const num = t.match(/(?:лаб[а-я]*|работ[а-я]*|задани[а-я]*|№)\s*№?\s*(\d+)/)?.[1];
+  const gid = student?.groupId ?? group?.id;
+  const a = num ? ctx.assignments.find((x) => x.groupId === gid && new RegExp(`№\\s*${num}(?!\\d)`).test(x.title)) : undefined;
+  // \b в JS не работает с кириллицей — граница слова через пробел
+  const said = text.match(/[:—]\s*([\s\S]{3,})$/)?.[1] ?? text.match(/(?:^|\s)что\s+([\s\S]{3,})$/i)?.[1];
+  const body = said ? said.trim().replace(/^./, (c) => c.toUpperCase()) : a ? `Напоминаю: «${a.title}» нужно сдать до ${fmtDateTime(a.dueAt)}.` : "";
+  return {
+    kind: "MESSAGE",
+    mode: student || namesakes ? "STUDENT" : "GROUP",
+    studentUserId: student?.userId ?? "",
+    groupId: student || namesakes ? "" : (group?.id ?? ""),
+    subject: a ? `«${a.title}»` : hasAny(t, "напомн") ? "Напоминание" : "Сообщение от преподавателя",
+    body,
+  };
+}
 
 export async function buildTeacherContext(t: SessionTeacher & { fullName: string }) {
   const today = moscowToday();
@@ -23,6 +65,7 @@ export async function buildTeacherContext(t: SessionTeacher & { fullName: string
   ]);
   const pairs = pairsRaw.map((p) => ({ groupId: p.group.id, groupName: p.group.name, courseId: p.course.id, courseName: p.course.name })).sort((a, b) => a.groupName.localeCompare(b.groupName, "ru"));
   const groups = [...new Map(pairs.map((p) => [p.groupId, { id: p.groupId, name: p.groupName }])).values()];
+  const students = await prisma.student.findMany({ where: { groupId: { in: groups.map((g) => g.id) } }, orderBy: { lastName: "asc" }, select: { userId: true, lastName: true, firstName: true, groupId: true } });
 
   const lines: string[] = [];
   lines.push(`Преподаватель: ${t.fullName}. Сегодня: ${fmtDay(today)}.`);
@@ -32,7 +75,7 @@ export async function buildTeacherContext(t: SessionTeacher & { fullName: string
   if (!lessons.length) lines.push("- пар нет");
   lines.push(`Ждут проверки: ${pending.length}.`);
   lines.push(`Задания: ${assignments.slice(0, 12).map((a) => `«${a.title}» (${a.group.name}, до ${fmtDateTime(a.dueAt)}, сдали ${a._count.submissions})`).join("; ") || "нет"}.`);
-  return { text: lines.join("\n"), pairs, groups, lessons, assignments, pending, fullName: t.fullName, teacherId: t.id };
+  return { text: lines.join("\n"), pairs, groups, students, lessons, assignments, pending, fullName: t.fullName, teacherId: t.id };
 }
 export type TeacherContext = Awaited<ReturnType<typeof buildTeacherContext>>;
 
@@ -43,7 +86,7 @@ export function assignmentFromText(text: string, ctx: TeacherContext): Assignmen
   const t = norm(text);
   const group = findGroup(text, ctx.groups) ?? (ctx.groups.length === 1 ? ctx.groups[0] : undefined);
   const forGroup = ctx.pairs.filter((p) => !group || p.groupId === group.id);
-  const pair = forGroup.find((p) => mentions(text, p.courseName)) ?? (forGroup.length === 1 ? forGroup[0] : undefined);
+  const pair = bestMentions(text, forGroup, (p) => p.courseName)[0] ?? (forGroup.length === 1 ? forGroup[0] : undefined);
   const lab = t.match(/лаб[а-я]*(?:\s+работ[а-я]*)?\s*№?\s*(\d+)/); // \w в JS не ловит кириллицу
   const quoted = text.match(/[«"]([^»"]{2,150})[»"]/);
   const title = quoted?.[1] ?? (lab ? `Лабораторная №${lab[1]}` : hasAny(t, "контрольн") ? "Контрольная работа" : hasAny(t, "реферат") ? "Реферат" : hasAny(t, "эссе") ? "Эссе" : hasAny(t, "курсов") ? "Курсовая работа" : "Домашнее задание");
@@ -54,7 +97,7 @@ export function assignmentFromText(text: string, ctx: TeacherContext): Assignmen
 export async function rulesTeacher(message: string, ctx: TeacherContext): Promise<TeacherReply> {
   const m = norm(message);
   const group = findGroup(message, ctx.groups);
-  const r = (text: string, links?: AiLink[], draft?: AssignmentDraft): TeacherReply => ({ text, links, draft, source: "rules" });
+  const r = (text: string, links?: AiLink[], draft?: AssignmentDraft | MessageDraft): TeacherReply => ({ text, links, draft, source: "rules" });
 
   // кто не сдал / сдал задание
   if (hasAny(m, "не сдал", "кто сдал", "сдали ли", "не прислал")) {
@@ -74,6 +117,24 @@ export async function rulesTeacher(message: string, ctx: TeacherContext): Promis
       }),
     );
     return r(parts.join("\n\n"), list.map((a) => ({ href: hw(a), label: list.length > 1 ? `Открыть: ${a.group.name}` : "Открыть задание" })));
+  }
+
+  // написать студенту / напомнить группе — черновик, отправляет преподаватель
+  if (hasAny(m, "напиши", "напомни", "сообщи", "передай", "предупреди")) {
+    const d = messageFromText(message, ctx);
+    const twins = findStudent(message, ctx.students).namesakes;
+    if (twins.length > 1) return r(`В ваших группах несколько студентов с такой фамилией: ${twins.map((s) => `${s.lastName} ${s.firstName}`).join(", ")}. Выберите нужного в карточке.`, undefined, d);
+    const st = ctx.students.find((s) => s.userId === d.studentUserId);
+    const g = ctx.groups.find((x) => x.id === d.groupId);
+    return r(
+      d.mode === "STUDENT" && st
+        ? `Подготовил сообщение: ${st.lastName} ${st.firstName}. Проверьте текст и нажмите «Отправить» — оно придёт студенту в личные сообщения.`
+        : g
+          ? `Подготовил напоминание группе ${g.name}. Проверьте текст и нажмите «Отправить» — студенты получат уведомление.`
+          : "Подготовил черновик. Выберите студента или группу, проверьте текст и нажмите «Отправить».",
+      undefined,
+      d,
+    );
   }
 
   // что ждёт проверки
@@ -143,14 +204,24 @@ export async function rulesTeacher(message: string, ctx: TeacherContext): Promis
   }
 
   return r(
-    `Здравствуйте! Я помогаю с рутиной преподавателя. Могу:\n• показать расписание: «какие пары завтра», «где пара у ИВТ-24-1»\n• выдать домашнее задание: «задай ИВТ-24-1 по алгоритмам лабораторную №6 до пятницы»\n• подсказать, что ждёт проверки и кто не сдал задание\n• показать студентов с низкой посещаемостью\n\nОценки я не ставлю — это решение преподавателя.`,
+    `Здравствуйте! Я помогаю с рутиной преподавателя. Могу:\n• показать расписание: «какие пары завтра», «где пара у ИВТ-24-1»\n• выдать домашнее задание: «задай ИВТ-24-1 по алгоритмам лабораторную №6 до пятницы»\n• подсказать, что ждёт проверки и кто не сдал задание\n• показать студентов с низкой посещаемостью\n• написать студенту или напомнить группе: «напиши Зорину, что отчёт нужно доделать», «напомни ИВТ-24-1 про лабораторную №6»\n\nОценки я не ставлю — это решение преподавателя.`,
   );
 }
 
 const draftSchema = z.object({ kind: z.literal("ASSIGNMENT"), groupId: z.string().max(40), courseId: z.string().max(40), title: z.string().max(150), description: z.string().max(4000), dueAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/) });
 
-/** Черновик модели проверяется: только пары этого преподавателя, иначе поля пустые. */
-function sanitize(d: unknown, ctx: TeacherContext): AssignmentDraft | undefined {
+const messageSchema = z.object({ kind: z.literal("MESSAGE"), mode: z.enum(["STUDENT", "GROUP"]), studentUserId: z.string().max(40).default(""), groupId: z.string().max(40).default(""), subject: z.string().max(150), body: z.string().max(4000) });
+
+/** Черновик модели проверяется: только пары, группы и студенты этого преподавателя, иначе поля пустые. */
+function sanitize(d: unknown, ctx: TeacherContext): AssignmentDraft | MessageDraft | undefined {
+  const msg = messageSchema.safeParse(d);
+  if (msg.success) {
+    return {
+      ...msg.data,
+      studentUserId: ctx.students.some((s) => s.userId === msg.data.studentUserId) ? msg.data.studentUserId : "",
+      groupId: ctx.groups.some((g) => g.id === msg.data.groupId) ? msg.data.groupId : "",
+    };
+  }
   const p = draftSchema.safeParse(d);
   if (!p.success) return undefined;
   const pair = ctx.pairs.find((x) => x.groupId === p.data.groupId && x.courseId === p.data.courseId);
@@ -163,6 +234,10 @@ export async function teacherReply(history: ChatMsg[], ctx: TeacherContext): Pro
 Используй только данные из контекста. Не выставляй и не обсуждай изменение оценок — это решает преподаватель.
 Если преподаватель просит выдать домашнее задание — подготовь черновик (сам ты ничего не выдаёшь, под ответом появится карточка с кнопкой «Выдать»).
 Черновик: {"kind":"ASSIGNMENT","groupId":"<id из списка пар>","courseId":"<id>","title":"...","description":"...","dueAt":"YYYY-MM-DDTHH:mm"} (время московское).
+Если просит написать студенту или напомнить группе — {"kind":"MESSAGE","mode":"STUDENT"|"GROUP","studentUserId":"<id студента>","groupId":"<id группы>","subject":"...","body":"..."}; отправляет преподаватель кнопкой.
+
+Студенты (userId — фамилия имя — группа):
+${ctx.students.map((s) => `${s.userId} — ${s.lastName} ${s.firstName} — ${ctx.groups.find((g) => g.id === s.groupId)?.name ?? ""}`).join("\n")}
 Ответ — строго JSON: {"text":"...","draft": {...} | null}
 
 Пары (groupId|courseId — группа — дисциплина):
