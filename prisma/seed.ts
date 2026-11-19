@@ -10,6 +10,7 @@ import { seedHomework } from "./seed-homework";
 import { seedMessages } from "./seed-messages";
 import { seedPhotos } from "./seed-photos";
 import { seedAccounts } from "./seed-accounts";
+import { restoreChats, snapshotChats } from "./seed-keep-chats";
 
 const prisma = new PrismaClient();
 const rng = seedrandom("univer-demo");
@@ -173,6 +174,8 @@ async function reset() {
 }
 
 async function main() {
+  // переписка с помощником переживает пересоздание демо-данных (SEED_KEEP_CHATS=0 — очистить и её)
+  const savedChats = process.env.SEED_KEEP_CHATS === "0" ? [] : await snapshotChats(prisma);
   await reset();
 
   const teachers = await Promise.all(
@@ -556,7 +559,9 @@ async function main() {
   await seedPhotos({ prisma, now, annaId: anna.id, petrId: petr.id, annaGroupId: anna.groupId, staffUserId: staffUser.id, rng });
   await seedAccounts({ prisma, now, annaId: anna.id, petrId: petr.id, annaGroupId: anna.groupId, staffUserId: staffUser.id, rng });
 
-  console.log("Seed OK:", { lessons: lessonRows.length, students: 2 + fillers.length + classmates.length, staff: 1 });
+  const chats = await restoreChats(prisma, savedChats);
+
+  console.log("Seed OK:", { chats, lessons: lessonRows.length, students: 2 + fillers.length + classmates.length, staff: 1 });
 }
 
 main()

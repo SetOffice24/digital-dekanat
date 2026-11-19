@@ -125,6 +125,18 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer", role = "ST
     if (window.matchMedia("(max-width: 899px)").matches) setSidebar(false);
   };
 
+  // Продолжить разговор: при открытии помощника (и после повторного входа) — последний чат,
+  // если в нём писали в последние 12 часов. Старые разговоры — в истории слева, новый — кнопкой «Новый чат».
+  const autoOpened = useRef(false);
+  useEffect(() => {
+    if (autoOpened.current || !chatData) return;
+    autoOpened.current = true;
+    const last = chatData.chats[0];
+    if (!last || Date.now() - new Date(last.updatedAt).getTime() > 12 * 3600_000) return;
+    const t = setTimeout(() => openChat(last.id), 0);
+    return () => clearTimeout(t);
+  }, [chatData, openChat]);
+
   async function removeChat(id: string) {
     await fetch(`/api/assistant/chats/${id}`, { method: "DELETE" });
     if (id === chatId) newChat();
@@ -218,9 +230,15 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer", role = "ST
           )}
           <div className="min-w-0 flex-1 truncate text-sm font-semibold text-muted">{activeTitle ?? (msgs.length ? "Новый чат" : "")}</div>
           {msgs.length > 0 && (
-            <button onClick={newChat} className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label="Новый чат">
-              <MessageSquarePlus size={20} />
-            </button>
+            <>
+              {/* разговор продолжен — сводка «на сегодня» одной кнопкой */}
+              <button onClick={() => send("Что у меня сегодня?", "today", "Сводка на сегодня")} disabled={busy} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-40" aria-label="Сводка на сегодня">
+                <CalendarDays size={18} /> <span className="hidden sm:inline">Сегодня</span>
+              </button>
+              <button onClick={newChat} className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label="Новый чат" title="Новый чат">
+                <MessageSquarePlus size={20} />
+              </button>
+            </>
           )}
           {mode === "drawer" && onClose && (
             <button onClick={onClose} className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label="Закрыть помощника">
