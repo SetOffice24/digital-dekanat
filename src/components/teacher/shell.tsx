@@ -7,6 +7,7 @@ import { university } from "@/config/university";
 import { MessagesLink } from "@/components/messages/messages-link";
 import { AssistantProvider, OpenAssistant } from "@/components/assistant/provider";
 import { Mascot } from "@/components/assistant/mascot";
+import { ReminderNotice } from "@/components/reminder-notice";
 
 /** Кабинет преподавателя: простая шапка без навигации — раздел один. */
 export function TeacherShell({ children, name, department }: { children: React.ReactNode; name: string; department: string }) {
@@ -42,6 +43,7 @@ export function TeacherShell({ children, name, department }: { children: React.R
         <div className="mx-auto max-w-5xl">{university.disclaimer}</div>
       </footer>
     </div>
+    <ReminderNotice />
     </AssistantProvider>
   );
 }

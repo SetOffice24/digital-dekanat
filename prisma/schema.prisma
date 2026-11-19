@@ -102,6 +102,7 @@ model User {
   messages      Message[]
   conversationsStarted Conversation[] @relation("ConversationStarter")
   aiChats       AiChat[]
+  reminders     Reminder[]
 }
 
 /** Подписка устройства на push-уведомления (Web Push). Одно устройство/браузер — одна запись. */
@@ -656,4 +657,19 @@ model AccountEvent {
 
   @@index([studentId, createdAt])
   @@index([createdAt])
+}
+
+/// Напоминание, поставленное через помощника («напомни завтра в 9 про лабу»): в срок — уведомление и push.
+model Reminder {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String
+  link      String?
+  dueAt     DateTime
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, sentAt, dueAt])
+  @@index([sentAt, dueAt])
 }

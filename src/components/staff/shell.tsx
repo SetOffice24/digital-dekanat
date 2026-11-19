@@ -9,6 +9,7 @@ import { university } from "@/config/university";
 import { MessagesLink } from "@/components/messages/messages-link";
 import { AssistantProvider, OpenAssistant } from "@/components/assistant/provider";
 import { Mascot } from "@/components/assistant/mascot";
+import { ReminderNotice } from "@/components/reminder-notice";
 
 const nav: { href: string; label: string; icon: LucideIcon; exact?: boolean; match?: (p: string) => boolean }[] = [
   { href: "/staff", label: "Заявки", icon: FileText, match: (p: string) => p === "/staff" || p.startsWith("/staff/requests") },
@@ -71,6 +72,7 @@ export function StaffShell({ children, name, position }: { children: React.React
         <div className="mx-auto max-w-[100rem]">{university.disclaimer}</div>
       </footer>
     </div>
+    <ReminderNotice />
     </AssistantProvider>
   );
 }

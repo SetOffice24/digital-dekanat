@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Check, ChevronLeft, ChevronRight, LoaderCircle, Paperclip, RotateCcw, Upload, X } from "lucide-react";
+import { ArrowUpRight, Bell, Check, ChevronLeft, ChevronRight, LoaderCircle, Paperclip, RotateCcw, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FileInput } from "@/components/file-input";
 import { AttendanceForm } from "@/components/attendance-form";
@@ -15,6 +15,7 @@ import { reviewAction } from "@/app/teacher/[groupId]/[courseId]/homework/[assig
 import { quickStatusAction } from "@/app/staff/inbox-actions";
 import { reviewPhotoAction } from "@/app/staff/students/photos/actions";
 import { cancelFromChatAction } from "@/app/staff/move-actions";
+import { deleteReminderAction } from "@/app/reminder-actions";
 
 export type WidgetRef = { type: string; params: Record<string, string> };
 type Ask = (message: string, tool?: string, label?: string) => void;
@@ -96,6 +97,14 @@ export function WidgetView({ widget, ask, onNavigate }: { widget: WidgetRef; ask
       return <StaffGroupDay p={widget.params} ask={ask} />;
     case "staff.photos":
       return <StaffPhotos onNavigate={onNavigate} />;
+    case "student.today":
+      return <TodayWidget role="STUDENT" ask={ask} onNavigate={onNavigate} />;
+    case "teacher.today":
+      return <TodayWidget role="TEACHER" ask={ask} onNavigate={onNavigate} />;
+    case "staff.today":
+      return <TodayWidget role="STAFF" ask={ask} onNavigate={onNavigate} />;
+    case "any.reminders":
+      return <RemindersList />;
     case "staff.accounts":
       return <StaffAccounts p={widget.params} onNavigate={onNavigate} />;
     default:
@@ -658,6 +667,166 @@ function StaffAccounts({ p, onNavigate }: { p: Record<string, string>; onNavigat
             ))}
           </div>
         </div>
+      )}
+    </Shell>
+  );
+}
+
+/* ---------------- сводка «на сегодня» и напоминания ---------------- */
+
+/** Строка сводки: что и сколько, по нажатию — нужная функция помощника или раздел. */
+function TodayRow({ label, value, tone = "muted", onClick, href, onNavigate }: { label: React.ReactNode; value?: React.ReactNode; tone?: "muted" | "bad" | "warn"; onClick?: () => void; href?: string; onNavigate?: () => void }) {
+  const cls = "flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-[15px] transition hover:bg-surface-2";
+  const body = (
+    <>
+      <span className="min-w-0 flex-1">{label}</span>
+      {value != null && <span className={cn("shrink-0 font-semibold tabular-nums", tone === "bad" && "text-danger", tone === "warn" && "text-warning")}>{value}</span>}
+      <ChevronRight size={16} className="shrink-0 text-muted" />
+    </>
+  );
+  if (href)
+    return (
+      <Link href={href} onClick={onNavigate} className={cls}>
+        {body}
+      </Link>
+    );
+  return (
+    <button type="button" onClick={onClick} className={cls}>
+      {body}
+    </button>
+  );
+}
+
+function Reminders({ items }: { items: { text: string; when: string }[] }) {
+  if (!items.length) return null;
+  return (
+    <div className="mx-1 mb-1 mt-1 space-y-1 rounded-2xl bg-p-yellow/60 px-3 py-2.5 text-[15px] text-[#0e0e10]">
+      {items.map((r) => (
+        <div key={r.text + r.when} className="flex items-start gap-2">
+          <Bell size={15} className="mt-1 shrink-0" />
+          <span>
+            {r.text} <span className="text-[13px] opacity-70">· {r.when}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function TodayWidget({ role, ask, onNavigate }: { role: "STUDENT" | "TEACHER" | "STAFF"; ask: Ask; onNavigate?: () => void }) {
+  const type = role === "STUDENT" ? "student.today" : role === "TEACHER" ? "teacher.today" : "staff.today";
+  const w = useWidget(type, {});
+  if (w.error) return null;
+  if (!w.data) return <Loading />;
+  const d = w.data;
+  return (
+    <Shell title={`Сегодня · ${d.title}`}>
+      <Reminders items={d.reminders ?? []} />
+      {role === "STUDENT" && (
+        <>
+          {d.lessons.length ? (
+            <div className="px-3 pb-1 pt-1 text-[15px]">
+              {d.lessons.map((l: any) => (
+                <div key={l.id} className={cn("flex gap-3 py-1", (l.past || l.status === "CANCELLED") && "text-muted", l.status === "CANCELLED" && "line-through")}>
+                  <span className="w-12 shrink-0 font-semibold tabular-nums">{l.start}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {l.course} <span className="text-[13px] text-muted">· {l.room}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="px-3 py-2 text-[15px] text-muted">Пар сегодня нет.</p>
+          )}
+          {d.homework.map((h: any) => (
+            <TodayRow
+              key={h.id}
+              label={
+                <span className="block truncate">
+                  Сдать «{h.title}» <span className="text-[13px] text-muted">· до {h.due}</span>
+                </span>
+              }
+              value={h.label}
+              tone={h.state === "overdue" ? "bad" : h.state === "returned" ? "warn" : "muted"}
+              onClick={() => ask(`Сдай «${h.title}»`, "submit", `Сдать «${h.title}»`)}
+            />
+          ))}
+          {d.needInfo.map((r: any) => (
+            <TodayRow key={r.id} label={`Ответить деканату: ${r.title}`} tone="warn" value="ждут ответа" href={`/requests/${r.id}`} onNavigate={onNavigate} />
+          ))}
+          {d.unread > 0 && <TodayRow label="Непрочитанные сообщения" value={d.unread} href="/messages" onNavigate={onNavigate} />}
+          {!d.homework.length && !d.needInfo.length && !d.unread && <p className="px-3 pb-2 text-[15px] text-muted">Срочных дел нет.</p>}
+        </>
+      )}
+      {role === "TEACHER" && (
+        <>
+          {d.lessons.length ? (
+            d.lessons.map((l: any) => (
+              <TodayRow
+                key={l.id}
+                label={
+                  <span className={cn("block truncate", l.status === "CANCELLED" && "text-muted line-through")}>
+                    <b className="font-semibold tabular-nums">{l.start}</b> {l.course} <span className="text-[13px] text-muted">· {l.group} · {l.room}</span>
+                  </span>
+                }
+                value={l.status === "CANCELLED" ? "отменена" : l.marked ? "отмечено" : l.started ? "отметить" : undefined}
+                tone={!l.marked && l.started && l.status !== "CANCELLED" ? "warn" : "muted"}
+                onClick={() => ask(`Отметь посещаемость: ${l.course}, ${l.group}`, "mark", `Отметить: ${l.course}, ${l.group}`)}
+              />
+            ))
+          ) : (
+            <p className="px-3 py-2 text-[15px] text-muted">Пар сегодня нет.</p>
+          )}
+          <TodayRow label="Работы на проверке" value={d.pending} tone={d.pending ? "warn" : "muted"} onClick={() => ask("Что ждёт проверки?", "reviews", "Работы на проверке")} />
+          {d.unread > 0 && <TodayRow label="Непрочитанные сообщения" value={d.unread} href="/teacher/messages" onNavigate={onNavigate} />}
+        </>
+      )}
+      {role === "STAFF" && (
+        <>
+          <TodayRow
+            label={
+              <>
+                Новые заявки{d.overdue ? <span className="text-[13px] text-danger"> · просрочено {d.overdue}</span> : null}
+              </>
+            }
+            value={d.fresh}
+            tone={d.fresh ? "warn" : "muted"}
+            onClick={() => ask("Покажи входящие", "inbox", "Новые заявки")}
+          />
+          <TodayRow label="В работе" value={d.inWork} onClick={() => ask("Что в работе?", "inbox", "Заявки в работе")} />
+          {d.needInfo > 0 && <TodayRow label="Ждут ответа студента" value={d.needInfo} href="/staff?tab=wait" onNavigate={onNavigate} />}
+          {d.photos > 0 && <TodayRow label="Фото на проверке" value={d.photos} tone="warn" onClick={() => ask("Фото на проверке", "photos", "Фото на проверке")} />}
+          {d.unread > 0 && <TodayRow label="Обращения без ответа" value={d.unread} tone="warn" href="/staff/messages" onNavigate={onNavigate} />}
+          {d.changes > 0 && <TodayRow label="Изменения в расписании сегодня" value={d.changes} href="/staff/schedule" onNavigate={onNavigate} />}
+        </>
+      )}
+    </Shell>
+  );
+}
+
+function RemindersList() {
+  const w = useWidget("any.reminders", {});
+  const [pending, start] = useTransition();
+  if (w.error) return <Failed />;
+  if (!w.data) return <Loading />;
+  return (
+    <Shell title="Мои напоминания">
+      {w.data.items.length === 0 ? (
+        <p className="px-2 py-3 text-[15px] text-muted">Напоминаний нет.</p>
+      ) : (
+        <ul className="divide-y divide-border/50 px-2 text-[15px]">
+          {w.data.items.map((r: any) => (
+            <li key={r.id} className="flex items-center gap-3 py-3">
+              <span className="min-w-0 flex-1">
+                {r.text}
+                <span className="mt-0.5 block text-[13px] text-muted">{r.when}</span>
+              </span>
+              <button type="button" disabled={pending} onClick={() => start(async () => (await deleteReminderAction(r.id), w.reload()))} aria-label="Удалить напоминание" className="flex size-10 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-danger">
+                <X size={16} />
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </Shell>
   );

@@ -74,7 +74,10 @@ export type MoveCard = {
   done?: { text: string };
 };
 
-export type DraftCard = RequestCard | AssignmentCard | AnnouncementCard | SubmissionCard | MessageCard | MoveCard;
+/** Любая роль: напоминание себе («напомни завтра в 9 про лабу»). */
+export type ReminderCard = { kind: "REMINDER"; values: { text: string; dueAt: string }; done?: { when: string } };
+
+export type DraftCard = RequestCard | AssignmentCard | AnnouncementCard | SubmissionCard | MessageCard | MoveCard | ReminderCard;
 
 type Owner = { role: "STUDENT" | "TEACHER" | "STAFF"; student?: { id: string; groupId: string } | null; teacher?: { id: string } | null; staff?: { facultyId: string | null } | null };
 type Stored = Record<string, unknown> | null;
@@ -112,6 +115,10 @@ export async function describeDraft(raw: unknown, user: Owner): Promise<DraftCar
       values: { audience: aud === "ALL" && fac ? "FACULTY" : aud === "FACULTY" && !fac ? "ALL" : aud, groupId: groups.some((g) => g.id === d.groupId) ? String(d.groupId) : "", title: String(d.title ?? ""), body: String(d.body ?? "") },
       done: typeof d.sentTo === "string" ? { sentTo: Number(d.sentTo) } : undefined,
     };
+  }
+
+  if (d.kind === "REMINDER") {
+    return { kind: "REMINDER", values: { text: String(d.text ?? ""), dueAt: String(d.dueAt ?? "") }, done: typeof d.reminderWhen === "string" ? { when: d.reminderWhen } : undefined };
   }
 
   if (d.kind === "MESSAGE" && user.role === "TEACHER" && user.teacher) {

@@ -16,7 +16,7 @@ corepack pnpm db:seed           # пересоздаёт ВСЕ демо-дан�
 corepack pnpm dev               # http://localhost:3000
 ```
 - Превью в Claude Code: конфигурация **`univer`** в `C:\Users\User\Desktop\SetSearch site creation\.claude\launch.json` (preview_start name="univer").
-- Проверки: `corepack pnpm exec tsc --noEmit`, `corepack pnpm lint`, `corepack pnpm test` (93 теста — папка `tests/`; нужна засеянная БД).
+- Проверки: `corepack pnpm exec tsc --noEmit`, `corepack pnpm lint`, `corepack pnpm test` (97 тестов — папка `tests/`; нужна засеянная БД).
 - Продакшен-сборка: `corepack pnpm build` (проходит).
 
 ## 3. Тестовые аккаунты (вымышленные) — также `docs/test-accounts.md`

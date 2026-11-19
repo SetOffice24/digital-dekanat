@@ -8,6 +8,7 @@ import { fmtDay, moscowToday } from "@/lib/utils";
 import { forecastLabel, isBelow } from "@/lib/grading";
 import { bestMentions, norm, parseDay } from "../common";
 import { examplesOf, type Tool, type ToolResult } from "../router";
+import { sharedTools } from "./shared";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -26,6 +27,7 @@ export function pickHomework(message: string, ctx: StudentContext) {
 }
 
 export const studentTools: Tool<StudentContext>[] = [
+  ...sharedTools<StudentContext>("student"),
   {
     name: "schedule",
     title: "Расписание",
@@ -188,7 +190,7 @@ export const studentTools: Tool<StudentContext>[] = [
 export function studentHelp(ctx: StudentContext): ToolResult {
   return {
     text: `${ctx.firstName}, я помогаю с учёбой и делами в деканате: расписание, задания и их сдача, оценки и прогноз, пропуски, справки и заявления. Выберите или напишите своими словами.`,
-    suggestions: examplesOf(studentTools, ["schedule", "homework", "grades", "attendance", "certificate", "requests"]),
+    suggestions: examplesOf(studentTools, ["today", "homework", "grades", "attendance", "certificate", "remind"]),
   };
 }
 

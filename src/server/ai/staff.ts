@@ -13,6 +13,7 @@ import { photoQueueCount } from "../repos/photos";
 import { requestStatusLabel } from "@/lib/labels";
 import { addDays, fmtDay, moscowToday, plural, relativeTime } from "@/lib/utils";
 import { bells } from "@/config/university";
+import { sharedTools } from "./tools/shared";
 import { examplesOf, classifyWithModel, route, type Suggestion, type Tool, type ToolResult, type Widget } from "./router";
 import { bestMentions, findGroup, gatewayJson, hasAny, norm, parseDay, type AiLink, type ChatMsg } from "./common";
 
@@ -99,6 +100,7 @@ async function findRequests(message: string, ctx: StaffContext) {
  * расписание группы (с отменой и переносом), фото на проверке, аккаунты, объявление и перенос (черновики).
  */
 export const staffTools: Tool<StaffContext>[] = [
+  ...sharedTools<StaffContext>("staff"),
   {
     name: "inbox",
     title: "Входящие заявки",

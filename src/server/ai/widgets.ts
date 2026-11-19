@@ -5,7 +5,8 @@ import "server-only";
  */
 import type { User, Student, Teacher, Staff } from "@prisma/client";
 import { prisma } from "../db";
-import { addDays, fmtDateTime, fmtDay, moscowToday, parseIsoDate } from "@/lib/utils";
+import { addDays, dueDate, fmtDateTime, fmtDay, moscowTime, moscowToday, parseIsoDate } from "@/lib/utils";
+import { unreadConversations, viewerOf } from "../repos/messages";
 import { forecastLabel, isBelow } from "@/lib/grading";
 import { requestStatusLabel } from "@/lib/labels";
 import { currentSemester, getAttendance, getEnrollments, getLessons, listRequests as studentRequests, summarize } from "../repos/student";
@@ -24,6 +25,7 @@ const HW: Record<string, string> = { todo: "не сдано", overdue: "прос
 
 export async function loadWidget(user: U, type: string, p: Record<string, string>) {
   const [role] = type.split(".");
+  if (role === "any") return loadAny(user, type);
   if ((role === "student" && !user.student) || (role === "teacher" && !user.teacher) || (role === "staff" && !user.staff)) return null;
 
   /* ---------- студент ---------- */
@@ -138,10 +140,83 @@ export async function loadWidget(user: U, type: string, p: Record<string, string
     const q = await photoQueue(user.staff);
     return { items: q.slice(0, 6).map((x) => ({ id: x.id, student: `${x.student.lastName} ${x.student.firstName}`, studentId: x.student.id, group: x.student.group.name, replaces: x.student.photos.length > 0 })) };
   }
+  /* ---------- сводка «на сегодня» (первый экран помощника) ---------- */
+  if (type === "student.today" && user.student) {
+    const today = moscowToday();
+    const now = moscowTime();
+    const soon = addDays(new Date(), 3);
+    const [lessons, hw, needInfo, unread] = await Promise.all([
+      getLessons(user.student, today, addDays(today, 1)),
+      listHomework(user.student),
+      prisma.request.findMany({ where: { studentId: user.student.id, status: "NEED_INFO" }, select: { id: true, number: true, type: { select: { title: true } } } }),
+      unreadConversations(viewerOf(user)),
+    ]);
+    return {
+      title: fmtDay(today),
+      lessons: lessons.map((l) => ({ id: l.id, start: l.startTime, course: l.course.name, room: l.room, status: l.status, past: l.endTime < now })),
+      homework: hw
+        .filter((h) => h.groupId === user.student!.groupId && (h.state === "overdue" || h.state === "returned" || (h.state === "todo" && h.dueAt < soon)))
+        .slice(0, 3)
+        .map((h) => ({ id: h.id, title: h.title, due: fmtDateTime(h.dueAt), state: h.state, label: HW[h.state] })),
+      needInfo: needInfo.map((r) => ({ id: r.id, title: `№${r.number} ${r.type.title}` })),
+      unread,
+      reminders: await todaysReminders(user.id),
+    };
+  }
+  if (type === "teacher.today" && user.teacher) {
+    const today = moscowToday();
+    const now = moscowTime();
+    const [lessons, pending, unread] = await Promise.all([
+      prisma.lesson.findMany({
+        where: { teacherId: user.teacher.id, date: today },
+        orderBy: { startTime: "asc" },
+        select: { id: true, startTime: true, endTime: true, room: true, status: true, group: { select: { name: true } }, course: { select: { name: true } }, _count: { select: { attendance: true } } },
+      }),
+      prisma.submission.count({ where: { status: "SUBMITTED", assignment: { teacherId: user.teacher.id } } }),
+      unreadConversations(viewerOf(user)),
+    ]);
+    return {
+      title: fmtDay(today),
+      lessons: lessons.map((l) => ({ id: l.id, start: l.startTime, course: l.course.name, group: l.group.name, room: l.room, status: l.status, past: l.endTime < now, started: l.startTime <= now, marked: l._count.attendance > 0 })),
+      pending,
+      unread,
+      reminders: await todaysReminders(user.id),
+    };
+  }
+  if (type === "staff.today" && user.staff) {
+    const today = moscowToday();
+    const fac = user.staff.facultyId;
+    const scope = fac ? { facultyId: fac } : {};
+    const [open, needInfo, photos, unread, changes] = await Promise.all([
+      prisma.request.findMany({ where: { status: { in: ["NEW", "IN_REVIEW"] }, student: scope }, select: { status: true, createdAt: true, type: { select: { slaDays: true } } } }),
+      prisma.request.count({ where: { status: "NEED_INFO", student: scope } }),
+      prisma.studentPhoto.count({ where: { status: "PENDING", student: scope } }),
+      unreadConversations(viewerOf(user)),
+      prisma.lesson.count({ where: { date: today, status: { not: "SCHEDULED" }, ...(fac ? { group: { program: { facultyId: fac } } } : {}) } }),
+    ]);
+    const overdue = open.filter((r) => dueDate(r.createdAt, r.type.slaDays) < new Date()).length;
+    return { title: fmtDay(today), fresh: open.filter((r) => r.status === "NEW").length, inWork: open.filter((r) => r.status === "IN_REVIEW").length, overdue, needInfo, photos, unread, changes, reminders: await todaysReminders(user.id) };
+  }
   if (type === "staff.accounts" && user.staff) {
     const groupId = p.groupId || undefined;
     const { stats, rows } = await accountsOverview(user.staff, { groupId, filter: "never" });
     return { groupId: groupId ?? "", stats, never: rows.slice(0, 8).map((r) => ({ id: r.id, name: `${r.lastName} ${r.firstName}`, group: r.group.name })) };
   }
   return null;
+}
+
+/** Мини-разделы для любой роли: напоминания пользователя. */
+async function loadAny(user: U, type: string) {
+  if (type === "any.reminders") {
+    const rows = await prisma.reminder.findMany({ where: { userId: user.id, sentAt: null }, orderBy: { dueAt: "asc" }, take: 20, select: { id: true, text: true, dueAt: true } });
+    return { items: rows.map((r) => ({ id: r.id, text: r.text, when: fmtDateTime(r.dueAt) })) };
+  }
+  return null;
+}
+
+/** Напоминания на сегодня — строкой в сводке. */
+async function todaysReminders(userId: string) {
+  const end = addDays(moscowToday(), 1);
+  const rows = await prisma.reminder.findMany({ where: { userId, sentAt: null, dueAt: { lt: new Date(end.getTime() - 3 * 3600_000) } }, orderBy: { dueAt: "asc" }, take: 3, select: { text: true, dueAt: true } });
+  return rows.map((r) => ({ text: r.text, when: fmtDateTime(r.dueAt) }));
 }

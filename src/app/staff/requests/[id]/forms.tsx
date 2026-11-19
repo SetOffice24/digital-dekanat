@@ -5,6 +5,7 @@ import { ArrowRight, Check, LoaderCircle, UserCheck } from "lucide-react";
 import { Label, Textarea } from "@/components/ui";
 import { FormMessage, SubmitButton } from "@/components/staff/bits";
 import { assignAction, changeStatusAction, type FormState } from "./actions";
+import { replyTemplates } from "@/config/reply-templates";
 
 const init: FormState = {};
 
@@ -34,13 +35,40 @@ function NextLink({ next, className = "" }: { next: NextRequest; className?: str
 
 export function DecisionForm({ id, status, isCertificate, next }: { id: string; status: string; isCertificate: boolean; next: NextRequest }) {
   const [state, action, pending] = useActionState(changeStatusAction, init);
+  const [message, setMessage] = useState("");
   const decisions = decisionsFor(status, isCertificate);
   return (
     <form action={action} className="space-y-3">
       <input type="hidden" name="id" value={id} />
       <div>
         <Label htmlFor="message">Комментарий студенту</Label>
-        <Textarea id="message" name="message" maxLength={1000} placeholder="Обязателен, если запрашиваете уточнение или отклоняете" />
+        <Textarea id="message" name="message" value={message} onChange={(e) => setMessage(e.target.value)} maxLength={1000} placeholder="Обязателен, если запрашиваете уточнение или отклоняете" />
+        {/* шаблоны: подставить типовую фразу и поправить при необходимости */}
+        <details className="group mt-2">
+          <summary className="inline-flex min-h-9 cursor-pointer list-none items-center rounded-full px-1 text-sm font-semibold text-muted hover:text-fg [&::-webkit-details-marker]:hidden">
+            Шаблоны ответов <span className="ml-1 group-open:hidden">▾</span>
+            <span className="ml-1 hidden group-open:inline">▴</span>
+          </summary>
+          <div className="mt-1 space-y-2">
+            {replyTemplates.map((g) => (
+              <div key={g.group}>
+                <div className="mb-1 text-[13px] font-medium text-muted">{g.group}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {g.items.map((t) => (
+                    <button key={t} type="button" onClick={(e) => {
+                        setMessage((m) => (m.trim() ? `${m.trim()} ${t}` : t));
+                        // свернуть список, чтобы кнопки решения снова были рядом
+                        const d = e.currentTarget.closest("details");
+                        if (d) d.open = false;
+                      }} className="rounded-2xl border border-border px-3 py-1.5 text-left text-[13px] leading-snug transition hover:border-ink">
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
       </div>
       <FormMessage error={state.error} ok={state.ok} />
       {state.ok && <NextLink next={next} />}

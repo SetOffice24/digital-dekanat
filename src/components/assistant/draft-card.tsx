@@ -10,6 +10,7 @@ import { AnnouncementDraftCard } from "./announcement-card";
 import { SubmissionDraftCard } from "./submission-card";
 import { MessageDraftCard } from "./message-card";
 import { MoveDraftCard } from "./move-card";
+import { ReminderDraftCard } from "./reminder-card";
 
 // быстрые варианты для частого поля «куда»
 const PLACE_HINTS = ["В банк", "По месту работы", "В соцзащиту"];
@@ -25,6 +26,7 @@ export function DraftCard({ messageId, card, onNavigate }: { messageId: string; 
   if (card.kind === "SUBMISSION") return <SubmissionDraftCard messageId={messageId} card={card} onNavigate={onNavigate} />;
   if (card.kind === "MESSAGE") return <MessageDraftCard messageId={messageId} card={card} onNavigate={onNavigate} />;
   if (card.kind === "MOVE") return <MoveDraftCard messageId={messageId} card={card} />;
+  if (card.kind === "REMINDER") return <ReminderDraftCard messageId={messageId} card={card} />;
   return <RequestDraftCard messageId={messageId} card={card} onNavigate={onNavigate} />;
 }
 

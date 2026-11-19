@@ -8,6 +8,7 @@ import { z } from "zod";
 import { prisma } from "../db";
 import { currentPeriod, type SessionTeacher } from "../repos/teacher";
 import { addDays, fmtDateTime, fmtDay, moscowTime, moscowToday, plural } from "@/lib/utils";
+import { sharedTools } from "./tools/shared";
 import { examplesOf, classifyWithModel, route, type Suggestion, type Tool, type ToolResult, type Widget } from "./router";
 import { bestMentions, findGroup, gatewayJson, hasAny, norm, parseDay, parseDue, type AiLink, type ChatMsg } from "./common";
 
@@ -118,6 +119,7 @@ function lessonToMark(message: string, ctx: TeacherContext) {
  * «кто не сдал», выдать задание и написать студентам (черновики), посещаемость групп.
  */
 export const teacherTools: Tool<TeacherContext>[] = [
+  ...sharedTools<TeacherContext>("teacher"),
   {
     name: "schedule",
     title: "Расписание",
@@ -208,6 +210,7 @@ export const teacherTools: Tool<TeacherContext>[] = [
     name: "message",
     title: "Написать студентам",
     keywords: [["напиши", 3], ["напомни", 3], ["сообщи", 3], ["передай", 3], ["предупреди", 3]],
+    not: ["напомни мне", "напоминани"],
     examples: ["Напиши Никите Зорину, что отчёт нужно доделать", "Напомни ИВТ-24-1 про лабораторную №5"],
     run: (message, ctx) => {
       const d = messageFromText(message, ctx);

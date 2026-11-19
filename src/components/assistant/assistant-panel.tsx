@@ -2,11 +2,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { ArrowUp, ArrowUpRight, BookOpenCheck, CalendarClock, CalendarDays, CircleHelp, ClipboardCheck, FileCheck2, GraduationCap, Inbox, Megaphone, MessageSquareText, MessageSquarePlus, PanelLeft, Trash2, Upload, UserX, X } from "lucide-react";
+import { ArrowUp, ArrowUpRight, Bell, BookOpenCheck, CalendarClock, CalendarDays, CircleHelp, ClipboardCheck, FileCheck2, GraduationCap, Inbox, Megaphone, MessageSquareText, MessageSquarePlus, PanelLeft, Trash2, Upload, UserX, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Mascot } from "./mascot";
 import { DraftCard } from "./draft-card";
-import { WidgetView, type WidgetRef } from "./widgets";
+import { VoiceButton } from "./voice";
+import { TodayWidget, WidgetView, type WidgetRef } from "./widgets";
 import type { DraftCard as Card } from "@/server/ai/drafts";
 
 type AiLink = { href: string; label: string };
@@ -22,7 +23,7 @@ const ROLE = {
     sub: "Я помощник деканата. Чем помочь?",
     note: "Я вижу только ваши данные: расписание, оценки, заявки и дедлайны.",
     suggestions: [
-      { icon: CalendarDays, text: "Какие пары завтра?" },
+      { icon: Bell, text: "Напомни мне завтра в 9 про лабу" },
       { icon: BookOpenCheck, text: "Что мне сдать?" },
       { icon: Upload, text: "Сдай лабораторную №5" },
       { icon: GraduationCap, text: "Как у меня дела по оценкам?" },
@@ -36,6 +37,7 @@ const ROLE = {
     note: "Я вижу только ваши пары, группы и задания. Задания выдаёте вы — я готовлю черновик. Оценки не ставлю.",
     suggestions: [
       { icon: CalendarDays, text: "Какие у меня пары завтра?" },
+      { icon: Bell, text: "Напомни мне в пятницу проверить лабораторные" },
       { icon: BookOpenCheck, text: "Задай ИВТ-24-1 по алгоритмам лабораторную №6 до пятницы" },
       { icon: ClipboardCheck, text: "Что ждёт проверки?" },
       { icon: UserX, text: "Кто не сдал лабораторную №5?" },
@@ -234,11 +236,15 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer", role = "ST
               <div className="skeleton h-16 w-3/4" />
             </div>
           ) : msgs.length === 0 ? (
-            <div className="flex min-h-full flex-col items-center justify-center py-10 text-center">
-              <Mascot size={112} />
-              <p className="mt-4 font-display text-xl font-semibold">{R.hello(firstName)}</p>
+            <div className="flex min-h-full flex-col items-center justify-center py-8 text-center">
+              <Mascot size={72} />
+              <p className="mt-3 font-display text-xl font-semibold">{R.hello(firstName)}</p>
               <p className="mt-1 text-sm text-muted">{R.sub}</p>
-              <div className="mt-6 flex max-w-xl flex-wrap justify-center gap-2">
+              {/* сводка «на сегодня» — сразу, без вопроса; каждая строка вызывает нужную функцию */}
+              <div className="w-full max-w-xl text-left">
+                <TodayWidget role={role} ask={send} onNavigate={onClose} />
+              </div>
+              <div className="mt-5 flex max-w-xl flex-wrap justify-center gap-2">
                 {R.suggestions.map((s) => (
                   <button key={s.text} onClick={() => send(s.text)} disabled={busy} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-surface-2 px-4 text-sm font-medium transition hover:bg-primary-soft hover:text-primary">
                     <s.icon size={16} /> {s.text}
@@ -300,7 +306,7 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer", role = "ST
               e.preventDefault();
               send(input);
             }}
-            className="mx-auto flex max-w-3xl items-end gap-2 rounded-[24px] bg-surface p-2 pl-4 ring-1 ring-border transition focus-within:ring-2 focus-within:ring-primary/40"
+            className="relative mx-auto flex max-w-3xl items-end gap-1 rounded-[24px] bg-surface p-2 pl-4 ring-1 ring-border transition focus-within:ring-2 focus-within:ring-primary/40"
           >
             <label htmlFor={`ai-input-${mode}`} className="sr-only">
               Сообщение помощнику
@@ -318,14 +324,15 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer", role = "ST
                   send(input);
                 }
               }}
-              placeholder="Напишите, что нужно…"
+              placeholder="Напишите или скажите, что нужно…"
               className="max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-[15px] outline-none placeholder:text-muted focus-visible:outline-none"
             />
+            <VoiceButton onText={setInput} disabled={busy} />
             <button type="submit" disabled={busy || !input.trim()} className="flex size-10 shrink-0 items-center justify-center rounded-full bg-ink text-ink-fg transition disabled:opacity-30" aria-label="Отправить">
               <ArrowUp size={20} />
             </button>
           </form>
-          <p className="mt-1.5 text-center text-[11px] text-muted">{role === "STUDENT" ? "Помощник может ошибаться. Важное уточняйте в деканате." : "Помощник может ошибаться — проверяйте черновики перед отправкой."}</p>
+          <p className="mt-1.5 text-center text-xs text-muted">{role === "STUDENT" ? "Помощник может ошибаться. Важное уточняйте в деканате." : "Помощник может ошибаться — проверяйте черновики перед отправкой."}</p>
         </div>
       </section>
     </div>
