@@ -40,12 +40,12 @@ function useWidget(type: string, initial: Record<string, string>) {
 }
 
 const Shell = ({ title, right, children }: { title: React.ReactNode; right?: React.ReactNode; children: React.ReactNode }) => (
-  <div className="mt-3 max-w-xl overflow-hidden rounded-2xl border border-border/70 bg-surface">
-    <div className="flex min-h-11 items-center gap-2 border-b border-border/60 px-3">
-      <div className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</div>
+  <div className="mt-3 max-w-xl rounded-[24px] border border-border/60 bg-surface">
+    <div className="flex min-h-14 items-center gap-2 px-4 pt-1">
+      <div className="min-w-0 flex-1 truncate text-[15px] font-semibold">{title}</div>
       {right}
     </div>
-    <div className="p-3">{children}</div>
+    <div className="px-2 pb-2">{children}</div>
   </div>
 );
 const Loading = () => (
@@ -56,21 +56,21 @@ const Loading = () => (
 const Failed = () => <p className="mt-3 max-w-xl rounded-2xl bg-surface-2 p-3 text-sm text-muted">Не удалось загрузить — откройте раздел в меню.</p>;
 const DayNav = ({ d, go }: { d: any; go: (date: string) => void }) => (
   <div className="flex items-center gap-1">
-    <button type="button" onClick={() => go(d.prev)} aria-label="Предыдущий день" className="flex size-8 items-center justify-center rounded-full hover:bg-surface-2">
+    <button type="button" onClick={() => go(d.prev)} aria-label="Предыдущий день" className="flex size-10 items-center justify-center rounded-full hover:bg-surface-2">
       <ChevronLeft size={17} />
     </button>
     {d.today && d.date !== d.today && (
-      <button type="button" onClick={() => go(d.today)} className="rounded-full px-2 text-xs font-semibold text-muted hover:text-fg">
+      <button type="button" onClick={() => go(d.today)} className="min-h-9 rounded-full px-3 text-[13px] font-semibold text-muted hover:bg-surface-2 hover:text-fg">
         сегодня
       </button>
     )}
-    <button type="button" onClick={() => go(d.next)} aria-label="Следующий день" className="flex size-8 items-center justify-center rounded-full hover:bg-surface-2">
+    <button type="button" onClick={() => go(d.next)} aria-label="Следующий день" className="flex size-10 items-center justify-center rounded-full hover:bg-surface-2">
       <ChevronRight size={17} />
     </button>
   </div>
 );
-const chip = (tone: "ok" | "warn" | "bad" | "muted") => cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", tone === "ok" ? "bg-success-soft text-success" : tone === "warn" ? "bg-p-yellow text-[#0e0e10]" : tone === "bad" ? "bg-danger-soft text-danger" : "bg-surface-2 text-muted");
-const btn = "inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold transition disabled:opacity-50";
+const chip = (tone: "ok" | "warn" | "bad" | "muted") => cn("shrink-0 rounded-full px-2.5 py-1 text-[13px] font-semibold", tone === "ok" ? "bg-success-soft text-success" : tone === "warn" ? "bg-p-yellow text-[#0e0e10]" : tone === "bad" ? "bg-danger-soft text-danger" : "bg-surface-2 text-muted");
+const btn = "inline-flex min-h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition disabled:opacity-50";
 
 export function WidgetView({ widget, ask, onNavigate }: { widget: WidgetRef; ask: Ask; onNavigate?: () => void }) {
   switch (widget.type) {
@@ -113,15 +113,15 @@ function StudentSchedule({ p }: { p: Record<string, string> }) {
   return (
     <Shell title={d.title} right={<DayNav d={d} go={(date) => w.setParams({ date })} />}>
       {d.lessons.length === 0 ? (
-        <p className="text-sm text-muted">Пар нет.</p>
+        <p className="px-2 py-3 text-[15px] text-muted">Пар нет.</p>
       ) : (
         <ul className="space-y-2">
           {d.lessons.map((l: any) => (
-            <li key={l.id} className={cn("flex gap-3 rounded-xl bg-surface-2 px-3 py-2", l.status === "CANCELLED" && "opacity-60")}>
-              <div className="w-12 shrink-0 text-sm font-semibold tabular-nums">{l.start}</div>
-              <div className="min-w-0 flex-1 text-sm">
+            <li key={l.id} className={cn("flex gap-3 rounded-2xl bg-surface-2/70 px-3.5 py-3", l.status === "CANCELLED" && "opacity-60")}>
+              <div className="w-14 shrink-0 font-semibold tabular-nums">{l.start}</div>
+              <div className="min-w-0 flex-1 text-[15px]">
                 <div className={cn("font-medium", l.status === "CANCELLED" && "line-through")}>{l.course}</div>
-                <div className="text-xs text-muted">
+                <div className="mt-0.5 text-[13px] text-muted">
                   ауд. {l.room} · {l.teacher}
                 </div>
                 {l.status !== "SCHEDULED" && <div className="mt-0.5 text-xs font-semibold text-warning">{l.status === "CANCELLED" ? "Отменена" : "Изменена"}{l.note ? `: ${l.note}` : ""}</div>}
@@ -140,29 +140,21 @@ function StudentGrades({ onNavigate }: { onNavigate?: () => void }) {
   if (!w.data) return <Loading />;
   const d = w.data;
   return (
-    <Shell title={`Текущий семестр (${d.semester})`} right={<Link href="/grades" onClick={onNavigate} className="text-xs font-semibold text-muted hover:text-fg">Учёба →</Link>}>
-      <ul className="space-y-2.5">
+    <Shell title={`${d.semester} семестр, прогноз`} right={<Link href="/grades" onClick={onNavigate} className="text-[13px] font-semibold text-muted hover:text-fg">Учёба →</Link>}>
+      {/* одна строка — одна дисциплина: название и баллы слева, прогноз крупно справа; цвет — только у риска */}
+      <ul className="divide-y divide-border/50 px-2">
         {d.rows.map((r: any) => (
-          <li key={r.course} className="text-sm">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="min-w-0 truncate">{r.course}</span>
-              {r.forecast ? <span className={chip(r.low ? "bad" : "muted")}>{r.forecast}</span> : <span className="text-xs text-muted">нет оценок</span>}
+          <li key={r.course} className="flex items-center gap-3 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[15px]">{r.course}</div>
+              <div className="mt-0.5 text-[13px] tabular-nums text-muted">{r.ratio != null ? `${r.points} из ${r.max} баллов · ${Math.round(r.ratio * 100)} %` : "оценок пока нет"}</div>
             </div>
-            {r.ratio != null && (
-              <div className="mt-1 flex items-center gap-2">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
-                  <div className={cn("h-full rounded-full", r.low ? "bg-danger" : "bg-ink")} style={{ width: `${Math.min(100, Math.round(r.ratio * 100))}%` }} />
-                </div>
-                <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted">
-                  {r.points}/{r.max}
-                </span>
-              </div>
-            )}
+            {r.forecast && <span className={cn("shrink-0 text-[15px] font-semibold", r.low && "text-danger")}>{r.forecast}</span>}
           </li>
         ))}
       </ul>
-      {d.debts.length > 0 && <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">Долги: {d.debts.join(", ")}</p>}
-      <p className="mt-2 text-[11px] text-muted">Прогноз: 60 % — «3»/зачёт, 75 % — «4», 90 % — «5».</p>
+      {d.debts.length > 0 && <p className="mx-2 mt-1 rounded-2xl bg-danger-soft px-3.5 py-3 text-[15px] text-danger">Долги: {d.debts.join(", ")}</p>}
+      <p className="px-3 pb-2 pt-1 text-[13px] text-muted">Пороги: 60 % — «3» или зачёт, 75 % — «4», 90 % — «5».</p>
     </Shell>
   );
 }
@@ -175,19 +167,19 @@ function StudentHomework({ onNavigate }: { onNavigate?: () => void }) {
   const d = w.data;
   const tone = (s: string) => (s === "overdue" ? "bad" : s === "returned" ? "warn" : s === "submitted" ? "ok" : "muted");
   return (
-    <Shell title="Домашние задания" right={<Link href="/homework" onClick={onNavigate} className="text-xs font-semibold text-muted hover:text-fg">Все →</Link>}>
+    <Shell title="Домашние задания" right={<Link href="/homework" onClick={onNavigate} className="text-[13px] font-semibold text-muted hover:text-fg">Все →</Link>}>
       {d.items.length === 0 ? (
-        <p className="text-sm text-muted">Всё сдано и принято.</p>
+        <p className="px-2 py-3 text-[15px] text-muted">Всё сдано и принято.</p>
       ) : (
         <ul className="space-y-2">
           {d.items.map((h: any) => (
-            <li key={h.id} className="rounded-xl bg-surface-2 px-3 py-2 text-sm">
+            <li key={h.id} className="rounded-2xl bg-surface-2/70 px-3.5 py-3 text-[15px]">
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
                   <Link href={`/homework/${h.id}`} onClick={onNavigate} className="font-medium hover:underline">
                     {h.title}
                   </Link>
-                  <div className="text-xs text-muted">
+                  <div className="mt-0.5 text-[13px] text-muted">
                     {h.course} · до {h.due}
                   </div>
                 </div>
@@ -197,7 +189,7 @@ function StudentHomework({ onNavigate }: { onNavigate?: () => void }) {
                 (open === h.id ? (
                   <InlineSubmit id={h.id} d={d} onDone={() => (setOpen(null), w.reload())} onCancel={() => setOpen(null)} />
                 ) : (
-                  <button type="button" onClick={() => setOpen(h.id)} className={`${btn} mt-2 bg-ink text-ink-fg`}>
+                  <button type="button" onClick={() => setOpen(h.id)} className={`${btn} mt-2.5 border border-border bg-surface hover:border-ink`}>
                     <Upload size={14} /> {h.state === "returned" ? "Отправить исправленное" : "Сдать"}
                   </button>
                 ))}
@@ -227,7 +219,7 @@ function InlineSubmit({ id, d, onDone, onCancel }: { id: string; d: any; onDone:
   return (
     <div className="mt-2 space-y-2">
       <FileInput files={files} onChange={(f) => (setFiles(f), setError(null))} accept={d.accept} max={d.maxFiles} maxMb={d.maxMb} label="Прикрепить файлы" />
-      {error && <p className="text-xs font-medium text-danger">{error}</p>}
+      {error && <p className="text-[13px] font-medium text-danger">{error}</p>}
       <div className="flex gap-2">
         <button type="button" disabled={pending} onClick={send} className={`${btn} bg-ink text-ink-fg`}>
           {pending && <LoaderCircle size={14} className="animate-spin" />} Отправить преподавателю
@@ -280,14 +272,14 @@ function StudentRequests({ onNavigate }: { onNavigate?: () => void }) {
   if (w.error) return <Failed />;
   if (!w.data) return <Loading />;
   return (
-    <Shell title="Мои заявки" right={<Link href="/requests" onClick={onNavigate} className="text-xs font-semibold text-muted hover:text-fg">Все →</Link>}>
+    <Shell title="Мои заявки" right={<Link href="/requests" onClick={onNavigate} className="text-[13px] font-semibold text-muted hover:text-fg">Все →</Link>}>
       {w.data.items.length === 0 ? (
-        <p className="text-sm text-muted">Заявок пока нет.</p>
+        <p className="px-2 py-3 text-[15px] text-muted">Заявок пока нет.</p>
       ) : (
-        <ul className="divide-y divide-border/60 text-sm">
+        <ul className="divide-y divide-border/50 px-2 text-[15px]">
           {w.data.items.map((r: any) => (
             <li key={r.id}>
-              <Link href={`/requests/${r.id}`} onClick={onNavigate} className="flex items-center gap-2 py-2 hover:underline">
+              <Link href={`/requests/${r.id}`} onClick={onNavigate} className="flex items-center gap-3 py-3 hover:underline">
                 <span className="min-w-0 flex-1 truncate">
                   №{r.number} {r.title}
                 </span>
@@ -312,19 +304,19 @@ function TeacherDay({ p }: { p: Record<string, string> }) {
   return (
     <Shell title={d.title} right={<DayNav d={d} go={(date) => (setMarking(null), w.setParams({ date }))} />}>
       {d.lessons.length === 0 ? (
-        <p className="text-sm text-muted">Пар нет.</p>
+        <p className="px-2 py-3 text-[15px] text-muted">Пар нет.</p>
       ) : (
         <ul className="space-y-2">
           {d.lessons.map((l: any) => (
-            <li key={l.id} className={cn("rounded-xl bg-surface-2 px-3 py-2 text-sm", l.status === "CANCELLED" && "opacity-60")}>
+            <li key={l.id} className={cn("rounded-2xl bg-surface-2/70 px-3.5 py-3 text-[15px]", l.status === "CANCELLED" && "opacity-60")}>
               <div className="flex gap-3">
-                <div className="w-12 shrink-0 font-semibold tabular-nums">{l.start}</div>
+                <div className="w-14 shrink-0 font-semibold tabular-nums">{l.start}</div>
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">{l.course}</div>
-                  <div className="text-xs text-muted">
+                  <div className="mt-0.5 text-[13px] text-muted">
                     {l.group} · ауд. {l.room}
                   </div>
-                  {l.status !== "SCHEDULED" && <div className="text-xs font-semibold text-warning">{l.status === "CANCELLED" ? "Отменена" : "Перенесена"}{l.note ? `: ${l.note}` : ""}</div>}
+                  {l.status !== "SCHEDULED" && <div className="mt-1 text-[13px] font-medium text-warning">{l.status === "CANCELLED" ? "Отменена" : "Перенесена"}{l.note ? `: ${l.note}` : ""}</div>}
                 </div>
                 {l.canMark && marking !== l.id && (
                   <button type="button" onClick={() => setMarking(l.id)} className={`${btn} shrink-0 border border-border hover:border-ink`}>
@@ -347,9 +339,9 @@ function TeacherAttendance({ lessonId, phrase, embedded, onClose }: { lessonId: 
   if (!w.data) return <Loading />;
   const d = w.data;
   const body = d.cancelled ? (
-    <p className="text-sm text-muted">Пара отменена — отмечать не нужно.</p>
+    <p className="px-2 py-3 text-[15px] text-muted">Пара отменена — отмечать не нужно.</p>
   ) : !d.canMark ? (
-    <p className="text-sm text-muted">Будущую пару отметить нельзя.</p>
+    <p className="px-2 py-3 text-[15px] text-muted">Будущую пару отметить нельзя.</p>
   ) : (
     <AttendanceForm lessonId={d.lessonId} students={d.students} marked={d.marked} save={saveAttendanceAction} recognize={recognizeAbsenceAction} initialText={phrase} />
   );
@@ -357,13 +349,13 @@ function TeacherAttendance({ lessonId, phrase, embedded, onClose }: { lessonId: 
     return (
       <div className="mt-2 rounded-xl bg-surface p-2">
         {body}
-        <button type="button" onClick={onClose} className="mt-2 text-xs font-semibold text-muted hover:text-fg">
+        <button type="button" onClick={onClose} className="mt-2 text-[13px] font-semibold text-muted hover:text-fg">
           Свернуть
         </button>
       </div>
     );
   return (
-    <Shell title={d.title} right={<span className="text-xs text-muted">{d.when}</span>}>
+    <Shell title={d.title} right={<span className="mt-0.5 text-[13px] text-muted">{d.when}</span>}>
       {body}
     </Shell>
   );
@@ -376,7 +368,7 @@ function TeacherReviews() {
   return (
     <Shell title="На проверке">
       {w.data.items.length === 0 ? (
-        <p className="text-sm text-muted">Всё проверено.</p>
+        <p className="px-2 py-3 text-[15px] text-muted">Всё проверено.</p>
       ) : (
         <ul className="space-y-2">
           {w.data.items.map((s: any) => (
@@ -400,9 +392,9 @@ function ReviewItem({ s, onDone }: { s: any; onDone: () => void }) {
       else onDone();
     });
   return (
-    <li className="rounded-xl bg-surface-2 px-3 py-2 text-sm">
+    <li className="rounded-2xl bg-surface-2/70 px-3.5 py-3 text-[15px]">
       <div className="font-medium">{s.student}</div>
-      <div className="text-xs text-muted">
+      <div className="mt-0.5 text-[13px] text-muted">
         «{s.assignment}», {s.group} · {s.when}
         {s.late && <span className="ml-1 font-semibold text-warning">после срока</span>}
       </div>
@@ -428,7 +420,7 @@ function ReviewItem({ s, onDone }: { s: any; onDone: () => void }) {
         </div>
       ) : (
         <div className="mt-2 flex gap-2">
-          <button type="button" disabled={pending} onClick={() => run("ACCEPTED")} className={`${btn} bg-ink text-ink-fg`}>
+          <button type="button" disabled={pending} onClick={() => run("ACCEPTED")} className={`${btn} border border-border bg-surface hover:border-ink`}>
             {pending ? <LoaderCircle size={14} className="animate-spin" /> : <Check size={14} />} Принять
           </button>
           <button type="button" onClick={() => setMode("return")} className={`${btn} border border-border hover:border-ink`}>
@@ -460,30 +452,30 @@ function StaffInbox({ p, onNavigate }: { p: Record<string, string>; onNavigate?:
       title={
         <div className="flex gap-1">
           {INBOX_TABS.map((t) => (
-            <button key={t.key} type="button" onClick={() => w.setParams({ status: t.key })} className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", d.status === t.key ? "bg-ink text-ink-fg" : "text-muted hover:text-fg")}>
+            <button key={t.key} type="button" onClick={() => w.setParams({ status: t.key })} className={cn("min-h-9 rounded-full px-3 text-[13px] font-semibold", d.status === t.key ? "bg-ink text-ink-fg" : "text-muted hover:text-fg")}>
               {t.label}
             </button>
           ))}
         </div>
       }
-      right={<Link href="/staff" onClick={onNavigate} className="shrink-0 text-xs font-semibold text-muted hover:text-fg">Все →</Link>}
+      right={<Link href="/staff" onClick={onNavigate} className="shrink-0 text-[13px] font-semibold text-muted hover:text-fg">Все →</Link>}
     >
       {d.items.length === 0 ? (
-        <p className="text-sm text-muted">Пусто.</p>
+        <p className="px-2 py-3 text-[15px] text-muted">Пусто.</p>
       ) : (
-        <ul className="divide-y divide-border/60 text-sm">
+        <ul className="divide-y divide-border/50 px-2 text-[15px]">
           {d.items.map((r: any) => (
-            <li key={r.id} className="flex items-center gap-2 py-2">
+            <li key={r.id} className="flex items-center gap-3 py-3">
               <Link href={`/staff/requests/${r.id}`} onClick={onNavigate} className="min-w-0 flex-1 hover:underline">
                 <span className="block truncate font-medium">
                   №{r.number} {r.title}
                 </span>
-                <span className="block truncate text-xs text-muted">
+                <span className="mt-0.5 block truncate text-[13px] text-muted">
                   {r.student}, {r.group} · {r.when}
                 </span>
               </Link>
               {r.action && (
-                <button type="button" disabled={pending} onClick={() => start(async () => (await quickStatusAction(r.id, r.action.to), w.reload()))} className={`${btn} shrink-0 bg-ink text-ink-fg`}>
+                <button type="button" disabled={pending} onClick={() => start(async () => (await quickStatusAction(r.id, r.action.to), w.reload()))} className={`${btn} shrink-0 border border-border hover:border-ink`}>
                   {r.action.label}
                 </button>
               )}
@@ -508,23 +500,23 @@ function StaffGroupDay({ p, ask }: { p: Record<string, string>; ask: Ask }) {
   return (
     <Shell title={`${d.group} · ${d.title}`} right={<DayNav d={d} go={(date) => w.setParams({ groupId: d.groupId, date })} />}>
       {d.lessons.length === 0 ? (
-        <p className="text-sm text-muted">Пар нет.</p>
+        <p className="px-2 py-3 text-[15px] text-muted">Пар нет.</p>
       ) : (
         <ul className="space-y-2">
           {d.lessons.map((l: any) => (
-            <li key={l.id} className={cn("rounded-xl bg-surface-2 px-3 py-2 text-sm", l.status === "CANCELLED" && "opacity-60")}>
+            <li key={l.id} className={cn("rounded-2xl bg-surface-2/70 px-3.5 py-3 text-[15px]", l.status === "CANCELLED" && "opacity-60")}>
               <div className="flex gap-3">
-                <div className="w-12 shrink-0 font-semibold tabular-nums">{l.start}</div>
+                <div className="w-14 shrink-0 font-semibold tabular-nums">{l.start}</div>
                 <div className="min-w-0 flex-1">
                   <div className={cn("font-medium", l.status === "CANCELLED" && "line-through")}>{l.course}{l.subgroup ? ` (${l.subgroup} подгр.)` : ""}</div>
-                  <div className="text-xs text-muted">
+                  <div className="mt-0.5 text-[13px] text-muted">
                     ауд. {l.room} · {l.teacher}
                   </div>
-                  {l.status !== "SCHEDULED" && <div className="text-xs font-semibold text-warning">{l.status === "CANCELLED" ? "Отменена" : "Перенесена"}{l.note ? `: ${l.note}` : ""}</div>}
+                  {l.status !== "SCHEDULED" && <div className="mt-1 text-[13px] font-medium text-warning">{l.status === "CANCELLED" ? "Отменена" : "Перенесена"}{l.note ? `: ${l.note}` : ""}</div>}
                 </div>
               </div>
               {d.future && l.status !== "CANCELLED" && cancelling !== l.id && (
-                <div className="mt-2 flex gap-2">
+                <div className="ml-[68px] mt-2.5 flex flex-wrap gap-2">
                   <button type="button" onClick={() => ask(`Перенеси пару ${d.group} по ${l.course.toLowerCase()} с ${ddmm} на `, "move", `Перенести: ${l.course}, ${l.start}`)} className={`${btn} border border-border hover:border-ink`}>
                     Перенести
                   </button>
@@ -534,9 +526,9 @@ function StaffGroupDay({ p, ask }: { p: Record<string, string>; ask: Ask }) {
                 </div>
               )}
               {cancelling === l.id && (
-                <div className="mt-2 space-y-2">
+                <div className="ml-[68px] mt-2.5 space-y-2">
                   <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder="Причина — её увидят студенты" className="min-h-9 w-full rounded-xl bg-surface px-3 text-sm outline-none focus:ring-2 focus:ring-ink/30" />
-                  {error && <p className="text-xs font-medium text-danger">{error}</p>}
+                  {error && <p className="text-[13px] font-medium text-danger">{error}</p>}
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -572,9 +564,9 @@ function StaffPhotos({ onNavigate }: { onNavigate?: () => void }) {
   if (w.error) return <Failed />;
   if (!w.data) return <Loading />;
   return (
-    <Shell title="Фото на проверке" right={<Link href="/staff/students/photos" onClick={onNavigate} className="text-xs font-semibold text-muted hover:text-fg">Все →</Link>}>
+    <Shell title="Фото на проверке" right={<Link href="/staff/students/photos" onClick={onNavigate} className="text-[13px] font-semibold text-muted hover:text-fg">Все →</Link>}>
       {w.data.items.length === 0 ? (
-        <p className="text-sm text-muted">Всё проверено.</p>
+        <p className="px-2 py-3 text-[15px] text-muted">Всё проверено.</p>
       ) : (
         <ul className="space-y-3">
           {w.data.items.map((x: any) => (
@@ -601,11 +593,11 @@ function PhotoItem({ x, onDone, onNavigate }: { x: any; onDone: () => void; onNa
     <li className="flex gap-3">
       {/* eslint-disable-next-line @next/next/no-img-element -- защищённый маршрут */}
       <img src={`/api/photos/${x.id}`} alt="" width={60} height={80} className="h-20 w-[60px] shrink-0 rounded-lg object-cover" />
-      <div className="min-w-0 flex-1 text-sm">
+      <div className="min-w-0 flex-1 text-[15px]">
         <Link href={`/staff/students/${x.studentId}`} onClick={onNavigate} className="font-medium hover:underline">
           {x.student}
         </Link>
-        <div className="text-xs text-muted">
+        <div className="mt-0.5 text-[13px] text-muted">
           {x.group}
           {x.replaces ? " · заменит действующее" : ""}
         </div>
@@ -619,7 +611,7 @@ function PhotoItem({ x, onDone, onNavigate }: { x: any; onDone: () => void; onNa
           </div>
         ) : (
           <div className="mt-1.5 flex gap-2">
-            <button type="button" disabled={pending} onClick={() => act("APPROVED")} className={`${btn} bg-ink text-ink-fg`}>
+            <button type="button" disabled={pending} onClick={() => act("APPROVED")} className={`${btn} border border-border bg-surface hover:border-ink`}>
               <Check size={14} /> Принять
             </button>
             <button type="button" onClick={() => setReject(true)} className={`${btn} border border-border hover:border-ink`}>
@@ -627,7 +619,7 @@ function PhotoItem({ x, onDone, onNavigate }: { x: any; onDone: () => void; onNa
             </button>
           </div>
         )}
-        {error && <p className="text-xs font-medium text-danger">{error}</p>}
+        {error && <p className="text-[13px] font-medium text-danger">{error}</p>}
       </div>
     </li>
   );
@@ -646,12 +638,12 @@ function StaffAccounts({ p, onNavigate }: { p: Record<string, string>; onNavigat
     { label: "заблокированы", v: s.blocked, f: "blocked" },
   ];
   return (
-    <Shell title={`Аккаунты · ${s.total} студ.`} right={<Link href="/staff/students/accounts" onClick={onNavigate} className="text-xs font-semibold text-muted hover:text-fg">Все →</Link>}>
+    <Shell title={`Аккаунты · ${s.total} студ.`} right={<Link href="/staff/students/accounts" onClick={onNavigate} className="text-[13px] font-semibold text-muted hover:text-fg">Все →</Link>}>
       <div className="grid grid-cols-2 gap-2">
         {tiles.map((t) => (
           <Link key={t.label} href={t.f ? `/staff/students/accounts?f=${t.f}${q}` : "/staff/students/accounts"} onClick={onNavigate} className="rounded-xl bg-surface-2 p-2 hover:ring-1 hover:ring-border">
             <div className={cn("font-head text-xl font-semibold tabular-nums", t.bad && "text-danger")}>{t.v}</div>
-            <div className="text-[11px] leading-tight text-muted">{t.label}</div>
+            <div className="mt-0.5 text-[13px] leading-snug text-muted">{t.label}</div>
           </Link>
         ))}
       </div>

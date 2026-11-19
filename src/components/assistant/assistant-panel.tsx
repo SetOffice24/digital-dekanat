@@ -266,9 +266,9 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer", role = "ST
                         <p className={cn("whitespace-pre-line pt-1 text-[15px] leading-relaxed", m.error && "text-danger")}>{m.text}</p>
                       )}
                       {m.links && m.links.length > 0 && (
-                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                        <div className="mt-3 flex flex-wrap gap-2">
                           {m.links.map((l) => (
-                            <Link key={l.href + l.label} href={l.href} onClick={onClose} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-border px-3 text-sm font-medium hover:border-ink">
+                            <Link key={l.href + l.label} href={l.href} onClick={onClose} className="inline-flex min-h-10 items-center gap-1 rounded-full border border-border px-4 text-sm font-medium hover:border-ink">
                               {l.label} <ArrowUpRight size={14} />
                             </Link>
                           ))}
@@ -277,9 +277,9 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer", role = "ST
                       {m.widget && <WidgetView widget={m.widget} ask={send} onNavigate={onClose} />}
                       {m.draft && <DraftCard messageId={m.id} card={m.draft} onNavigate={onClose} />}
                       {m.suggestions && m.suggestions.length > 0 && (
-                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                        <div className="mt-3 flex flex-wrap gap-2">
                           {m.suggestions.map((sg) => (
-                            <button key={sg.label + (sg.tool ?? "")} type="button" disabled={busy} onClick={() => send(sg.message, sg.tool, sg.label)} className="inline-flex min-h-9 items-center rounded-full bg-surface-2 px-3.5 text-sm font-medium transition hover:bg-primary-soft hover:text-primary disabled:opacity-50">
+                            <button key={sg.label + (sg.tool ?? "")} type="button" disabled={busy} onClick={() => send(sg.message, sg.tool, sg.label)} className="inline-flex min-h-10 items-center rounded-full bg-surface-2 px-4 text-sm font-medium transition hover:bg-primary-soft hover:text-primary disabled:opacity-50">
                               {sg.label}
                             </button>
                           ))}

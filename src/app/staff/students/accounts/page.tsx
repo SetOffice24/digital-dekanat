@@ -26,13 +26,15 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
     const s = q.toString();
     return `/staff/students/accounts${s ? `?${s}` : ""}`;
   };
+  // главное — четыре цифры; остальное — строкой фильтров ниже (раньше было 7 плиток в ряд — тесно)
   const tiles: { key?: AccountFilter; value: number; label: string; bad?: boolean }[] = [
-    { value: stats.total, label: plural(stats.total, "студент", "студента", "студентов") },
-    { value: stats.active7, label: "заходили за 7 дней" },
+    { value: stats.total, label: `${plural(stats.total, "студент", "студента", "студентов")}, за неделю заходили ${stats.active7}` },
     { key: "never", value: stats.never, label: "ни разу не входили", bad: stats.never > 0 },
     { key: "inactive", value: stats.inactive, label: "не заходили 14 дней", bad: stats.inactive > 0 },
-    { key: "temp", value: stats.temp, label: "ждут смены пароля" },
     { key: "blocked", value: stats.blocked, label: "заблокированы" },
+  ];
+  const extra: { key: AccountFilter; value: number; label: string }[] = [
+    { key: "temp", value: stats.temp, label: "ждут смены пароля" },
     { key: "nophoto", value: stats.nophoto, label: "без фото" },
   ];
 
@@ -50,16 +52,24 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
       />
 
       {/* Сводка: каждая цифра — фильтр списка */}
-      <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-4 sm:px-0 lg:grid-cols-7">
+      <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
         {tiles.map((t) => {
-          const active = t.key ? filter === t.key : !filter && t === tiles[0];
+          const active = t.key ? filter === t.key : !filter && !extra.some((e) => e.key === filter);
           return (
-            <Link key={t.label} href={href({ f: t.key && filter !== t.key ? t.key : undefined })} className={cn("w-[132px] shrink-0 rounded-2xl border p-3 transition sm:w-auto", active ? "border-ink bg-surface" : "border-border/70 bg-surface hover:border-ink/40")}>
-              <div className={cn("font-head text-2xl font-semibold tabular-nums", t.bad && "text-danger")}>{t.value}</div>
-              <div className="text-xs text-muted">{t.label}</div>
+            <Link key={t.label} href={href({ f: t.key && filter !== t.key ? t.key : undefined })} className={cn("rounded-[22px] border p-4 transition", active ? "border-ink bg-surface" : "border-border/70 bg-surface hover:border-ink/40")}>
+              <div className={cn("font-head text-3xl font-semibold tabular-nums", t.bad && "text-danger")}>{t.value}</div>
+              <div className="mt-1 text-sm leading-snug text-muted">{t.label}</div>
             </Link>
           );
         })}
+      </div>
+      <div className="mb-5 flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-muted">Ещё:</span>
+        {extra.map((e) => (
+          <Link key={e.key} href={href({ f: filter === e.key ? undefined : e.key })} className={cn("inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 font-medium", filter === e.key ? "border-ink bg-ink text-ink-fg" : "border-border bg-surface hover:border-ink")}>
+            {e.label} <span className="tabular-nums opacity-70">{e.value}</span>
+          </Link>
+        ))}
       </div>
 
       <form className="mb-4 flex flex-col gap-2 sm:flex-row" action="/staff/students/accounts">
@@ -104,7 +114,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                         <div className="truncate font-medium">
                           {s.lastName} {s.firstName} {s.middleName}
                         </div>
-                        <div className="truncate text-xs text-muted">
+                        <div className="mt-0.5 truncate text-[13px] text-muted">
                           {s.group.name} · {u.login}
                           {s.photos.length === 0 && " · без фото"}
                         </div>
@@ -135,7 +145,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                   </Link>
                   : {ACTION_LABEL[e.action].toLowerCase()}
                   {e.details ? ` (${e.details})` : ""}
-                  <div className="text-xs text-muted">
+                  <div className="mt-0.5 text-[13px] text-muted">
                     {fmtDateTime(e.createdAt)} · {e.actor.staff?.fullName ?? (e.actor.student ? "сам студент" : e.actor.login)}
                   </div>
                 </li>

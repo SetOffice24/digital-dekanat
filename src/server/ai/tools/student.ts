@@ -38,9 +38,12 @@ export const studentTools: Tool<StudentContext>[] = [
       const active = pool.filter((l) => l.status !== "CANCELLED");
       const changed = pool.filter((l) => l.status !== "SCHEDULED");
       return {
+        // дата — в заголовке мини-раздела, в тексте только главное
         text: active.length
-          ? `${fmtDay(day)}: ${active.length} ${active.length === 1 ? "пара" : active.length < 5 ? "пары" : "пар"}, первая в ${active[0].startTime}.${changed.length ? ` Есть изменения — отмечены в расписании.` : ""}`
-          : `${fmtDay(day)} пар нет.`,
+          ? `${active.length} ${active.length === 1 ? "пара" : active.length < 5 ? "пары" : "пар"}, первая — в ${active[0].startTime}.${changed.length ? " Есть изменения, они отмечены." : ""}`
+          : changed.length
+            ? "Пар нет: занятия этого дня отменены."
+            : "В этот день пар нет.",
         widget: { type: "student.schedule", params: { date: iso(day) } },
         suggestions: examplesOf(studentTools, ["homework", "grades"]),
       };
@@ -56,8 +59,10 @@ export const studentTools: Tool<StudentContext>[] = [
       const open = ctx.openHomework;
       const urgent = open.filter((h) => h.state === "overdue" || h.state === "returned").length;
       const todo = open.filter((h) => h.state === "todo").length;
+      const waiting = open.filter((h) => h.state === "submitted").length;
+      const parts = [urgent && `срочно ${urgent}`, todo && `сдать ${todo}`, waiting && `на проверке ${waiting}`].filter(Boolean);
       return {
-        text: open.length ? `Не принято ${open.length}: нужно сдать — ${todo}${urgent ? `, просрочено или на доработке — ${urgent}` : ""}. Сдать можно прямо отсюда — кнопка «Сдать» у задания.` : "Все домашние задания сданы и приняты.",
+        text: open.length ? `${parts.join(", ").replace(/^./, (c) => c.toUpperCase())}. Сдать можно прямо здесь.` : "Все домашние задания сданы и приняты.",
         widget: { type: "student.homework", params: {} },
         links: ctx.deadlines.length ? undefined : [{ href: "/homework", label: "Все задания" }],
       };
@@ -90,8 +95,8 @@ export const studentTools: Tool<StudentContext>[] = [
       const text = pick.length
         ? pick.map((x) => `${x.course}: ${x.score ? `${x.score.points} из ${x.score.max} — прогноз ${forecastLabel(x.score.forecast)}` : "оценок пока нет"}`).join("\n")
         : weak.length
-          ? `Стоит подтянуть: ${weak.map((x) => x.course).join(", ")} — пока ниже порога 60 %. Остальное — в таблице.`
-          : "По всем дисциплинам вы выше порога. Подробно — в таблице.";
+          ? `Стоит подтянуть: ${weak.map((x) => x.course).join(", ")} — пока ниже порога 60 %. Подробно — ниже.`
+          : "По всем дисциплинам вы выше порога. Подробно — ниже.";
       return {
         text: text + (ctx.debts.length ? `\nДолги прошлых семестров: ${ctx.debts.map((d) => d.course).join(", ")}.` : ""),
         widget: pick.length ? undefined : { type: "student.grades", params: {} },

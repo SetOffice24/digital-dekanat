@@ -128,7 +128,7 @@ export const teacherTools: Tool<TeacherContext>[] = [
       const day = parseDay(msg) ?? moscowToday();
       const n = ctx.lessons.filter((l) => l.date.getTime() === day.getTime() && l.status !== "CANCELLED").length;
       return {
-        text: n ? `${fmtDay(day)}: ${n} ${plural(n, "пара", "пары", "пар")}. На паре можно сразу отметить посещаемость.` : `${fmtDay(day)} пар нет.`,
+        text: n ? `${n} ${plural(n, "пара", "пары", "пар")}. Посещаемость можно отметить прямо здесь.` : "В этот день пар нет.",
         widget: { type: "teacher.day", params: { date: day.toISOString().slice(0, 10) } },
       };
     },

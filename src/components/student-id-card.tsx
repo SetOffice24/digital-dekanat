@@ -33,7 +33,7 @@ export async function StudentIdCard({ card, photoId }: { card: Card; photoId: st
         </div>
       </div>
       <div className="flex gap-4 p-5">
-        <div className="w-[96px] shrink-0">
+        <div className="w-[112px] shrink-0">
           {photoId ? (
             // eslint-disable-next-line @next/next/no-img-element -- защищённый маршрут с проверкой сессии
             <img src={`/api/photos/${photoId}`} alt="Фото студента" width={96} height={128} className="aspect-[3/4] w-full rounded-xl object-cover" />
@@ -44,33 +44,33 @@ export async function StudentIdCard({ card, photoId }: { card: Card; photoId: st
             </div>
           )}
         </div>
-        <dl className="min-w-0 flex-1 space-y-1.5 text-[13px]">
+        <dl className="min-w-0 flex-1 space-y-2 text-sm">
           <div>
             <dt className="sr-only">ФИО</dt>
-            <dd className="font-head text-[17px] font-semibold leading-tight">
+            <dd className="font-head text-lg font-semibold leading-tight">
               {card.lastName}
               <br />
               {card.firstName} {card.middleName}
             </dd>
           </div>
           <div>
-            <dt className="text-[11px] opacity-60">Факультет</dt>
+            <dt className="text-xs opacity-60">Факультет</dt>
             <dd className="font-medium leading-tight">{card.faculty.name}</dd>
           </div>
           <div className="flex gap-4">
             <div>
-              <dt className="text-[11px] opacity-60">Группа</dt>
+              <dt className="text-xs opacity-60">Группа</dt>
               <dd className="font-medium">{card.group.name}</dd>
             </div>
             <div>
-              <dt className="text-[11px] opacity-60">Курс</dt>
+              <dt className="text-xs opacity-60">Курс</dt>
               <dd className="font-medium">{card.course}</dd>
             </div>
           </div>
         </dl>
       </div>
       <div className="flex items-end justify-between gap-3 border-t border-fg/10 px-5 py-3">
-        <div className="text-[12px] leading-snug">
+        <div className="text-[13px] leading-snug">
           <div>
             <span className="opacity-60">№ </span>
             <b className="font-semibold tabular-nums">{card.recordBookNo}</b>
@@ -79,7 +79,7 @@ export async function StudentIdCard({ card, photoId }: { card: Card; photoId: st
             <span className="opacity-60">Действителен до </span>
             <b className="font-semibold">{fmtDate(idValidUntil())}</b>
           </div>
-          <div className="mt-1 text-[11px] opacity-60">QR — проверка, что вы обучаетесь</div>
+          <div className="mt-1 text-xs opacity-60">QR — проверка, что вы обучаетесь</div>
         </div>
         {qr && (
           // eslint-disable-next-line @next/next/no-img-element -- data: URL

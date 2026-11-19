@@ -110,7 +110,11 @@ export const staffTools: Tool<StaffContext>[] = [
       const status = /в работе/.test(norm(msg)) ? "IN_REVIEW" : "NEW";
       const oldest = ctx.newest.at(-1);
       return {
-        text: `Новых — ${c.NEW ?? 0}, в работе — ${c.IN_REVIEW ?? 0}, ждут студента — ${c.NEED_INFO ?? 0}, готовы к выдаче — ${c.READY ?? 0}.` + (oldest && status === "NEW" ? ` Самая давняя новая — №${oldest.number}, ${relativeTime(oldest.createdAt)}.` : ""),
+        // остальные статусы — во вкладках мини-раздела; в тексте только то, что требует внимания
+        text:
+          status === "NEW"
+            ? (c.NEW ? `Новых заявок — ${c.NEW}${oldest ? `, самая давняя ждёт ${relativeTime(oldest.createdAt).replace(" назад", "")}` : ""}.` : "Новых заявок нет.") + (c.NEED_INFO ? ` Ответа студента ждут ${c.NEED_INFO}.` : "")
+            : `В работе — ${c.IN_REVIEW ?? 0}.`,
         widget: { type: "staff.inbox", params: { status } },
       };
     },
@@ -141,7 +145,7 @@ export const staffTools: Tool<StaffContext>[] = [
       if (!group) return { text: "Какой группы? Например: «пары ИВТ-24-1 завтра».", suggestions: ctx.groups.slice(0, 4).map((g) => ({ label: g.name, message: `Пары ${g.name} сегодня`, tool: "groupday" })) };
       const day = parseDay(msg) ?? moscowToday();
       return {
-        text: `${group.name}, ${fmtDay(day).toLowerCase()}. У пары можно отменить или перенести её прямо здесь — студенты получат уведомление.`,
+        text: "Пару можно перенести или отменить прямо здесь — студенты получат уведомление.",
         widget: { type: "staff.groupday", params: { groupId: group.id, date: day.toISOString().slice(0, 10) } },
       };
     },
