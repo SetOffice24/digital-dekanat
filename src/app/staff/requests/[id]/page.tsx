@@ -7,6 +7,10 @@ import { Badge, ButtonLink, Card, SectionTitle } from "@/components/ui";
 import { requestStatusLabel, requestStatusTone } from "@/lib/labels";
 import { dueDate, fmtDate, fmtDateTime, fmtShort, parseIsoDate } from "@/lib/utils";
 import { AssignForm, DecisionForm, MobileDecisionBar } from "./forms";
+import { DocReview } from "@/components/services/desk";
+import { RevokeButton } from "@/app/staff/services/parts";
+import { stepLabel } from "@/server/services/requests";
+import { docKinds } from "@/config/services";
 
 export const metadata = { title: "Заявка" };
 
@@ -31,6 +35,9 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
   const absences = from && to ? await absencesInRange(staff, s.id, from, to) : null;
   const next = n ? { id: n.id, number: n.number, title: n.type.title } : null;
   // «назад» — в ту вкладку входящих, где лежит заявка
+  const routeOpen = r.approvals.some((a) => a.status === "PENDING" || a.status === "WAITING");
+  const pendingStep = r.approvals.find((a) => a.status === "PENDING");
+  const due = r.dueAt ?? dueDate(r.createdAt, r.type.slaDays);
   const backTab = { NEW: "new", IN_REVIEW: "work", NEED_INFO: "wait", READY: "ready", DONE: "done", REJECTED: "done" }[r.status];
 
   return (
@@ -50,7 +57,9 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
           {r.type.title} <span className="text-muted">№ {r.number}</span>
         </h1>
         <Badge tone={requestStatusTone[r.status]}>{requestStatusLabel[r.status]}</Badge>
-        {overdue && <Badge tone="danger">Просрочена</Badge>}
+        {overdue && <Badge tone="danger">{r.escalatedAt ? "Просрочена · у руководителя" : "Просрочена"}</Badge>}
+        {r.autoIssued && <Badge tone="success">Выдана автоматически</Badge>}
+        {r.certificate?.revoked && <Badge tone="danger">Справка отозвана</Badge>}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]">
@@ -70,7 +79,7 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
             <SectionTitle>Данные заявки</SectionTitle>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
               <dt className="text-muted">Подана</dt><dd>{fmtDateTime(r.createdAt)}</dd>
-              <dt className="text-muted">Срок</dt><dd>до {fmtDate(dueDate(r.createdAt, r.type.slaDays))} · {r.type.slaDays} раб. дн.</dd>
+              <dt className="text-muted">Срок</dt><dd>до {fmtDate(due)} · {r.type.slaDays} раб. дн.</dd>
               <dt className="text-muted">Исполнитель</dt><dd>{r.assignee?.fullName ?? "не назначен"}</dd>
               {r.wantsPaper && (<><dt className="text-muted">Бумажная копия</dt><dd>нужна</dd></>)}
               {fields.map((f) => (
@@ -100,9 +109,47 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
                   <FileDown size={18} /> Открыть PDF справки
                 </ButtonLink>
                 <span className="text-muted">Код проверки {r.certificate.verifyCode} · до {fmtDate(r.certificate.validUntil)}</span>
+                {!r.certificate.revoked && <RevokeButton requestId={r.id} />}
+                {r.certificate.revoked && <span className="font-semibold text-danger">Отозвана: {r.certificate.revokeReason}</span>}
               </div>
             )}
           </Card>
+
+          {r.approvals.length > 0 && (
+            <Card>
+              <SectionTitle>Путь согласования</SectionTitle>
+              <ol className="space-y-2 text-sm">
+                {r.approvals.map((a) => (
+                  <li key={a.id} className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="font-semibold">{a.idx + 1}. {stepLabel(a)}</span>
+                    <span className={a.status === "APPROVED" ? "text-success" : a.status === "REJECTED" ? "text-danger" : a.status === "PENDING" ? "font-semibold text-warning" : "text-muted"}>
+                      {a.status === "APPROVED" ? "согласовано" : a.status === "REJECTED" ? "отклонено" : a.status === "PENDING" ? "ждёт решения" : "в очереди"}
+                    </span>
+                    {a.decidedAt && <span className="text-muted">{fmtDateTime(a.decidedAt)}</span>}
+                    {a.comment && <span className="basis-full rounded-xl bg-surface-2 px-3 py-1.5">{a.comment}</span>}
+                  </li>
+                ))}
+                <li className="text-muted">→ после согласования заявку выполняет деканат</li>
+              </ol>
+            </Card>
+          )}
+
+          {r.documents.length > 0 && (
+            <Card>
+              <SectionTitle>Документы студента</SectionTitle>
+              <DocReview path={`/staff/requests/${r.id}`} docs={r.documents.map(({ document: d }) => ({ id: d.id, title: docKinds[d.kind].title, status: d.status, validUntil: d.validUntil ? fmtDate(d.validUntil) : null, note: d.reviewNote }))} />
+            </Card>
+          )}
+
+          {r.rating != null && (
+            <Card>
+              <SectionTitle>Оценка студента</SectionTitle>
+              <p className="text-sm">
+                <b className="text-[#d08a00]">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</b>
+                {r.ratingComment ? ` — «${r.ratingComment}»` : ""}
+              </p>
+            </Card>
+          )}
 
           <Card>
             <SectionTitle>История</SectionTitle>
@@ -110,9 +157,9 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
               {r.events.map((e) => (
                 <li key={e.id} className="border-l-2 border-border pl-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone={requestStatusTone[e.toStatus]}>{requestStatusLabel[e.toStatus]}</Badge>
+                    <Badge tone={e.fromStatus === e.toStatus ? "neutral" : requestStatusTone[e.toStatus]}>{e.fromStatus === e.toStatus ? "Согласование" : requestStatusLabel[e.toStatus]}</Badge>
                     <span className="text-xs text-muted">
-                      {fmtDateTime(e.createdAt)} · {e.author.role === "STAFF" ? e.author.staff?.fullName ?? "Сотрудник" : "Студент"}
+                      {fmtDateTime(e.createdAt)} · {e.author.role === "STAFF" ? e.author.staff?.fullName ?? "Сотрудник" : e.author.role === "TEACHER" ? e.author.teacher?.fullName ?? "Преподаватель" : "Студент"}
                     </span>
                   </div>
                   {e.message && <p className="mt-1 whitespace-pre-wrap">{e.message}</p>}
@@ -135,7 +182,9 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
                 </span>
               </a>
             )}
-            {closed ? (
+            {routeOpen && !closed ? (
+              <p className="text-sm text-muted">Заявка на согласовании{pendingStep ? `: ${stepLabel(pendingStep)}` : ""}. Решение станет доступно, когда маршрут будет пройден.</p>
+            ) : closed ? (
               <p className="text-sm text-muted">Заявка закрыта — статус «{requestStatusLabel[r.status]}».</p>
             ) : (
               <DecisionForm id={r.id} status={r.status} isCertificate={r.type.isCertificate} next={next} />
@@ -149,7 +198,7 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
           )}
         </div>
       </div>
-      <MobileDecisionBar id={r.id} status={r.status} isCertificate={r.type.isCertificate} closed={closed} next={next} />
+      <MobileDecisionBar id={r.id} status={r.status} isCertificate={r.type.isCertificate} closed={closed || routeOpen} next={next} />
     </div>
   );
 }

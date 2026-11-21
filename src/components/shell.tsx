@@ -13,7 +13,7 @@ import { MessagesLink } from "./messages/messages-link";
 
 /**
  * Простая навигация: 4 раздела + 3 действия.
- * Разделы: Главная · Расписание · Учёба · Заявки.
+ * Разделы: Главная · Расписание · Учёба · Услуги (единое окно).
  * Действия (справа в шапке): уведомления, ИИ-помощник, профиль.
  * Десктоп — капсулы в шапке; телефон — нижняя панель с центральной кнопкой помощника.
  */
@@ -24,16 +24,21 @@ const nav: NavItem[] = [
   { href: "/schedule", label: "Расписание", icon: CalendarDays },
   // домашние задания и материалы — часть «Учёбы», отдельного раздела в меню нет
   { href: "/grades", label: "Учёба", icon: GraduationCap, match: (p) => p.startsWith("/grades") || p.startsWith("/homework") || p.startsWith("/courses") || p.startsWith("/attendance") },
-  { href: "/requests", label: "Заявки", icon: FileText },
+  // единое окно деканата: заявки, жизненные ситуации, документы, запись на приём
+  { href: "/requests", label: "Услуги", icon: FileText, match: (p) => p.startsWith("/requests") || p.startsWith("/services") },
 ];
 
 const fetcher = (u: string) => fetch(u).then((r) => (r.ok ? r.json() : { count: 0, latest: null }));
 
 /** Непрочитанные уведомления: опрос каждые 10 с и при возврате на вкладку — изменения расписания видны почти сразу. */
 export function useUnread() {
-  const { data } = useSWR<{ count: number; latest: Latest }>("/api/notifications/unread", fetcher, { refreshInterval: 10000, revalidateOnFocus: true });
-  return { count: data?.count ?? 0, latest: data?.latest ?? null, ready: data !== undefined };
+  const { data } = useSWR<{ count: number; latest: Latest; assistantChat?: string | null }>("/api/notifications/unread", fetcher, { refreshInterval: 10000, revalidateOnFocus: true });
+  // assistantChat — помощник написал сам, а студент ещё не открыл (точка на кнопке помощника)
+  return { count: data?.count ?? 0, latest: data?.latest ?? null, ready: data !== undefined, assistantNew: !!data?.assistantChat };
 }
+
+/** Точка «помощник написал сам». */
+const NewDot = () => <span className="absolute -right-0.5 -top-0.5 size-3 rounded-full border-2 border-bg bg-danger" aria-label="Новое сообщение помощника" />;
 
 const isActive = (item: NavItem, path: string) => (item.match ? item.match(path) : path === item.href || path.startsWith(item.href + "/"));
 
@@ -41,7 +46,7 @@ const capsule = "inline-flex min-h-12 items-center gap-2 rounded-full border px-
 
 export function StudentShell({ children, name, firstName, group, initials }: { children: React.ReactNode; name: string; firstName: string; group: string; initials: string }) {
   const path = usePathname();
-  const { count: unread, latest, ready } = useUnread();
+  const { count: unread, latest, ready, assistantNew } = useUnread();
   const onProfile = path.startsWith("/profile");
   const onNotes = path.startsWith("/notifications");
 
@@ -70,7 +75,11 @@ export function StudentShell({ children, name, firstName, group, initials }: { c
             <div className="flex-1" />
 
             <OpenAssistant className={cn(capsule, "hidden border-transparent bg-surface pl-2 pr-5 hover:border-border lg:inline-flex")}>
-              <Mascot size={30} /> Помощник
+              <span className="relative">
+                <Mascot size={30} />
+                {assistantNew && <NewDot />}
+              </span>
+              Помощник
             </OpenAssistant>
 
             <MessagesLink href="/messages" />
@@ -108,8 +117,11 @@ export function StudentShell({ children, name, firstName, group, initials }: { c
               ) : (
                 <li key="uni" className="flex justify-center">
                   <OpenAssistant className="-mt-7 flex size-16 items-center justify-center rounded-full bg-white shadow-[0_8px_20px_-6px_rgba(0,0,0,0.35)] ring-4 ring-bg transition active:scale-95">
-                    <Mascot size={40} />
-                    <span className="sr-only">Открыть помощника</span>
+                    <span className="relative">
+                      <Mascot size={40} />
+                      {assistantNew && <NewDot />}
+                    </span>
+                    <span className="sr-only">{assistantNew ? "Открыть помощника — есть новое сообщение" : "Открыть помощника"}</span>
                   </OpenAssistant>
                 </li>
               ),

@@ -50,7 +50,8 @@ describe("поиск заявок деканатом", () => {
 
 describe("статусы заявок: только допустимые переходы", () => {
   it("из «Новой» сразу в «Выдана» нельзя; «Отклонённая» — конечная; «Новая» → «В работе» — можно", async () => {
-    const r = await db.request.findFirstOrThrow({ where: { status: "NEW" } });
+    // заявка без согласования преподавателем (на согласовании деканат решать не может — null)
+    const r = await db.request.findFirstOrThrow({ where: { status: "NEW", approvals: { none: {} } } });
     expect(await changeRequestStatus(staff, r.id, "DONE", null)).toBe("invalid");
     expect(await changeRequestStatus(staff, r.id, "READY", null)).toBe("invalid");
     expect(await changeRequestStatus(staff, r.id, "IN_REVIEW", null)).not.toBe("invalid");

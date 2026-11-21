@@ -9,14 +9,22 @@ import { addDays, dueDate, fmtDateTime, fmtDay, moscowTime, moscowToday, parseIs
 import { unreadConversations, viewerOf } from "../repos/messages";
 import { forecastLabel, isBelow } from "@/lib/grading";
 import { requestStatusLabel } from "@/lib/labels";
-import { currentSemester, getAttendance, getEnrollments, getLessons, listRequests as studentRequests, summarize } from "../repos/student";
+import { currentSemester, getAttendance, getEnrollments, getExams, getLessons, listRequests as studentRequests, summarize } from "../repos/student";
 import { listHomework } from "../repos/homework";
 import { currentScore } from "../repos/analytics";
 import { currentPeriod, getLessonAttendance } from "../repos/teacher";
-import { listLessons, listRequests as staffRequests } from "../repos/staff";
+import { deaneryQueue, listLessons, listRequests as staffRequests } from "../repos/staff";
 import { photoQueue } from "../repos/photos";
 import { accountsOverview } from "../repos/accounts";
 import { ACCEPT, MAX_FILE_MB, MAX_FILES } from "../files";
+import { listDocs, type DocListItem } from "../repos/knowledge";
+import { libraryBase } from "./library";
+import { studentNudges } from "../proactive";
+import { situationByCode } from "@/config/situations";
+import { getCase } from "../services/situations";
+
+const EXAM_KIND: Record<string, string> = { EXAM: "Экзамен", CREDIT: "Зачёт", RETAKE: "Пересдача" };
+const audienceText = (d: DocListItem) => (d.scope === "UNIVERSITY" ? "Деканат · весь вуз" : d.scope === "FACULTY" ? `Деканат · ${d.faculty?.shortName ?? "факультет"}` : (d.course?.name ?? "Дисциплина"));
 
 type U = User & { student: Student | null; teacher: Teacher | null; staff: Staff | null };
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -76,6 +84,34 @@ export async function loadWidget(user: U, type: string, p: Record<string, string
   if (type === "student.requests" && user.student) {
     const rows = await studentRequests(user.student);
     return { items: rows.slice(0, 10).map((r) => ({ id: r.id, number: r.number, title: r.type.title, status: requestStatusLabel[r.status], done: r.status === "DONE" || r.status === "READY", attention: r.status === "NEED_INFO", hasPdf: Boolean(r.certificate) })) };
+  }
+  if (type === "student.exams" && user.student) {
+    const now = new Date();
+    const rows = (await getExams(user.student)).filter((e) => e.date > now).slice(0, 8);
+    return { items: rows.map((e) => ({ id: e.id, kind: EXAM_KIND[e.kind] ?? "Экзамен", course: e.course.name, when: fmtDateTime(e.date), room: e.room, teacher: e.teacher, days: Math.max(0, Math.ceil((e.date.getTime() - now.getTime()) / 86400000)) })) };
+  }
+  if (type === "student.materials" && user.student) {
+    const rows = await prisma.material.findMany({
+      where: { groupId: user.student.groupId, ...(p.courseId ? { courseId: p.courseId } : {}) },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      select: { id: true, title: true, url: true, courseId: true, createdAt: true, course: { select: { name: true } }, teacher: { select: { fullName: true } }, _count: { select: { files: true } } },
+    });
+    return { course: p.courseId ? (rows[0]?.course.name ?? "") : "", items: rows.map((m) => ({ id: m.id, title: m.title, course: m.course.name, href: `/courses/${m.courseId}`, files: m._count.files, url: m.url, teacher: m.teacher.fullName, date: fmtDay(m.createdAt) })) };
+  }
+  if (type === "student.situation" && user.student) {
+    const s = situationByCode(p.code ?? "");
+    if (!s) return null;
+    const open = await prisma.situationCase.findFirst({ where: { studentId: user.student.id, code: s.code, status: "OPEN" }, select: { id: true } });
+    if (open) {
+      const c = await getCase(user.student, open.id);
+      if (c) return { code: s.code, title: s.title, caseId: c.id, steps: c.steps.map((x) => ({ title: x.title, done: x.done, optional: x.optional })) };
+    }
+    return { code: s.code, title: s.title, caseId: null, steps: s.steps.map((x) => ({ title: x.title, done: false, optional: Boolean(x.optional) })) };
+  }
+  if (type === "student.nudges" && user.student) {
+    const items = await studentNudges(user.student);
+    return { items: items.slice(0, 6).map((n) => ({ key: n.key, text: n.text, href: n.href, label: n.label, urgent: n.urgent, action: n.action ?? null })) };
   }
 
   /* ---------- преподаватель ---------- */
@@ -188,8 +224,8 @@ export async function loadWidget(user: U, type: string, p: Record<string, string
     const fac = user.staff.facultyId;
     const scope = fac ? { facultyId: fac } : {};
     const [open, needInfo, photos, unread, changes] = await Promise.all([
-      prisma.request.findMany({ where: { status: { in: ["NEW", "IN_REVIEW"] }, student: scope }, select: { status: true, createdAt: true, type: { select: { slaDays: true } } } }),
-      prisma.request.count({ where: { status: "NEED_INFO", student: scope } }),
+      prisma.request.findMany({ where: { status: { in: ["NEW", "IN_REVIEW"] }, ...deaneryQueue(user.staff) }, select: { status: true, createdAt: true, type: { select: { slaDays: true } } } }),
+      prisma.request.count({ where: { status: "NEED_INFO", ...deaneryQueue(user.staff) } }),
       prisma.studentPhoto.count({ where: { status: "PENDING", student: scope } }),
       unreadConversations(viewerOf(user)),
       prisma.lesson.count({ where: { date: today, status: { not: "SCHEDULED" }, ...(fac ? { group: { program: { facultyId: fac } } } : {}) } }),
@@ -210,6 +246,11 @@ async function loadAny(user: U, type: string) {
   if (type === "any.reminders") {
     const rows = await prisma.reminder.findMany({ where: { userId: user.id, sentAt: null }, orderBy: { dueAt: "asc" }, take: 20, select: { id: true, text: true, dueAt: true } });
     return { items: rows.map((r) => ({ id: r.id, text: r.text, when: fmtDateTime(r.dueAt) })) };
+  }
+  if (type === "any.library") {
+    const docs = await listDocs(user);
+    const base = libraryBase(user.role);
+    return { base, items: docs.slice(0, 10).map((d) => ({ id: d.id, title: d.title, audience: audienceText(d), href: `${base}/${d.id}` })) };
   }
   return null;
 }

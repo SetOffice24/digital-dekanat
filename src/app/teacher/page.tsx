@@ -4,6 +4,9 @@ import { requireTeacher } from "@/server/auth";
 import { listClasses, teachingDay } from "@/server/repos/teacher";
 import { pendingReviews } from "@/server/repos/homework";
 import { teacherOverview } from "@/server/repos/analytics";
+import { countApprovals } from "@/server/services/requests";
+import { absentStudents } from "@/server/services/teacher";
+import { GitBranch, HeartPulse } from "lucide-react";
 import { EmptyState, PageHeader } from "@/components/ui";
 import { lessonKindLabel } from "@/lib/labels";
 import { cn, fmtDay, minutesOf, moscowTime, moscowToday, plural, roomLabel } from "@/lib/utils";
@@ -15,8 +18,10 @@ export const metadata = { title: "Сегодня" };
  * Ниже — все группы для случаев, когда оценку нужно поставить не в день занятия.
  */
 export default async function TeacherHome() {
-  const { teacher } = await requireTeacher();
+  const { user, teacher } = await requireTeacher();
   const today = moscowToday();
+  const [approvals, absent] = await Promise.all([countApprovals({ teacherId: teacher.id, userId: user.id }), absentStudents(teacher.id)]);
+  const dm = (iso: string) => (iso ? iso.split("-").reverse().slice(0, 2).join(".") : "");
   const [day, classes, toReview, overview] = await Promise.all([teachingDay(teacher, today), listClasses(teacher), pendingReviews(teacher), teacherOverview(teacher)]);
   const ov = new Map(overview.map((o) => [o.groupId + o.courseId, o]));
   const nowMin = minutesOf(moscowTime());
@@ -36,6 +41,46 @@ export default async function TeacherHome() {
   return (
     <>
       <PageHeader title={`${hello}!`} subtitle={toReview ? `${summary} Ждут проверки домашних заданий: ${toReview}.` : summary} />
+
+      {(approvals > 0 || absent.length > 0) && (
+        <section className="mb-8 grid gap-2 lg:grid-cols-2">
+          {approvals > 0 && (
+            <Link href="/teacher/approvals" className="flex items-center gap-3 rounded-[24px] bg-p-yellow/70 p-4 transition hover:opacity-90">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface">
+                <GitBranch size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Ждут вашего согласования: {approvals}</span>
+                <span className="block text-[13px]">Перезачёт дисциплины — решение за преподавателем</span>
+              </span>
+              <ArrowRight size={18} />
+            </Link>
+          )}
+          {absent.length > 0 && (
+            <div className="rounded-[24px] border border-border/70 bg-surface p-4">
+              <div className="mb-2 flex items-center gap-2 font-semibold">
+                <HeartPulse size={18} className="text-danger" /> Отсутствуют по уважительной причине
+              </div>
+              <ul className="space-y-1.5 text-sm">
+                {absent.slice(0, 6).map((a) => (
+                  <li key={a.key}>
+                    <b>{a.name}</b> <span className="text-muted">· {a.group}</span>
+                    {a.from && (
+                      <span>
+                        {" "}
+                        · {dm(a.from)}–{dm(a.to)}
+                      </span>
+                    )}
+                    <span className="block text-[13px] text-muted">
+                      {a.reason} — {a.state}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
 
       {day && (
         <section className="mb-10">

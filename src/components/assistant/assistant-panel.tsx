@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import Link from "next/link";
 import { ArrowUp, ArrowUpRight, Bell, BookOpenCheck, CalendarClock, CalendarDays, CircleHelp, ClipboardCheck, FileCheck2, GraduationCap, Inbox, Megaphone, MessageSquareText, MessageSquarePlus, PanelLeft, Trash2, Upload, UserX, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,7 @@ import type { DraftCard as Card } from "@/server/ai/drafts";
 
 type AiLink = { href: string; label: string };
 type Suggestion = { label: string; message: string; tool?: string };
-type Msg = { id: string; role: "user" | "assistant"; text: string; draft: Card | null; links?: AiLink[]; widget?: WidgetRef | null; suggestions?: Suggestion[]; pending?: boolean; error?: boolean };
+type Msg = { id: string; role: "user" | "assistant"; text: string; draft: Card | null; links?: AiLink[]; widget?: WidgetRef | null; suggestions?: Suggestion[]; pending?: boolean; error?: boolean; proactive?: boolean };
 export type AssistantRole = "STUDENT" | "TEACHER" | "STAFF";
 type ChatItem = { id: string; title: string; updatedAt: string };
 
@@ -110,6 +110,7 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer", role = "ST
       try {
         const data = await fetcher(`/api/assistant/chats/${id}`);
         setMsgs(data.messages);
+        void mutate("/api/notifications/unread"); // открыли — гасим точку «помощник написал сам»
       } catch {
         setMsgs([{ id: "err", role: "assistant", text: "Не удалось открыть чат.", draft: null, error: true }]);
       } finally {
@@ -282,6 +283,7 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer", role = "ST
                   <div key={m.id} className="flex gap-3">
                     <Mascot size={30} thinking={m.pending} className="mt-0.5" />
                     <div className="min-w-0 flex-1">
+                      {m.proactive && <p className="pt-1 text-[13px] font-semibold text-muted">Написал сам — просмотрел ваши дела</p>}
                       {m.pending ? (
                         <p className="pt-1.5 text-sm font-semibold text-muted">
                           Анализирую запрос<span className="inline-block w-5 animate-pulse">…</span>

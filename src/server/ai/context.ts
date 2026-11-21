@@ -54,6 +54,7 @@ export async function buildStudentContext(s: SessionStudent) {
   lines.push(`Посещаемость: ${attendance.percent != null ? `${attendance.percent} %` : "отметок нет"}, пропусков ${attendance.total - attendance.present}.`);
   lines.push(`Домашние задания (не принятые; в скобках id): ${openHomework.map((h) => `[${h.id}] «${h.title}» (${h.course.name}) — до ${fmtDateTime(h.dueAt)}, статус ${h.state}`).join("; ") || "нет"}.`);
   lines.push(`Ближайшие дедлайны: ${deadlines.length ? deadlines.map((d) => `${d.title} — до ${fmtDateTime(d.dueAt)}`).join("; ") : "нет"}.`);
-  return { text: lines.join("\n"), debts, lessons, retakes, deadlines, firstName: profile.firstName, homework, openHomework, scores, attendance, attendanceByCourse: [...byCourse.values()] };
+  const viewer = { id: s.userId, role: "STUDENT" as const, student: { id: s.id, groupId: s.groupId, facultyId: s.facultyId }, teacher: null, staff: null };
+  return { viewer, student: s, exams, requests, text: lines.join("\n"), debts, lessons, retakes, deadlines, firstName: profile.firstName, homework, openHomework, scores, attendance, attendanceByCourse: [...byCourse.values()] };
 }
 export type StudentContext = Awaited<ReturnType<typeof buildStudentContext>>;

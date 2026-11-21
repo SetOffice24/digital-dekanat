@@ -9,6 +9,7 @@ import { prisma } from "../db";
 import { currentPeriod, type SessionTeacher } from "../repos/teacher";
 import { addDays, fmtDateTime, fmtDay, moscowTime, moscowToday, plural } from "@/lib/utils";
 import { sharedTools } from "./tools/shared";
+import { libraryAnswer } from "./library";
 import { examplesOf, classifyWithModel, route, type Suggestion, type Tool, type ToolResult, type Widget } from "./router";
 import { bestMentions, findGroup, gatewayJson, hasAny, norm, parseDay, parseDue, type AiLink, type ChatMsg } from "./common";
 
@@ -57,7 +58,7 @@ export function messageFromText(text: string, ctx: TeacherContext): MessageDraft
   };
 }
 
-export async function buildTeacherContext(t: SessionTeacher & { fullName: string }) {
+export async function buildTeacherContext(t: SessionTeacher & { fullName: string; userId?: string | null }) {
   const today = moscowToday();
   const [pairsRaw, lessons, assignments, pending] = await Promise.all([
     prisma.lesson.findMany({ where: { teacherId: t.id, ...currentPeriod() }, distinct: ["groupId", "courseId"], select: { group: { select: { id: true, name: true } }, course: { select: { id: true, name: true } } } }),
@@ -77,7 +78,8 @@ export async function buildTeacherContext(t: SessionTeacher & { fullName: string
   if (!lessons.length) lines.push("- пар нет");
   lines.push(`Ждут проверки: ${pending.length}.`);
   lines.push(`Задания: ${assignments.slice(0, 12).map((a) => `«${a.title}» (${a.group.name}, до ${fmtDateTime(a.dueAt)}, сдали ${a._count.submissions})`).join("; ") || "нет"}.`);
-  return { text: lines.join("\n"), pairs, groups, students, lessons, assignments, pending, fullName: t.fullName, teacherId: t.id };
+  const viewer = { id: t.userId ?? "", role: "TEACHER" as const, student: null, teacher: { id: t.id }, staff: null };
+  return { viewer, text: lines.join("\n"), pairs, groups, students, lessons, assignments, pending, fullName: t.fullName, teacherId: t.id };
 }
 export type TeacherContext = Awaited<ReturnType<typeof buildTeacherContext>>;
 
@@ -309,6 +311,8 @@ export async function teacherReply(history: ChatMsg[], ctx: TeacherContext, forc
   const last = history[history.length - 1]?.content ?? "";
   const viaRules = await rulesTeacher(last, ctx, forced);
   if (viaRules.via !== "help") return viaRules;
+  const lib = await libraryAnswer(ctx.viewer, last);
+  if (lib) return { text: lib.text, links: lib.links, source: "gateway" === lib.source ? "gateway" : "rules" };
   const system = `Ты — помощник преподавателя в цифровом деканате «Универа». Отвечай по-русски, кратко, на «вы».
 Используй только данные из контекста. Не выставляй и не обсуждай изменение оценок — это решает преподаватель.
 Если преподаватель просит выдать домашнее задание — подготовь черновик (сам ты ничего не выдаёшь, под ответом появится карточка с кнопкой «Выдать»).

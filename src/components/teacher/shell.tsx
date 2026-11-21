@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { BookOpen, GitBranch, LogOut } from "lucide-react";
 import { Wordmark } from "@/components/logo";
 import { logoutAction } from "@/app/login/actions";
 import { university } from "@/config/university";
@@ -28,6 +28,12 @@ export function TeacherShell({ children, name, department }: { children: React.R
             <Mascot size={32} />
             <span className="max-sm:sr-only">Помощник</span>
           </OpenAssistant>
+          <Link href="/teacher/approvals" className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg" aria-label="Согласования" title="Согласования: перезачёты дисциплин">
+            <GitBranch size={20} />
+          </Link>
+          <Link href="/teacher/library" className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg" aria-label="Библиотека для помощника" title="Библиотека: материалы, по которым помощник отвечает студентам">
+            <BookOpen size={20} />
+          </Link>
           <MessagesLink href="/teacher/messages" className="size-11" />
           <form action={logoutAction}>
             <button type="submit" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label="Выйти">

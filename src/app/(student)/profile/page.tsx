@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Bell, Clock3, HeartHandshake, LogOut, MapPin, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Bell, BookOpen, Clock3, HeartHandshake, LogOut, MapPin, ShieldCheck } from "lucide-react";
 import { requireStudent } from "@/server/auth";
 import { getCheckin, getProfile } from "@/server/repos/student";
 import { fmtDate, mondayOf, moscowToday } from "@/lib/utils";
@@ -131,6 +131,9 @@ export default async function ProfilePage() {
 
           <section className="space-y-3 rounded-[28px] border border-border/70 bg-surface p-5 text-sm">
             <h2 className="font-head text-lg font-semibold">Куда обратиться</h2>
+            <Link href="/library" className="flex items-start gap-2 font-semibold underline-offset-4 hover:underline">
+              <BookOpen size={16} className="mt-0.5 shrink-0 text-muted" /> Библиотека: правила, инструкции, требования преподавателей
+            </Link>
             <p className="flex items-start gap-2">
               <MapPin size={16} className="mt-0.5 shrink-0 text-muted" /> Деканат — {university.deanOffice.room}, {university.deanOffice.hours}
             </p>

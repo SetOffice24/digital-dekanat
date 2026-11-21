@@ -16,6 +16,7 @@ import { quickStatusAction } from "@/app/staff/inbox-actions";
 import { reviewPhotoAction } from "@/app/staff/students/photos/actions";
 import { cancelFromChatAction } from "@/app/staff/move-actions";
 import { deleteReminderAction } from "@/app/reminder-actions";
+import { startCaseAction } from "@/app/(student)/services/actions";
 
 export type WidgetRef = { type: string; params: Record<string, string> };
 type Ask = (message: string, tool?: string, label?: string) => void;
@@ -107,6 +108,16 @@ export function WidgetView({ widget, ask, onNavigate }: { widget: WidgetRef; ask
       return <RemindersList />;
     case "staff.accounts":
       return <StaffAccounts p={widget.params} onNavigate={onNavigate} />;
+    case "any.library":
+      return <LibraryList onNavigate={onNavigate} />;
+    case "student.exams":
+      return <StudentExams onNavigate={onNavigate} />;
+    case "student.materials":
+      return <StudentMaterials p={widget.params} onNavigate={onNavigate} />;
+    case "student.situation":
+      return <StudentSituation p={widget.params} onNavigate={onNavigate} />;
+    case "student.nudges":
+      return <StudentNudges ask={ask} onNavigate={onNavigate} />;
     default:
       return null;
   }
@@ -828,6 +839,164 @@ function RemindersList() {
           ))}
         </ul>
       )}
+    </Shell>
+  );
+}
+
+/* ---------------- библиотека, сессия, материалы, «что сделать» ---------------- */
+
+function LibraryList({ onNavigate }: { onNavigate?: () => void }) {
+  const w = useWidget("any.library", {});
+  if (w.error) return <Failed />;
+  if (!w.data) return <Loading />;
+  return (
+    <Shell title="Библиотека" right={<Link href={w.data.base} onClick={onNavigate} className="text-[13px] font-semibold text-muted hover:text-fg">Все →</Link>}>
+      {w.data.items.length === 0 ? (
+        <p className="px-2 py-3 text-[15px] text-muted">Материалов пока нет.</p>
+      ) : (
+        <ul className="divide-y divide-border/50 px-2 text-[15px]">
+          {w.data.items.map((d: any) => (
+            <li key={d.id}>
+              <Link href={d.href} onClick={onNavigate} className="block py-3 hover:underline">
+                {d.title}
+                <span className="mt-0.5 block text-[13px] text-muted">{d.audience}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Shell>
+  );
+}
+
+function StudentExams({ onNavigate }: { onNavigate?: () => void }) {
+  const w = useWidget("student.exams", {});
+  if (w.error) return <Failed />;
+  if (!w.data) return <Loading />;
+  return (
+    <Shell title="Сессия и пересдачи" right={<Link href="/grades" onClick={onNavigate} className="text-[13px] font-semibold text-muted hover:text-fg">Оценки →</Link>}>
+      {w.data.items.length === 0 ? (
+        <p className="px-2 py-3 text-[15px] text-muted">Ближайших экзаменов и зачётов нет.</p>
+      ) : (
+        <ul className="space-y-2">
+          {w.data.items.map((e: any) => (
+            <li key={e.id} className="flex items-center gap-3 rounded-2xl bg-surface-2/70 px-3.5 py-3 text-[15px]">
+              <span className="min-w-0 flex-1">
+                <span className="font-medium">{e.course}</span>
+                <span className="mt-0.5 block text-[13px] text-muted">
+                  {e.kind} · {e.when} · ауд. {e.room}
+                </span>
+              </span>
+              <span className={chip(e.days <= 2 ? "bad" : e.days <= 7 ? "warn" : "muted")}>{e.days === 0 ? "сегодня" : e.days === 1 ? "завтра" : `через ${e.days} дн.`}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Shell>
+  );
+}
+
+function StudentMaterials({ p, onNavigate }: { p: Record<string, string>; onNavigate?: () => void }) {
+  const w = useWidget("student.materials", p);
+  if (w.error) return <Failed />;
+  if (!w.data) return <Loading />;
+  return (
+    <Shell title={w.data.course ? `Материалы: ${w.data.course}` : "Новые материалы преподавателей"}>
+      {w.data.items.length === 0 ? (
+        <p className="px-2 py-3 text-[15px] text-muted">Материалов пока нет.</p>
+      ) : (
+        <ul className="divide-y divide-border/50 px-2 text-[15px]">
+          {w.data.items.map((m: any) => (
+            <li key={m.id}>
+              <Link href={m.href} onClick={onNavigate} className="flex items-center gap-3 py-3 hover:underline">
+                <span className="min-w-0 flex-1">
+                  {m.title}
+                  <span className="mt-0.5 block text-[13px] text-muted">
+                    {m.course} · {m.date}
+                  </span>
+                </span>
+                {m.files > 0 && (
+                  <span className={chip("muted")}>
+                    <Paperclip size={12} className="mr-1 inline" />
+                    {m.files}
+                  </span>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Shell>
+  );
+}
+
+function StudentNudges({ ask, onNavigate }: { ask: Ask; onNavigate?: () => void }) {
+  const w = useWidget("student.nudges", {});
+  if (w.error) return <Failed />;
+  if (!w.data) return <Loading />;
+  return (
+    <Shell title="Что стоит сделать">
+      {w.data.items.length === 0 ? (
+        <p className="px-2 py-3 text-[15px] text-muted">Всё спокойно — срочных дел нет.</p>
+      ) : (
+        <ul className="space-y-2">
+          {w.data.items.map((n: any) => (
+            <li key={n.key} className="rounded-2xl bg-surface-2/70 px-3.5 py-3 text-[15px]">
+              <p className="flex gap-2">
+                {n.urgent && <span className={cn(chip("bad"), "h-fit")}>срочно</span>}
+                <span>{n.text}</span>
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {n.action && (
+                  <button type="button" onClick={() => ask(n.action.message, n.action.tool, n.action.label)} className={cn(btn, "bg-ink text-ink-fg")}>
+                    {n.action.label}
+                  </button>
+                )}
+                <Link href={n.href} onClick={onNavigate} className={cn(btn, "border border-border hover:border-ink")}>
+                  {n.label} <ArrowUpRight size={14} />
+                </Link>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Shell>
+  );
+}
+
+/** План по жизненной ситуации прямо в чате: шаги и кнопка открыть (или начать) план. */
+function StudentSituation({ p, onNavigate }: { p: Record<string, string>; onNavigate?: () => void }) {
+  const w = useWidget("student.situation", p);
+  if (w.error) return <Failed />;
+  if (!w.data) return <Loading />;
+  const d = w.data;
+  return (
+    <Shell title={d.title}>
+      <ol className="space-y-1.5 px-2 pb-2 text-[15px]">
+        {d.steps.map((s: any, i: number) => (
+          <li key={i} className="flex items-start gap-2.5">
+            <span className={cn("mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold", s.done ? "bg-success text-white" : "border border-border text-muted")}>{s.done ? <Check size={12} /> : i + 1}</span>
+            <span className={cn(s.done && "text-muted line-through")}>
+              {s.title}
+              {s.optional && <span className="text-[13px] text-muted"> · по желанию</span>}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="px-2 pb-1">
+        {d.caseId ? (
+          <Link href={`/services/case/${d.caseId}`} onClick={onNavigate} className={cn(btn, "bg-ink text-ink-fg")}>
+            Открыть план <ArrowUpRight size={14} />
+          </Link>
+        ) : (
+          <form action={startCaseAction}>
+            <input type="hidden" name="code" value={d.code} />
+            <button type="submit" className={cn(btn, "bg-ink text-ink-fg")}>
+              Начать по плану <ArrowUpRight size={14} />
+            </button>
+          </form>
+        )}
+      </div>
     </Shell>
   );
 }

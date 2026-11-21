@@ -11,6 +11,9 @@ import { seedMessages } from "./seed-messages";
 import { seedPhotos } from "./seed-photos";
 import { seedAccounts } from "./seed-accounts";
 import { restoreChats, snapshotChats } from "./seed-keep-chats";
+import { seedKnowledge } from "./seed-knowledge";
+import { seedServices } from "./seed-services";
+import { dueDate } from "../src/lib/utils";
 
 const prisma = new PrismaClient();
 const rng = seedrandom("univer-demo");
@@ -140,6 +143,8 @@ const buildings = ["Главный корпус", "Корпус Б", "Корпу
 
 async function reset() {
   // порядок удаления с учётом связей
+  await prisma.knowledgeDoc.deleteMany();
+  await prisma.nudgeLog.deleteMany();
   await prisma.message.deleteMany();
   await prisma.conversation.deleteMany();
   await prisma.attachment.deleteMany();
@@ -450,7 +455,7 @@ async function main() {
 
   /* ---------- типы заявок ---------- */
   const types = [
-    { code: "CERT_STUDY", category: "Справки", title: "Справка об обучении", description: "Подтверждает, что вы учитесь в «Универе». Подходит для работы, банка, соцзащиты.", isCertificate: true, slaDays: 1, needsPaper: false,
+    { code: "CERT_STUDY", category: "Справки", title: "Справка об обучении", description: "Подтверждает, что вы учитесь в «Универе». Подходит для работы, банка, соцзащиты.", isCertificate: true, slaDays: 1, needsPaper: false, autoIssue: true,
       fields: [{ name: "place", label: "Куда предоставляется", type: "text", required: true, placeholder: "Например: по месту работы" }, { name: "copies", label: "Количество экземпляров", type: "select", options: ["1", "2", "3"], required: true }] },
     { code: "CERT_MILITARY", category: "Справки", title: "Справка для военкомата", description: "Для отсрочки. Военкомат обычно принимает только бумажный оригинал с печатью.", isCertificate: true, slaDays: 3, needsPaper: true,
       fields: [{ name: "commissariat", label: "Военный комиссариат", type: "text", required: true, placeholder: "Например: Центральный район" }] },
@@ -459,20 +464,36 @@ async function main() {
     { code: "APP_RETAKE", category: "Заявления", title: "Заявление на пересдачу", description: "Назначение пересдачи по дисциплине с академической задолженностью.", isCertificate: false, slaDays: 3, needsPaper: false,
       fields: [{ name: "course", label: "Дисциплина", type: "text", required: true }, { name: "reason", label: "Комментарий", type: "textarea", required: false }] },
     { code: "APP_ABSENCE", category: "Заявления", title: "Уважительная причина пропуска", description: "Болезнь, соревнования, семейные обстоятельства. Приложите подтверждение в деканате.", isCertificate: false, slaDays: 3, needsPaper: false,
-      fields: [{ name: "dateFrom", label: "С", type: "date", required: true }, { name: "dateTo", label: "По", type: "date", required: true }, { name: "reason", label: "Причина", type: "textarea", required: true }] },
+      fields: [{ name: "dateFrom", label: "С", type: "date", required: true }, { name: "dateTo", label: "По", type: "date", required: true }, { name: "reason", label: "Причина", type: "textarea", required: true }],
+      docs: [{ kind: "MEDICAL", required: false }] },
+    { code: "APP_RECREDIT", category: "Заявления", title: "Перезачёт дисциплины", description: "Если похожий курс уже сдан в другом вузе или на другой программе. Согласует преподаватель дисциплины.", isCertificate: false, slaDays: 5, needsPaper: false,
+      route: [{ kind: "TEACHER" }],
+      fields: [{ name: "course", label: "Дисциплина", type: "course", required: true }, { name: "prior", label: "Где и когда сдавали", type: "text", required: true, placeholder: "Например: Политех, 2025, «Алгоритмы» 144 ч" }, { name: "grade", label: "Оценка в документе", type: "text", required: true }],
+      docs: [{ kind: "OTHER", required: false }] },
+    { code: "APP_TRANSFER", category: "Заявления", title: "Перевод на другую программу", description: "Перевод на другое направление, факультет или форму обучения.", isCertificate: false, slaDays: 10, needsPaper: false,
+      fields: [{ name: "target", label: "Куда хотите перевестись", type: "text", required: true }, { name: "basis", label: "Почему", type: "textarea", required: true }] },
     { code: "APP_ACADEMIC_LEAVE", category: "Заявления", title: "Академический отпуск", description: "Перерыв в учёбе по медицинским, семейным или иным основаниям.", isCertificate: false, slaDays: 10, needsPaper: false,
       fields: [{ name: "basis", label: "Основание", type: "select", options: ["Медицинские показания", "Семейные обстоятельства", "Служба в армии", "Другое"], required: true }, { name: "dateFrom", label: "С какой даты", type: "date", required: true }] },
+    { code: "APP_MATHELP", category: "Выплаты", title: "Материальная помощь", description: "Разовая выплата в трудной ситуации: деканат рассмотрит заявление и передаст решение на выплату.", isCertificate: false, slaDays: 7, needsPaper: false,
+      docs: [{ kind: "BANK", required: true }],
+      fields: [{ name: "reason", label: "Причина", type: "select", options: ["Трудная жизненная ситуация", "Болезнь", "Рождение ребёнка", "Другое"], required: true }, { name: "text", label: "Коротко опишите ситуацию", type: "textarea", required: true }] },
+    { code: "ACC_BANK", category: "Выплаты", title: "Смена реквизитов для стипендии", description: "Новая карта для стипендии и выплат — деканат передаст реквизиты на начисление.", isCertificate: false, slaDays: 3, needsPaper: false,
+      docs: [{ kind: "BANK", required: true }],
+      fields: [{ name: "bank", label: "Банк", type: "text", required: true }] },
+    { code: "DORM_CHECKIN", category: "Общежитие", title: "Направление на заселение в общежитие", description: "Деканат проверит документы и выдаст направление — с ним заселяют в студгородке.", isCertificate: false, slaDays: 3, needsPaper: false,
+      docs: [{ kind: "PASSPORT", required: true }, { kind: "FLUORO", required: true }],
+      fields: [{ name: "dateFrom", label: "Желаемая дата заселения", type: "date", required: true }, { name: "wish", label: "Пожелания (этаж, соседи)", type: "text", required: false }] },
     { code: "APP_OTHER", category: "Обращения", title: "Обращение в деканат", description: "Любой вопрос, который не подходит под другие заявки.", isCertificate: false, slaDays: 5, needsPaper: false,
       fields: [{ name: "subject", label: "Тема", type: "text", required: true }, { name: "text", label: "Текст обращения", type: "textarea", required: true }] },
   ];
   const typeIds: Record<string, string> = {};
-  for (const t of types) typeIds[t.code] = (await prisma.requestType.create({ data: t })).id;
+  for (const t of types) typeIds[t.code] = (await prisma.requestType.create({ data: t as Prisma.RequestTypeCreateInput })).id;
 
   /* ---------- заявки ---------- */
   async function mkRequest(student: { id: string; userId: string }, code: string, payload: Record<string, string>, history: { to: "NEW" | "IN_REVIEW" | "NEED_INFO" | "READY" | "DONE" | "REJECTED"; daysAgo: number; staff?: boolean; message?: string }[], wantsPaper = false) {
     const last = history[history.length - 1];
     const r = await prisma.request.create({
-      data: { studentId: student.id, typeId: typeIds[code], status: last.to, payload, wantsPaper, createdAt: addDays(now, -history[0].daysAgo), assigneeId: history.some((h) => h.staff) ? staff.id : null },
+      data: { studentId: student.id, typeId: typeIds[code], status: last.to, payload, wantsPaper, createdAt: addDays(now, -history[0].daysAgo), dueAt: dueDate(addDays(now, -history[0].daysAgo), types.find((t) => t.code === code)!.slaDays), assigneeId: history.some((h) => h.staff) ? staff.id : null },
     });
     let prev: typeof last.to | null = null;
     for (const h of history) {
@@ -559,9 +580,12 @@ async function main() {
   await seedPhotos({ prisma, now, annaId: anna.id, petrId: petr.id, annaGroupId: anna.groupId, staffUserId: staffUser.id, rng });
   await seedAccounts({ prisma, now, annaId: anna.id, petrId: petr.id, annaGroupId: anna.groupId, staffUserId: staffUser.id, rng });
 
+  const services = await seedServices({ prisma, now, staffUserId: staffUser.id, teacherUserId: teacherUser.id, demoTeacherId: demoTeacher.id });
+  const knowledge = await seedKnowledge({ prisma, now, staffUserId: staffUser.id, teacherUserId: teacherUser.id, demoTeacherId: demoTeacher.id });
+
   const chats = await restoreChats(prisma, savedChats);
 
-  console.log("Seed OK:", { chats, lessons: lessonRows.length, students: 2 + fillers.length + classmates.length, staff: 1 });
+  console.log("Seed OK:", { chats, knowledge, services, lessons: lessonRows.length, students: 2 + fillers.length + classmates.length, staff: 1 });
 }
 
 main()

@@ -134,6 +134,7 @@ export function homeFor(role: "STUDENT" | "STAFF" | "TEACHER") {
   return role === "STAFF" ? "/staff" : role === "TEACHER" ? "/teacher" : "/";
 }
 
+
 /** Для страниц и действий преподавателя: преподаватель берётся только из сессии. */
 export async function requireTeacher() {
   await gatePasswordChange();

@@ -22,6 +22,14 @@ const groupScope = (s: SessionStaff): Prisma.GroupWhereInput => (s.facultyId ? {
 
 const OPEN: RequestStatus[] = ["NEW", "IN_REVIEW", "NEED_INFO"];
 
+/** Очередь деканата: заявки студентов области сотрудника, уже прошедшие согласование преподавателем (перезачёт). */
+export const deaneryQueue = (s: SessionStaff): Prisma.RequestWhereInput => ({
+  student: studentScope(s),
+  approvals: { none: { status: { in: ["PENDING", "WAITING"] } } },
+});
+/** Что сотрудник деканата может открыть: все заявки студентов своей области (в том числе на согласовании). */
+export const deaneryVisible = (s: SessionStaff): Prisma.RequestWhereInput => ({ student: studentScope(s) });
+
 /* ---------- заявки ---------- */
 const listInclude = {
   type: { select: { title: true, code: true, slaDays: true, isCertificate: true } },
@@ -37,7 +45,7 @@ export function isOverdue(r: { status: RequestStatus; createdAt: Date; type: { s
 }
 
 export async function getDashboard(staff: SessionStaff) {
-  const where: Prisma.RequestWhereInput = { student: studentScope(staff) };
+  const where: Prisma.RequestWhereInput = deaneryQueue(staff);
   const [newCount, needInfoCount, open, recent] = await Promise.all([
     prisma.request.count({ where: { ...where, status: "NEW" } }),
     prisma.request.count({ where: { ...where, status: "NEED_INFO" } }),
@@ -67,7 +75,7 @@ function searchWhere(staff: SessionStaff, f: Omit<RequestFilters, "status">): Pr
   const q = f.q?.trim().replace(/^№\s*/, "").slice(0, 60);
   const words = q ? q.split(/\s+/).filter(Boolean).slice(0, 3) : [];
   return {
-    student: studentScope(staff),
+    ...deaneryQueue(staff),
     ...(f.typeId ? { typeId: f.typeId } : {}),
     ...(words.length
       ? {
@@ -101,13 +109,15 @@ export function listTypes() {
 
 export function getRequest(staff: SessionStaff, id: string) {
   return prisma.request.findFirst({
-    where: { id, student: studentScope(staff) },
+    where: { id, ...deaneryVisible(staff) },
     include: {
       type: true,
       certificate: true,
       assignee: { select: { id: true, fullName: true } },
       student: { include: { faculty: true, program: true, group: true } },
-      events: { orderBy: { createdAt: "asc" }, include: { author: { select: { role: true, staff: { select: { fullName: true } } } } } },
+      events: { orderBy: { createdAt: "asc" }, include: { author: { select: { role: true, staff: { select: { fullName: true } }, teacher: { select: { fullName: true } } } } } },
+      approvals: { orderBy: { idx: "asc" }, include: { teacher: { select: { fullName: true } } } },
+      documents: { include: { document: { select: { id: true, kind: true, status: true, validUntil: true, reviewNote: true } } } },
     },
   });
 }
@@ -115,7 +125,7 @@ export function getRequest(staff: SessionStaff, id: string) {
 /** Следующая заявка, которая ждёт деканат (новые и в работе, самые старые — первыми). Для кнопки «Следующая». */
 export function nextOpenRequest(staff: SessionStaff, excludeId: string) {
   return prisma.request.findFirst({
-    where: { id: { not: excludeId }, student: studentScope(staff), status: { in: ["NEW", "IN_REVIEW"] } },
+    where: { id: { not: excludeId }, ...deaneryQueue(staff), status: { in: ["NEW", "IN_REVIEW"] } },
     orderBy: [{ status: "asc" }, { createdAt: "asc" }],
     select: { id: true, number: true, type: { select: { title: true } } },
   });
@@ -124,7 +134,7 @@ export function nextOpenRequest(staff: SessionStaff, excludeId: string) {
 export const STAFF_STATUSES: RequestStatus[] = ["IN_REVIEW", "NEED_INFO", "READY", "DONE", "REJECTED"];
 
 export async function assignToMe(staff: SessionStaff, id: string) {
-  const r = await prisma.request.findFirst({ where: { id, student: studentScope(staff) }, select: { id: true } });
+  const r = await prisma.request.findFirst({ where: { id, ...deaneryQueue(staff) }, select: { id: true } });
   if (!r) return false;
   await prisma.request.update({ where: { id }, data: { assigneeId: staff.id } });
   return true;
@@ -144,7 +154,7 @@ export const REQUEST_TRANSITIONS: Record<RequestStatus, RequestStatus[]> = {
 /** Сменить статус. null — заявки нет или она вне области сотрудника; "invalid" — такой переход запрещён или статус уже сменили. */
 export async function changeRequestStatus(staff: SessionStaff, id: string, status: RequestStatus, message: string | null) {
   const r = await prisma.request.findFirst({
-    where: { id, student: studentScope(staff) },
+    where: { id, ...deaneryQueue(staff) },
     include: { type: true, student: { select: { userId: true } }, certificate: true },
   });
   if (!r) return null;

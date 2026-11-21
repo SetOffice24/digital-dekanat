@@ -31,6 +31,7 @@ export async function restoreChats(prisma: PrismaClient, saved: Saved) {
         title: c.title,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
+        seenAt: c.seenAt,
         messages: {
           create: c.messages.map((m) => ({
             studentId: user.student?.id ?? null,
@@ -39,6 +40,7 @@ export async function restoreChats(prisma: PrismaClient, saved: Saved) {
             links: (m.links ?? undefined) as Prisma.InputJsonValue | undefined,
             widget: portableWidget(m.widget),
             suggestions: (m.suggestions ?? undefined) as Prisma.InputJsonValue | undefined,
+            proactive: m.proactive,
             createdAt: m.createdAt,
           })),
         },

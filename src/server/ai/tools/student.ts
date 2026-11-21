@@ -4,7 +4,15 @@ import "server-only";
  * какой мини-раздел показывает в чате и какие следующие шаги предлагает.
  */
 import type { StudentContext } from "../context";
-import { fmtDay, moscowToday } from "@/lib/utils";
+import { fmtDateTime, fmtDay, moscowToday } from "@/lib/utils";
+import { prisma } from "../../db";
+import { studentNudges } from "../../proactive";
+import { situationFromText } from "@/config/situations";
+import { deanery, docKinds } from "@/config/services";
+import { availability } from "../../services/appointments";
+import { isUsable, listMyDocuments } from "../../services/documents";
+
+const timeFmt = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Moscow" });
 import { forecastLabel, isBelow } from "@/lib/grading";
 import { bestMentions, norm, parseDay } from "../common";
 import { examplesOf, type Tool, type ToolResult } from "../router";
@@ -56,7 +64,7 @@ export const studentTools: Tool<StudentContext>[] = [
     title: "Что сдать",
     keywords: [["что сдать", 4], ["что мне сдать", 4], ["домашк", 3], ["домашн", 3], ["задани", 2], ["дз", 1.5], ["дедлайн", 2], ["срок", 1]],
     examples: ["Что мне сдать?", "Какие домашние задания?", "Какие у меня дедлайны"],
-    not: ["сдай", "загрузи", "прикрепи"],
+    not: ["сдай", "загрузи", "прикрепи", "что будет", "что если", "позже срока", "опозда"],
     run: (_msg, ctx) => {
       const open = ctx.openHomework;
       const urgent = open.filter((h) => h.state === "overdue" || h.state === "returned").length;
@@ -75,6 +83,8 @@ export const studentTools: Tool<StudentContext>[] = [
     title: "Сдать задание",
     keywords: [["сдай", 4], ["сдать лаб", 4], ["сдать дз", 4], ["сдать работ", 3], ["загрузи", 3], ["прикрепи", 3], ["отправь лаб", 4], ["отправь дз", 4], ["отправить работ", 3]],
     examples: ["Сдай лабораторную №5", "Отправь мою работу по базам данных", "Прикрепи отчёт к заданию"],
+    // вопрос о правилах сдачи («что будет, если сдать позже») — не команда сдать; ответит библиотека
+    not: ["что будет", "что если", "можно ли", "позже срока", "опозда", "сколько баллов"],
     run: (msg, ctx) => {
       const h = pickHomework(msg, ctx);
       if (!h) return { text: "Несданных заданий сейчас нет — всё принято." };
@@ -143,7 +153,7 @@ export const studentTools: Tool<StudentContext>[] = [
         return { text: "Подготовил справку для военкомата. Военкоматы обычно принимают бумажный оригинал — копия с печатью уже отмечена. Укажите район и нажмите «Заказать».", draft: { typeCode: "CERT_MILITARY", payload: { commissariat: "" } } };
       if (has("стипенд")) return { text: "Справка о стипендии готова к заказу — проверьте период и нажмите «Заказать».", draft: { typeCode: "CERT_SCHOLARSHIP", payload: { period: "6 месяцев" } } };
       const place = has("банк") ? "В банк" : has("работ") ? "По месту работы" : has("соцзащит", "субсид") ? "В соцзащиту" : "";
-      return { text: "Справка об обучении готова к заказу — проверьте, куда она нужна, и нажмите «Заказать». Электронная версия с QR-кодом будет через 1 рабочий день.", draft: { typeCode: "CERT_STUDY", payload: { place, copies: "1" } } };
+      return { text: "Справка об обучении готова к заказу — проверьте, куда она нужна, и нажмите «Заказать». Электронная версия с QR-кодом будет готова сразу.", draft: { typeCode: "CERT_STUDY", payload: { place, copies: "1" } } };
     },
   },
   {
@@ -179,6 +189,105 @@ export const studentTools: Tool<StudentContext>[] = [
     run: () => ({ text: "Академический отпуск можно взять до 2 лет. Подготовил черновик заявления — выберите основание и дату.", draft: { typeCode: "APP_ACADEMIC_LEAVE", payload: { basis: "Медицинские показания", dateFrom: "" } } }),
   },
   {
+    name: "situation",
+    title: "Жизненная ситуация",
+    keywords: [["заболел", 5], ["болею", 5], ["в больнице", 4], ["армию", 5], ["призыв", 4], ["повестк", 4], ["перевестись", 5], ["перевод на", 3], ["заселиться", 5], ["заселение", 4], ["общежити", 3], ["материальн", 5], ["нужны деньги", 5], ["первокурсник", 5], ["с чего начать", 2]],
+    examples: ["Я заболел, что делать?", "Ухожу в армию", "Хочу заселиться в общежитие", "Нужна материальная помощь", "Я первокурсник"],
+    not: ["справк", "статус"],
+    run: (msg) => {
+      const s = situationFromText(msg);
+      if (!s) return { text: "Расскажите, что случилось, — подскажу, что оформить.", links: [{ href: "/requests", label: "Все ситуации" }] };
+      return { text: `${s.intro} Вот план — откройте, и я буду отмечать шаги по мере выполнения:`, widget: { type: "student.situation", params: { code: s.code } } };
+    },
+  },
+  {
+    name: "appointment",
+    title: "Запись на приём",
+    keywords: [["записаться", 5], ["запиши", 4], ["на приём", 5], ["на прием", 5], ["прийти в", 2], ["очеред", 3], ["забрать оригинал", 4], ["забрать справк", 4]],
+    examples: ["Запиши меня в деканат", "Хочу записаться на приём", "Когда можно забрать справку"],
+    not: ["напомни"],
+    run: async () => {
+      const days = await availability(5);
+      const free = days.flatMap((d) => d.slots.filter((s) => s.free))[0];
+      return {
+        text: free ? `Деканат, ${deanery.room}. Ближайшее свободное время — ${timeFmt.format(free.at)}. Выберите удобный слот — придёте без очереди, за час напомню.` : "В ближайшие дни свободного времени в деканате нет — загляните позже.",
+        links: [{ href: "/services/appointments", label: "Записаться в деканат" }],
+      };
+    },
+  },
+  {
+    name: "documents",
+    title: "Мои документы",
+    keywords: [["мои документы", 6], ["документы", 2], ["паспорт", 3], ["снилс", 3], ["флюорограф", 4], ["реквизит", 3], ["загрузить документ", 5]],
+    examples: ["Мои документы", "Где загрузить паспорт?", "Когда истекает флюорография"],
+    not: ["справк"],
+    run: async (_msg, ctx) => {
+      const docs = await listMyDocuments(ctx.student);
+      const latest = new Map<string, (typeof docs)[number]>();
+      for (const d of docs) if (!latest.has(d.kind)) latest.set(d.kind, d);
+      const list = [...latest.values()];
+      if (!list.length) return { text: "Документов пока нет. Загрузите паспорт, СНИЛС и реквизиты один раз — дальше они будут подставляться в заявки сами.", links: [{ href: "/services/documents", label: "Загрузить документы" }] };
+      const lines = list.map((d) => `${docKinds[d.kind].title} — ${d.status === "REJECTED" ? `не принят: ${d.reviewNote}` : !isUsable(d) ? "истёк" : d.status === "VERIFIED" ? "проверен" : "на проверке"}${d.validUntil && isUsable(d) ? `, до ${fmtDay(d.validUntil)}` : ""}`);
+      return { text: lines.join("\n"), links: [{ href: "/services/documents", label: "Мои документы" }] };
+    },
+  },
+  {
+    name: "advice",
+    title: "Что мне сделать",
+    keywords: [["что мне сделать", 5], ["что сделать", 4], ["что срочно", 5], ["что горит", 5], ["на что обратить", 5], ["что я упустил", 5], ["что упустил", 4], ["посоветуй", 3], ["совет", 2], ["что делать", 3]],
+    examples: ["Что мне сейчас сделать?", "Что горит?", "На что обратить внимание?"],
+    run: async (_msg, ctx) => {
+      const items = await studentNudges(ctx.student, ctx);
+      const urgent = items.filter((n) => n.urgent).length;
+      return {
+        text: items.length ? (urgent ? `Срочного — ${urgent}. Начните с него:` : "Срочного нет, но вот что стоит сделать:") : "Всё спокойно: сроки, пропуски и заявки в порядке.",
+        widget: items.length ? { type: "student.nudges", params: {} } : undefined,
+      };
+    },
+  },
+  {
+    name: "exams",
+    title: "Сессия и экзамены",
+    keywords: [["экзамен", 3], ["сесси", 2.5], ["зачет", 2.5], ["когда пересдач", 3], ["расписание сессии", 5], ["когда сдавать", 3]],
+    examples: ["Когда экзамены?", "Расписание сессии", "Когда зачёт по базам данных?"],
+    not: ["подтянуть", "прогноз", "балл"],
+    run: (msg, ctx) => {
+      const now = new Date();
+      const upcoming = ctx.exams.filter((e) => e.date > now);
+      const pick = bestMentions(norm(msg), upcoming, (e) => e.course.name);
+      if (pick.length) return { text: pick.map((e) => `${e.course.name}: ${fmtDateTime(e.date)}, ауд. ${e.room}.`).join("\n"), widget: { type: "student.exams", params: {} } };
+      return { text: upcoming.length ? `Впереди: ${upcoming.length}. Ближайшее — «${upcoming[0].course.name}», ${fmtDay(upcoming[0].date)}.` : "Ближайших экзаменов и зачётов нет.", widget: upcoming.length ? { type: "student.exams", params: {} } : undefined, suggestions: upcoming.length ? [{ label: "Что подтянуть", message: "Что подтянуть до сессии", tool: "grades" }] : undefined };
+    },
+  },
+  {
+    name: "materials",
+    title: "Материалы преподавателей",
+    keywords: [["материал", 3], ["методичк", 2.5], ["конспект", 2.5], ["презентац", 2.5], ["лекци", 1.5], ["файлы", 1.5], ["скачать", 1.5]],
+    examples: ["Где материалы по базам данных?", "Новые материалы", "Где презентации лекций?"],
+    not: ["библиотек", "положени"],
+    run: (msg, ctx) => {
+      const [c] = bestMentions(norm(msg), ctx.scores, (x) => x.course);
+      return { text: c ? `Материалы по «${c.course}»:` : "Новые материалы преподавателей:", widget: { type: "student.materials", params: (c ? { courseId: c.courseId } : {}) as Record<string, string> } };
+    },
+  },
+  {
+    name: "teachers",
+    title: "Мои преподаватели",
+    keywords: [["преподавател", 3], ["кто ведет", 5], ["кто читает", 5], ["препод", 2], ["кафедр", 2]],
+    examples: ["Кто ведёт базы данных?", "Мои преподаватели"],
+    not: ["напиши", "написать", "сообщени"],
+    run: async (msg, ctx) => {
+      const rows = await prisma.lesson.findMany({ where: { groupId: ctx.student.groupId }, distinct: ["teacherId", "courseId"], select: { course: { select: { name: true } }, teacher: { select: { fullName: true, department: true } } } });
+      const pick = bestMentions(norm(msg), rows, (r) => r.course.name);
+      const list = (pick.length ? pick : rows).sort((a, b) => a.course.name.localeCompare(b.course.name, "ru"));
+      if (!list.length) return { text: "В расписании пока нет преподавателей." };
+      return {
+        text: list.map((r) => `${r.course.name} — ${r.teacher.fullName} (${r.teacher.department})`).join("\n"),
+        links: [{ href: "/messages/new", label: "Написать преподавателю" }],
+      };
+    },
+  },
+  {
     name: "wellbeing",
     title: "Поддержка",
     keywords: [["психолог", 4], ["тревож", 3], ["стресс", 3], ["устал", 2], ["выгора", 3], ["тяжело", 2]],
@@ -189,8 +298,8 @@ export const studentTools: Tool<StudentContext>[] = [
 
 export function studentHelp(ctx: StudentContext): ToolResult {
   return {
-    text: `${ctx.firstName}, я помогаю с учёбой и делами в деканате: расписание, задания и их сдача, оценки и прогноз, пропуски, справки и заявления. Выберите или напишите своими словами.`,
-    suggestions: examplesOf(studentTools, ["today", "homework", "grades", "attendance", "certificate", "remind"]),
+    text: `${ctx.firstName}, я помогаю с учёбой и делами в деканате: расписание и сессия, задания и их сдача, оценки и прогноз, пропуски, справки и заявления, материалы, а ещё отвечаю по правилам вуза из библиотеки. Выберите или напишите своими словами.`,
+    suggestions: examplesOf(studentTools, ["advice", "situation", "homework", "grades", "appointment", "certificate"]),
   };
 }
 

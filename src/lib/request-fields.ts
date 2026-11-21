@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export type FieldDef = { name: string; label: string; type: "text" | "textarea" | "select" | "date"; required?: boolean; options?: string[]; placeholder?: string };
+export type FieldDef = { name: string; label: string; type: "text" | "textarea" | "select" | "date" | "course"; required?: boolean; options?: string[]; placeholder?: string };
 
 export function parseFields(json: unknown): FieldDef[] {
   return Array.isArray(json) ? (json as FieldDef[]) : [];

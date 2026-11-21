@@ -14,6 +14,7 @@ import { requestStatusLabel } from "@/lib/labels";
 import { addDays, fmtDay, moscowToday, plural, relativeTime } from "@/lib/utils";
 import { bells } from "@/config/university";
 import { sharedTools } from "./tools/shared";
+import { libraryAnswer } from "./library";
 import { examplesOf, classifyWithModel, route, type Suggestion, type Tool, type ToolResult, type Widget } from "./router";
 import { bestMentions, findGroup, gatewayJson, hasAny, norm, parseDay, type AiLink, type ChatMsg } from "./common";
 
@@ -66,7 +67,8 @@ export async function buildStaffContext(s: SessionStaff & { fullName: string }) 
   lines.push(`Заявки по статусам: ${Object.entries(counts).map(([k, v]) => `${requestStatusLabel[k as RequestStatus]} — ${v}`).join(", ") || "нет"}.`);
   lines.push(`Новые заявки (старые сверху): ${[...newest].reverse().slice(0, 10).map((r) => `№${r.number} «${r.type.title}», ${r.student.lastName} ${r.student.firstName} (${r.student.group.name})`).join("; ") || "нет"}.`);
   lines.push(`Фото на проверке: ${photos}. Группы: ${groups.map((g) => g.name).join(", ")}.`);
-  return { text: lines.join("\n"), counts, groups, photos, newest, staff: s };
+  const viewer = { id: s.userId, role: "STAFF" as const, student: null, teacher: null, staff: { id: s.id, facultyId: s.facultyId } };
+  return { viewer, text: lines.join("\n"), counts, groups, photos, newest, staff: s };
 }
 export type StaffContext = Awaited<ReturnType<typeof buildStaffContext>>;
 
@@ -248,6 +250,8 @@ export async function staffReply(history: ChatMsg[], ctx: StaffContext, forced?:
   const last = history[history.length - 1]?.content ?? "";
   const viaRules = await rulesStaff(last, ctx, forced);
   if (viaRules.via !== "help") return viaRules;
+  const lib = await libraryAnswer(ctx.viewer, last);
+  if (lib) return { text: lib.text, links: lib.links, source: "gateway" === lib.source ? "gateway" : "rules" };
   const system = `Ты — помощник сотрудника деканата «Универа». Отвечай по-русски, кратко, деловым тоном.
 Используй только данные из контекста; не выдумывай номера заявок и фамилии.
 Сам ты ничего не публикуешь и не меняешь. Если просят объявление — подготовь черновик, его опубликует сотрудник кнопкой.

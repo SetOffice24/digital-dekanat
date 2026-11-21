@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, FileText, GraduationCap, LogOut, Megaphone, type LucideIcon } from "lucide-react";
+import { BookOpen, CalendarDays, FileText, GraduationCap, LayoutGrid, LogOut, Megaphone, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/logo";
 import { logoutAction } from "@/app/login/actions";
@@ -17,6 +17,10 @@ const nav: { href: string; label: string; icon: LucideIcon; exact?: boolean; mat
   { href: "/staff/students", label: "Студенты", icon: GraduationCap, match: (p: string) => p.startsWith("/staff/students") || p.startsWith("/staff/attendance") },
   { href: "/staff/schedule", label: "Расписание", icon: CalendarDays },
   { href: "/staff/announcements", label: "Объявления", icon: Megaphone },
+  // единое окно: сводка и настройки услуг, приём
+  { href: "/staff/services", label: "Услуги", icon: LayoutGrid },
+  // материалы, по которым помощник отвечает студентам
+  { href: "/staff/library", label: "Библиотека", icon: BookOpen },
 ];
 
 /** Кабинет сотрудника: шапка с вкладками на всю ширину экрана, контент до 1600 px. */
@@ -56,7 +60,7 @@ export function StaffShell({ children, name, position }: { children: React.React
           </form>
         </div>
         {/* На телефоне и планшете — равные вкладки: все разделы видны сразу, без прокрутки вбок */}
-        <nav className="mx-auto grid w-full max-w-[100rem] grid-cols-2 gap-1 min-[440px]:grid-cols-4 px-3 pb-2.5 sm:px-5 md:px-7 lg:hidden" aria-label="Разделы кабинета">
+        <nav className="mx-auto grid w-full max-w-[100rem] grid-cols-3 gap-1 min-[440px]:grid-cols-6 px-3 pb-2.5 sm:px-5 md:px-7 lg:hidden" aria-label="Разделы кабинета">
           {nav.map((n) => (
             <Link key={n.href} href={n.href} aria-current={active(n) ? "page" : undefined} className={cn("flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-2xl px-1 text-[13px] font-semibold transition sm:min-h-11 sm:px-2 sm:text-sm", active(n) ? "bg-ink text-ink-fg" : "text-muted hover:bg-surface/70 hover:text-fg")}>
               <n.icon size={17} className="shrink-0 max-sm:hidden" />

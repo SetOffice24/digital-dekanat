@@ -1,4 +1,5 @@
 import "server-only";
+import { submitRequest } from "../services/requests";
 /**
  * Данные студента. ПРАВИЛО: каждая функция принимает студента, полученного из сессии
  * (requireStudent / apiStudent), и фильтрует по его id / группе. Варианта «без фильтра» нет.
@@ -83,7 +84,7 @@ export function getExams(s: SessionStudent) {
 export function listRequests(s: SessionStudent) {
   return prisma.request.findMany({
     where: { studentId: s.id },
-    include: { type: true, certificate: { select: { id: true } } },
+    include: { type: true, certificate: { select: { id: true, revoked: true } }, approvals: { orderBy: { idx: "asc" }, select: { status: true, teacher: { select: { fullName: true } } } } },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -92,24 +93,30 @@ export function listRequests(s: SessionStudent) {
 export function getRequest(s: SessionStudent, id: string) {
   return prisma.request.findFirst({
     where: { id, studentId: s.id },
-    include: { type: true, certificate: true, events: { orderBy: { createdAt: "asc" }, include: { author: { select: { role: true } } } } },
+    include: {
+      type: true,
+      certificate: true,
+      events: { orderBy: { createdAt: "asc" }, include: { author: { select: { role: true } } } },
+      approvals: { orderBy: { idx: "asc" }, include: { teacher: { select: { fullName: true } } } },
+      documents: { include: { document: { select: { id: true, kind: true, status: true, reviewNote: true } } } },
+      appointments: { where: { status: "BOOKED" }, select: { id: true, startsAt: true } },
+      case: { select: { id: true, code: true } },
+    },
   });
 }
 
 /** Порядок — от самых частых к редким: справки → заявления → обращения. */
-const TYPE_ORDER = ["CERT_STUDY", "CERT_SCHOLARSHIP", "CERT_MILITARY", "APP_ABSENCE", "APP_RETAKE", "APP_ACADEMIC_LEAVE", "APP_OTHER"];
+const TYPE_ORDER = ["CERT_STUDY", "CERT_SCHOLARSHIP", "CERT_MILITARY", "APP_ABSENCE", "APP_RETAKE", "APP_RECREDIT", "APP_TRANSFER", "APP_ACADEMIC_LEAVE", "APP_MATHELP", "ACC_BANK", "DORM_CHECKIN", "APP_OTHER"];
+/** Услуги единого окна, доступные студентам (выключенные деканатом не показываем). */
 export async function listRequestTypes() {
-  const types = await prisma.requestType.findMany();
+  const types = await prisma.requestType.findMany({ where: { enabled: true } });
   return types.sort((a, b) => TYPE_ORDER.indexOf(a.code) - TYPE_ORDER.indexOf(b.code));
 }
 
-export async function createRequest(s: SessionStudent, typeId: string, payload: Prisma.InputJsonValue, wantsPaper: boolean, comment?: string) {
-  return prisma.request.create({
-    data: {
-      studentId: s.id, typeId, payload, wantsPaper, comment,
-      events: { create: { toStatus: "NEW", authorUserId: s.userId, message: comment || null } },
-    },
-  });
+/** Подача заявки — через единое окно (документы, маршрут согласования, автовыдача, срок): src/server/services/requests.ts. */
+export async function createRequest(s: SessionStudent, typeId: string, payload: Prisma.InputJsonValue, wantsPaper: boolean, comment?: string, extra: { docIds?: string[]; caseId?: string | null } = {}) {
+  const type = await prisma.requestType.findUniqueOrThrow({ where: { id: typeId } });
+  return submitRequest(s, type, payload as Record<string, string>, { wantsPaper, comment, ...extra });
 }
 
 export async function answerRequest(s: SessionStudent, id: string, message: string) {

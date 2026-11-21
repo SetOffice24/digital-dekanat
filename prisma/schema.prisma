@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
@@ -10,7 +10,7 @@ datasource db {
 
 enum Role {
   STUDENT
-  STAFF
+  STAFF // деканат
   TEACHER
 }
 
@@ -78,34 +78,38 @@ enum ChatRole {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  login         String         @unique
-  passwordHash  String
-  role          Role
-  createdAt     DateTime       @default(now())
+  id                   String                    @id @default(cuid())
+  login                String                    @unique
+  passwordHash         String
+  role                 Role
+  createdAt            DateTime                  @default(now())
   /// заблокирован деканатом: войти нельзя, сессии удалены
-  blockedAt     DateTime?
-  blockReason   String?
+  blockedAt            DateTime?
+  blockReason          String?
   /// выдан временный пароль — при входе обязательно задать свой
-  mustChangePassword Boolean @default(false)
-  lastLoginAt   DateTime?
-  accountActions AccountEvent[] @relation("AccountActor")
-  sessions      Session[]
-  student       Student?
-  staff         Staff?
-  teacher       Teacher?
-  notifications Notification[]
-  events        RequestEvent[]
-  pushSubs      PushSubscription[]
-  uploads       Attachment[]
-  conversations ConversationParticipant[]
-  messages      Message[]
-  conversationsStarted Conversation[] @relation("ConversationStarter")
-  aiChats       AiChat[]
-  reminders     Reminder[]
+  mustChangePassword   Boolean                   @default(false)
+  lastLoginAt          DateTime?
+  accountActions       AccountEvent[]            @relation("AccountActor")
+  sessions             Session[]
+  student              Student?
+  staff                Staff?
+  teacher              Teacher?
+  notifications        Notification[]
+  events               RequestEvent[]
+  pushSubs             PushSubscription[]
+  uploads              Attachment[]
+  conversations        ConversationParticipant[]
+  messages             Message[]
+  conversationsStarted Conversation[]            @relation("ConversationStarter")
+  aiChats              AiChat[]
+  reminders            Reminder[]
+  knowledgeDocs        KnowledgeDoc[]
+  nudges               NudgeLog[]
 }
 
-/** Подписка устройства на push-уведомления (Web Push). Одно устройство/браузер — одна запись. */
+/**
+ * Подписка устройства на push-уведомления (Web Push). Одно устройство/браузер — одна запись.
+ */
 model PushSubscription {
   id        String   @id @default(cuid())
   userId    String
@@ -139,6 +143,7 @@ model Faculty {
   staff         Staff[]
   announcements Announcement[]
   deadlines     Deadline[]
+  knowledgeDocs KnowledgeDoc[]
 }
 
 model Program {
@@ -167,34 +172,37 @@ model Group {
 }
 
 model Student {
-  id           String             @id @default(cuid())
-  userId       String             @unique
-  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lastName     String
-  firstName    String
-  middleName   String?
-  facultyId    String
-  faculty      Faculty            @relation(fields: [facultyId], references: [id])
-  programId    String
-  program      Program            @relation(fields: [programId], references: [id])
-  course       Int
-  groupId      String
-  group        Group              @relation(fields: [groupId], references: [id])
-  subgroup     Int
-  recordBookNo String
-  email        String?
-  scholarship  Boolean            @default(false)
-  enrollments  Enrollment[]
-  requests     Request[]
-  checkins     WellbeingCheckin[]
-  aiChats      AiChat[]
-  aiMessages   AiMessage[]
-  attendance   Attendance[]
-  submissions  Submission[]
-  photos       StudentPhoto[]
+  id            String             @id @default(cuid())
+  userId        String             @unique
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastName      String
+  firstName     String
+  middleName    String?
+  facultyId     String
+  faculty       Faculty            @relation(fields: [facultyId], references: [id])
+  programId     String
+  program       Program            @relation(fields: [programId], references: [id])
+  course        Int
+  groupId       String
+  group         Group              @relation(fields: [groupId], references: [id])
+  subgroup      Int
+  recordBookNo  String
+  email         String?
+  scholarship   Boolean            @default(false)
+  enrollments   Enrollment[]
+  requests      Request[]
+  checkins      WellbeingCheckin[]
+  aiChats       AiChat[]
+  aiMessages    AiMessage[]
+  attendance    Attendance[]
+  submissions   Submission[]
+  photos        StudentPhoto[]
   accountEvents AccountEvent[]
+  documents     StudentDocument[]
+  cases         SituationCase[]
+  appointments  Appointment[]
   /// код электронного студенческого билета (QR → публичная проверка «действующий студент»)
-  idCode       String?            @unique
+  idCode        String?            @unique
 }
 
 model Staff {
@@ -210,27 +218,29 @@ model Staff {
 }
 
 model Teacher {
-  id         String   @id @default(cuid())
-  userId     String?  @unique
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  fullName   String
+  id          String            @id @default(cuid())
+  userId      String?           @unique
+  user        User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  fullName    String
   department  String
   lessons     Lesson[]
   materials   Material[]
   assignments Assignment[]
+  approvals   RequestApproval[]
 }
 
 model Course {
-  id          String       @id @default(cuid())
-  name        String
-  department  String
-  assessment  Assessment
-  lessons     Lesson[]
-  enrollments Enrollment[]
-  exams       Exam[]
-  deadlines   Deadline[]
-  materials   Material[]
-  assignments Assignment[]
+  id            String         @id @default(cuid())
+  name          String
+  department    String
+  assessment    Assessment
+  lessons       Lesson[]
+  enrollments   Enrollment[]
+  exams         Exam[]
+  deadlines     Deadline[]
+  materials     Material[]
+  assignments   Assignment[]
+  knowledgeDocs KnowledgeDoc[]
 }
 
 model Lesson {
@@ -254,12 +264,14 @@ model Lesson {
   changeNote    String?
   changedAt     DateTime?
 
-  attendance    Attendance[]
+  attendance Attendance[]
 
   @@index([groupId, date])
 }
 
-/** Посещаемость: одна отметка на студента и пару. Нет записи — отметку ещё не ставили. */
+/**
+ * Посещаемость: одна отметка на студента и пару. Нет записи — отметку ещё не ставили.
+ */
 model Attendance {
   id        String   @id @default(cuid())
   lessonId  String
@@ -311,38 +323,63 @@ model Exam {
 }
 
 model RequestType {
-  id          String    @id @default(cuid())
-  code        String    @unique
-  title       String
-  description String
-  category    String
-  needsPaper  Boolean   @default(false)
-  fields      Json
-  slaDays     Int
-  isCertificate Boolean @default(false)
-  requests    Request[]
+  id            String    @id @default(cuid())
+  code          String    @unique
+  title         String
+  description   String
+  category      String
+  needsPaper    Boolean   @default(false)
+  fields        Json
+  slaDays       Int
+  isCertificate Boolean   @default(false)
+  requests      Request[]
+  /// выдаётся сразу, без сотрудника (данные уже есть в системе); деканат может отозвать
+  autoIssue     Boolean   @default(false)
+  /// услуга доступна студентам (управляет деканат)
+  enabled       Boolean   @default(true)
+  /// документы к услуге: [{kind, required}] — берутся из «Моих документов»
+  docs          Json      @default("[]")
+  /// маршрут согласования до деканата: [{kind: "TEACHER"}] — преподаватель дисциплины из заявки
+  route         Json      @default("[]")
 }
 
 model Request {
-  id          String         @id @default(cuid())
-  number      Int            @default(autoincrement())
-  studentId   String
-  student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  typeId      String
-  type        RequestType    @relation(fields: [typeId], references: [id])
-  status      RequestStatus  @default(NEW)
-  payload     Json
-  comment     String?
-  wantsPaper  Boolean        @default(false)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  assigneeId  String?
-  assignee    Staff?         @relation(fields: [assigneeId], references: [id])
-  events      RequestEvent[]
-  certificate Certificate?
+  id            String            @id @default(cuid())
+  number        Int               @default(autoincrement())
+  studentId     String
+  student       Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  typeId        String
+  type          RequestType       @relation(fields: [typeId], references: [id])
+  status        RequestStatus     @default(NEW)
+  payload       Json
+  comment       String?
+  wantsPaper    Boolean           @default(false)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  assigneeId    String?
+  assignee      Staff?            @relation(fields: [assigneeId], references: [id])
+  events        RequestEvent[]
+  certificate   Certificate?
+  /// срок готовности по регламенту услуги (рабочие дни)
+  dueAt         DateTime?
+  /// просрочка передана руководителю
+  escalatedAt   DateTime?
+  /// выдано автоматически (без сотрудника)
+  autoIssued    Boolean           @default(false)
+  /// оценка студента после завершения: 1–5
+  rating        Int?
+  ratingComment String?
+  ratedAt       DateTime?
+  /// в рамках жизненной ситуации
+  caseId        String?
+  case          SituationCase?    @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  approvals     RequestApproval[]
+  documents     RequestDocument[]
+  appointments  Appointment[]
 
   @@index([studentId, createdAt])
   @@index([status])
+  @@index([caseId])
 }
 
 model RequestEvent {
@@ -360,13 +397,15 @@ model RequestEvent {
 }
 
 model Certificate {
-  id         String   @id @default(cuid())
-  requestId  String   @unique
-  request    Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  verifyCode String   @unique
-  issuedAt   DateTime @default(now())
-  validUntil DateTime
-  revoked    Boolean  @default(false)
+  id           String    @id @default(cuid())
+  requestId    String    @unique
+  request      Request   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  verifyCode   String    @unique
+  issuedAt     DateTime  @default(now())
+  validUntil   DateTime
+  revoked      Boolean   @default(false)
+  revokedAt    DateTime?
+  revokeReason String?
 }
 
 model Announcement {
@@ -436,33 +475,39 @@ model AiChat {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   messages  AiMessage[]
+  /// когда пользователь последний раз открывал чат — для отметки «помощник написал первым»
+  seenAt    DateTime?
 
   @@index([studentId, updatedAt])
   @@index([userId, updatedAt])
 }
 
 model AiMessage {
-  id        String   @id @default(cuid())
-  chatId    String
-  chat      AiChat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  studentId String?
-  student   Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  role      ChatRole
-  content   String
-  draft     Json?
+  id          String   @id @default(cuid())
+  chatId      String
+  chat        AiChat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  studentId   String?
+  student     Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  role        ChatRole
+  content     String
+  draft       Json?
   /// ссылки-подсказки под ответом («Открыть заявки»)
-  links     Json?
+  links       Json?
   /// мини-раздел в ответе (расписание, оценки, входящие…): тип и параметры, данные подгружаются при показе
-  widget    Json?
+  widget      Json?
   /// кнопки-уточнения и следующие шаги под ответом
   suggestions Json?
-  createdAt DateTime @default(now())
+  /// помощник написал сам (утренние подсказки), а не в ответ на вопрос
+  proactive   Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
   @@index([chatId, createdAt])
   @@index([studentId, createdAt])
 }
 
-/* ---------- Материалы и домашние задания ---------- */
+/**
+ * ---------- Материалы и домашние задания ----------
+ */
 
 enum SubmissionStatus {
   SUBMITTED // на проверке
@@ -470,7 +515,9 @@ enum SubmissionStatus {
   ACCEPTED // принято
 }
 
-/** Учебный материал по дисциплине для группы: ссылка и/или файлы. */
+/**
+ * Учебный материал по дисциплине для группы: ссылка и/или файлы.
+ */
 model Material {
   id          String       @id @default(cuid())
   groupId     String
@@ -488,7 +535,9 @@ model Material {
   @@index([groupId, courseId])
 }
 
-/** Домашнее задание группе по дисциплине. */
+/**
+ * Домашнее задание группе по дисциплине.
+ */
 model Assignment {
   id          String       @id @default(cuid())
   groupId     String
@@ -507,7 +556,9 @@ model Assignment {
   @@index([groupId, courseId])
 }
 
-/** Сдача студента: одна на задание, повторная отправка заменяет файлы и снова ставит «на проверке». */
+/**
+ * Сдача студента: одна на задание, повторная отправка заменяет файлы и снова ставит «на проверке».
+ */
 model Submission {
   id             String           @id @default(cuid())
   assignmentId   String
@@ -526,27 +577,32 @@ model Submission {
   @@unique([assignmentId, studentId])
 }
 
-/** Файл (на диске в DATA_DIR/uploads под случайным именем). Принадлежит материалу, заданию или сдаче. */
+/**
+ * Файл (на диске в DATA_DIR/uploads под случайным именем). Принадлежит материалу, заданию или сдаче.
+ */
 model Attachment {
-  id           String      @id @default(cuid())
+  id           String        @id @default(cuid())
   name         String
   mime         String
   size         Int
-  storageKey   String      @unique
+  storageKey   String        @unique
   uploadedById String
-  uploadedBy   User        @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  uploadedBy   User          @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
   materialId   String?
-  material     Material?   @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  material     Material?     @relation(fields: [materialId], references: [id], onDelete: Cascade)
   assignmentId String?
-  assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignment   Assignment?   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   submissionId String?
-  submission   Submission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  submission   Submission?   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   messageId    String?
-  message      Message?    @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  createdAt    DateTime    @default(now())
+  message      Message?      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  knowledgeDoc KnowledgeDoc?
+  createdAt    DateTime      @default(now())
 }
 
-/* ---------- Сообщения ---------- */
+/**
+ * ---------- Сообщения ----------
+ */
 
 enum ConversationKind {
   DIRECT // студент ↔ преподаватель его дисциплины
@@ -558,30 +614,34 @@ enum ConversationStatus {
   RESOLVED
 }
 
-/** Диалог. Повод (заявка / дисциплина / задание) — необязательная ссылка для контекста. */
+/**
+ * Диалог. Повод (заявка / дисциплина / задание) — необязательная ссылка для контекста.
+ */
 model Conversation {
-  id           String                    @id @default(cuid())
-  kind         ConversationKind
-  status       ConversationStatus        @default(OPEN)
-  subject      String
+  id            String                    @id @default(cuid())
+  kind          ConversationKind
+  status        ConversationStatus        @default(OPEN)
+  subject       String
   /// для обращений в деканат: факультет студента (маршрутизация); null — общий деканат
-  facultyId    String?
-  startedById  String
-  startedBy    User                      @relation("ConversationStarter", fields: [startedById], references: [id], onDelete: Cascade)
-  contextType  String?
-  contextId    String?
-  contextLabel String?
-  createdAt    DateTime                  @default(now())
-  lastMessageAt DateTime                 @default(now())
-  resolvedAt   DateTime?
-  participants ConversationParticipant[]
-  messages     Message[]
+  facultyId     String?
+  startedById   String
+  startedBy     User                      @relation("ConversationStarter", fields: [startedById], references: [id], onDelete: Cascade)
+  contextType   String?
+  contextId     String?
+  contextLabel  String?
+  createdAt     DateTime                  @default(now())
+  lastMessageAt DateTime                  @default(now())
+  resolvedAt    DateTime?
+  participants  ConversationParticipant[]
+  messages      Message[]
 
   @@index([kind, facultyId, status])
   @@index([lastMessageAt])
 }
 
-/** Участник диалога и момент последнего прочтения. Сотрудники деканата добавляются при первом ответе/прочтении. */
+/**
+ * Участник диалога и момент последнего прочтения. Сотрудники деканата добавляются при первом ответе/прочтении.
+ */
 model ConversationParticipant {
   id             String       @id @default(cuid())
   conversationId String
@@ -606,11 +666,13 @@ model Message {
   /// ключ отправки из браузера: повтор того же запроса (двойное нажатие, повтор после сбоя сети) не создаёт дубль
   clientKey      String?
 
-  @@index([conversationId, createdAt])
   @@unique([authorId, clientKey])
+  @@index([conversationId, createdAt])
 }
 
-/* ---------- Фото студента ---------- */
+/**
+ * ---------- Фото студента ----------
+ */
 
 enum PhotoStatus {
   PENDING // на проверке в деканате
@@ -618,7 +680,9 @@ enum PhotoStatus {
   REJECTED // не подходит, причина в comment
 }
 
-/** Фото 3×4 для документов. Хранится на диске (DATA_DIR/photos), уже обрезанное и пережатое в JPEG без метаданных. */
+/**
+ * Фото 3×4 для документов. Хранится на диске (DATA_DIR/photos), уже обрезанное и пережатое в JPEG без метаданных.
+ */
 model StudentPhoto {
   id           String      @id @default(cuid())
   studentId    String
@@ -672,4 +736,196 @@ model Reminder {
 
   @@index([userId, sentAt, dueAt])
   @@index([sentAt, dueAt])
+}
+
+/**
+ * ---------- Библиотека знаний помощника ----------
+ */
+
+enum KnowledgeScope {
+  UNIVERSITY // весь вуз (деканат)
+  FACULTY // один факультет (деканат)
+  COURSE // дисциплина преподавателя: его группы или одна группа
+}
+
+/// Материал библиотеки: положение, инструкция, требования. По нему помощник отвечает студентам (поиск по фрагментам).
+model KnowledgeDoc {
+  id           String           @id @default(cuid())
+  title        String
+  /// текст: написан на сайте или извлечён из PDF/Word (автор может поправить)
+  body         String
+  scope        KnowledgeScope
+  facultyId    String?
+  faculty      Faculty?         @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  courseId     String?
+  course       Course?          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// COURSE: одна группа; пусто — все группы автора по этой дисциплине
+  groupId      String?
+  authorId     String
+  author       User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  /// исходный файл, если материал загружен из PDF/Word
+  attachmentId String?          @unique
+  attachment   Attachment?      @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  chunks       KnowledgeChunk[]
+
+  @@index([scope, facultyId])
+  @@index([courseId])
+}
+
+/// Фрагмент материала (абзац-раздел до ~900 знаков) — единица поиска и цитирования.
+model KnowledgeChunk {
+  id      String       @id @default(cuid())
+  docId   String
+  doc     KnowledgeDoc @relation(fields: [docId], references: [id], onDelete: Cascade)
+  idx     Int
+  heading String?
+  text    String
+
+  @@index([docId])
+}
+
+/// Что помощник уже сообщал пользователю сам (ключ события) — чтобы не повторяться. Ключ day:<дата> — утренняя сводка.
+model NudgeLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, key])
+}
+
+/**
+ * ---------- Единое окно: согласования, документы, жизненные ситуации, приём ----------
+ */
+
+enum ApprovalStatus {
+  WAITING // очередь ещё не дошла
+  PENDING // ждёт решения
+  APPROVED
+  REJECTED
+}
+
+/// Шаг согласования заявки до деканата (сейчас — преподаватель дисциплины). Идут по порядку; отказ отклоняет заявку.
+model RequestApproval {
+  id              String         @id @default(cuid())
+  requestId       String
+  request         Request        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  idx             Int
+  teacherId       String?
+  teacher         Teacher?       @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  status          ApprovalStatus @default(WAITING)
+  comment         String?
+  decidedByUserId String?
+  decidedAt       DateTime?
+
+  @@unique([requestId, idx])
+  @@index([teacherId, status])
+}
+
+enum DocKind {
+  PASSPORT
+  SNILS
+  INN
+  MED_086 // медсправка 086/у
+  FLUORO // флюорография
+  MEDICAL // справка о болезни
+  BANK // реквизиты карты для стипендии
+  MILITARY // приписное / повестка
+  OTHER
+}
+
+enum DocStatus {
+  PENDING // загружен, не проверен
+  VERIFIED // проверен сотрудником
+  REJECTED // не принят (причина — reviewNote)
+}
+
+/// «Мои документы»: загружается один раз и подставляется в заявки. Файл — DATA_DIR/documents, выдача только через /api/documents/[id].
+model StudentDocument {
+  id               String            @id @default(cuid())
+  studentId        String
+  student          Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  kind             DocKind
+  fileName         String
+  mime             String
+  size             Int
+  storageKey       String            @unique
+  validUntil       DateTime?
+  status           DocStatus         @default(PENDING)
+  reviewNote       String?
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  createdAt        DateTime          @default(now())
+  requests         RequestDocument[]
+
+  @@index([studentId, kind])
+}
+
+model RequestDocument {
+  requestId  String
+  request    Request         @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  documentId String
+  document   StudentDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@id([requestId, documentId])
+}
+
+enum CaseStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+/// Жизненная ситуация студента («Я заболел», «Ухожу в армию»): чек-лист шагов из src/config/situations.ts.
+model SituationCase {
+  id        String     @id @default(cuid())
+  studentId String
+  student   Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  code      String
+  status    CaseStatus @default(OPEN)
+  createdAt DateTime   @default(now())
+  closedAt  DateTime?
+  steps     CaseStep[]
+  requests  Request[]
+
+  @@index([studentId, status])
+}
+
+/// Шаг ситуации, отмеченный вручную (прочитал, сообщил преподавателям); остальные шаги вычисляются по данным.
+model CaseStep {
+  caseId String
+  case   SituationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  key    String
+  doneAt DateTime      @default(now())
+  note   String?
+
+  @@id([caseId, key])
+}
+
+enum AppointmentStatus {
+  BOOKED
+  DONE
+  NO_SHOW
+  CANCELLED
+}
+
+/// Запись на приём в деканат (забрать оригинал, подписать). Слоты — по часам деканата из src/config/services.ts.
+model Appointment {
+  id        String            @id @default(cuid())
+  studentId String
+  student   Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  startsAt  DateTime
+  purpose   String
+  requestId String?
+  request   Request?          @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  status    AppointmentStatus @default(BOOKED)
+  /// занятость слота: время у активной записи, пусто у отменённой — один слот нельзя занять дважды
+  slotKey   String?           @unique
+  createdAt DateTime          @default(now())
+
+  @@index([startsAt])
+  @@index([studentId, startsAt])
 }

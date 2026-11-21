@@ -1,7 +1,8 @@
 import "server-only";
 import { z } from "zod";
 import { prisma } from "../db";
-import { knowledge } from "./knowledge";
+import { libraryAnswer, libraryLink } from "./library";
+import { searchKnowledge } from "../repos/knowledge";
 import type { StudentContext } from "./context";
 import type { AiLink } from "./common";
 import { parseFields, payloadSchema } from "@/lib/request-fields";
@@ -12,7 +13,7 @@ export type RequestDraft = { typeCode: string; payload: Record<string, string> }
 /** Сдать домашнее задание: файлы студент прикрепляет в карточке, отправка — его кнопкой. */
 export type SubmissionDraft = { kind: "SUBMISSION"; assignmentId: string };
 export type Draft = RequestDraft | SubmissionDraft;
-export type AiReply = { text: string; draft?: Draft; links?: AiLink[]; widget?: Widget; suggestions?: Suggestion[]; source: "gateway" | "rules"; via?: string };
+export type AiReply = { text: string; draft?: Draft; links?: AiLink[]; widget?: Widget; suggestions?: Suggestion[]; source: "gateway" | "rules" | "library"; via?: string; tool?: string | null };
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
 const TYPE_CODES = ["CERT_STUDY", "CERT_MILITARY", "CERT_SCHOLARSHIP", "APP_RETAKE", "APP_ABSENCE", "APP_ACADEMIC_LEAVE", "APP_OTHER"] as const;
@@ -20,7 +21,7 @@ const TYPE_CODES = ["CERT_STUDY", "CERT_MILITARY", "CERT_SCHOLARSHIP", "APP_RETA
 /* ---------------- Правила: распознавание инструмента (см. router.ts, tools/student.ts) ---------------- */
 export async function rulesReply(message: string, ctx: StudentContext, forced?: string): Promise<AiReply> {
   const r = await route(message, studentTools, ctx, { forced, help: studentHelp, classify: classifyWithModel });
-  return { text: r.text, draft: r.draft as Draft | undefined, links: r.links, widget: r.widget, suggestions: r.suggestions, source: "rules", via: r.via };
+  return { text: r.text, draft: r.draft as Draft | undefined, links: r.links, widget: r.widget, suggestions: r.suggestions, source: "rules", via: r.via, tool: r.tool };
 }
 
 /* ---------------- Шлюз моделей (OpenAI-совместимый) ---------------- */
@@ -30,6 +31,10 @@ const replySchema = z.object({
 });
 
 async function gatewayReply(history: ChatMsg[], ctx: StudentContext): Promise<AiReply | null> {
+  // правила вуза — из библиотеки знаний: фрагменты, подходящие к последнему вопросу
+  const hits = await searchKnowledge(ctx.viewer, history[history.length - 1]?.content ?? "", 4);
+  const fragments = hits.map((h) => `«${h.title}»${h.heading ? ` → ${h.heading}` : ""}: ${h.text}`).join("\n\n");
+  const knowledge = hits.length ? `ФРАГМЕНТЫ БИБЛИОТЕКИ ВУЗА (опирайся на них, называй источник):\n${fragments}` : "Подходящих материалов в библиотеке вуза нет.";
   const base = process.env.AI_BASE_URL, key = process.env.AI_API_KEY, model = process.env.AI_MODEL;
   if (process.env.AI_PROVIDER !== "gateway" || !base || !key || !model) return null;
   const system = `Ты — дружелюбный помощник цифрового деканата «Универа». Отвечай по-русски, кратко (до 6 предложений), на «вы».
@@ -89,6 +94,8 @@ async function sanitizeDraft(d: Draft | undefined, ctx: StudentContext): Promise
   return { typeCode: d.typeCode, payload };
 }
 
+const INFO_TOOLS = new Set(["certificate", "retake", "absence", "academic", "wellbeing"]);
+
 /**
  * Ответ помощника: сначала правила (известные функции — точно и с мини-разделом),
  * то, что правила не узнали, — модели через шлюз (если подключена); иначе — подсказки.
@@ -96,6 +103,15 @@ async function sanitizeDraft(d: Draft | undefined, ctx: StudentContext): Promise
 export async function reply(history: ChatMsg[], ctx: StudentContext, forced?: string): Promise<AiReply> {
   const last = history[history.length - 1]?.content ?? "";
   const rules = await rulesReply(last, ctx, forced);
-  const r = rules.via === "help" ? ((await gatewayReply(history, ctx)) ?? rules) : rules;
+  let r: AiReply = rules;
+  if (rules.via === "help") {
+    // функция не узнана: сначала библиотека знаний (ответ с источником), потом свободный ответ модели
+    const lib = await libraryAnswer(ctx.viewer, last);
+    r = lib ? { text: lib.text, links: lib.links, source: lib.source === "gateway" ? "gateway" : "library", via: "library" } : ((await gatewayReply(history, ctx)) ?? rules);
+  } else if (rules.tool && INFO_TOOLS.has(rules.tool)) {
+    // к справкам, пересдаче, пропускам — ссылка на положение, если оно есть в библиотеке
+    const link = await libraryLink(ctx.viewer, last);
+    if (link) r = { ...rules, links: [...(rules.links ?? []), link] };
+  }
   return { ...r, draft: await sanitizeDraft(r.draft, ctx) };
 }

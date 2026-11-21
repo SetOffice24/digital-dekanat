@@ -119,10 +119,13 @@ describe("новые сценарии помощника", () => {
     const { rulesReply } = await import("@/server/ai/assistant");
     const anna = await db.student.findFirstOrThrow({ where: { user: { login: "anna.lesnova" } } });
     const ctx = await buildStudentContext(anna);
-    const sub = await rulesReply("Сдай лабораторную №5", ctx);
+    // номер берём из реально открытых заданий: тест ДЗ (если идёт раньше) сдаёт и принимает работы Анны
+    const num = ctx.openHomework.map((h) => h.title.match(/№(\d+)/)?.[1]).find(Boolean);
+    const sub = await rulesReply(`Сдай лабораторную №${num ?? "5"}`, ctx);
     expect(sub.draft && "kind" in sub.draft && sub.draft.kind).toBe("SUBMISSION");
     const a = sub.draft && "kind" in sub.draft ? await db.assignment.findUniqueOrThrow({ where: { id: sub.draft.assignmentId } }) : null;
-    expect(a?.title).toMatch(/№5/);
+    if (num) expect(a?.title).toMatch(new RegExp(`№${num}(?!\\d)`));
+    else expect(ctx.openHomework.some((h) => h.id === a?.id)).toBe(true); // нумерованных не осталось — берётся открытое задание
     expect(a?.groupId).toBe(anna.groupId);
     const g = await rulesReply("Как у меня дела по базам данных", ctx);
     expect(g.text).toMatch(/Базы данных/);

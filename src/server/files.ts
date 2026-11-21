@@ -125,7 +125,7 @@ export function contentDisposition(name: string) {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${utf}`;
 }
 
-type Viewer = { id: string; role: "STUDENT" | "STAFF" | "TEACHER"; student: { id: string; groupId: string } | null; teacher: { id: string } | null; staff?: { facultyId: string | null } | null };
+type Viewer = { id: string; role: "STUDENT" | "STAFF" | "TEACHER"; student: { id: string; groupId: string; facultyId?: string } | null; teacher: { id: string } | null; staff?: { id?: string; facultyId: string | null } | null };
 
 /** Может ли пользователь скачать файл. Студент — материалы/задания своей группы и свои сдачи; преподаватель — свои дисциплины. */
 export async function canAccessAttachment(user: Viewer, attachmentId: string) {
@@ -137,9 +137,17 @@ export async function canAccessAttachment(user: Viewer, attachmentId: string) {
       assignment: { select: { groupId: true, courseId: true } },
       submission: { select: { studentId: true, assignment: { select: { groupId: true, courseId: true } } } },
       message: { select: { conversationId: true } },
+      knowledgeDoc: { select: { id: true } },
     },
   });
   if (!a) return null;
+  // исходный файл материала библиотеки — тем, кому виден сам материал
+  if (a.knowledgeDoc) {
+    const { canSeeAttachmentDoc } = await import("./repos/knowledge");
+    const student = user.student ? await prisma.student.findUnique({ where: { id: user.student.id }, select: { id: true, groupId: true, facultyId: true } }) : null;
+    const ok = await canSeeAttachmentDoc({ id: user.id, role: user.role, student, teacher: user.teacher, staff: user.staff ? { id: user.staff.id ?? "", facultyId: user.staff.facultyId } : null }, a.id);
+    return ok ? a : null;
+  }
   // вложение сообщения — тем, кто видит диалог (участник; деканат — обращения своего факультета)
   if (a.message) {
     const visible = await prisma.conversation.count({
