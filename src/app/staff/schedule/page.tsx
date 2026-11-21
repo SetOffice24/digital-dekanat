@@ -82,7 +82,7 @@ export default async function StaffSchedule({ searchParams }: { searchParams: Pr
                     <UserCheck size={15} /> Посещаемость
                   </Link>
                 )}
-                {!cancelled && <LessonActions id={l.id} date={isoDate(l.date)} room={l.room} />}
+                {!cancelled && <LessonActions id={l.id} date={isoDate(l.date)} room={l.room} start={l.startTime} end={l.endTime} />}
               </li>
             );
           })}

@@ -253,10 +253,19 @@ const ymd = (d: Date) => d.toISOString().slice(0, 10);
 export async function moveLesson(
   staff: SessionStaff,
   id: string,
-  to: { date: Date; startTime: string; endTime: string; room: string; reason: string },
+  to: { date: Date; startTime: string | null; endTime: string | null; room: string; reason: string },
 ) {
   const l = await ownLesson(staff, id);
   if (!l || l.status === "CANCELLED") return null;
+  // время не выбрано — остаётся текущее
+  const startTime = to.startTime ?? l.startTime;
+  const endTime = to.endTime ?? l.endTime;
+  const sameDay = l.date.getTime() === to.date.getTime();
+  const sameTime = startTime === l.startTime && endTime === l.endTime;
+  const sameRoom = to.room === l.room;
+  if (sameDay && sameTime && sameRoom) return "unchanged" as const;
+  // в уведомлении — ровно то, что изменилось
+  const summary = sameDay && sameTime ? `Новая аудитория: ${roomLabel(to.room)}` : `Было: ${dayShort(l.date)}, ${l.startTime}–${l.endTime}, ${roomLabel(l.room)} → стало: ${dayShort(to.date)}, ${startTime}–${endTime}, ${roomLabel(to.room)}`;
   await prisma.lesson.update({
     where: { id },
     data: {
@@ -265,8 +274,8 @@ export async function moveLesson(
       movedFromDate: l.status === "MOVED" ? l.movedFromDate : l.date,
       movedFromTime: l.status === "MOVED" ? l.movedFromTime : l.startTime,
       date: to.date,
-      startTime: to.startTime,
-      endTime: to.endTime,
+      startTime,
+      endTime,
       room: to.room,
       changeNote: to.reason,
       changedAt: new Date(),
@@ -275,11 +284,11 @@ export async function moveLesson(
   const ids = await lessonAudience(l);
   await notify(ids, {
     kind: "SCHEDULE_CHANGE",
-    title: `Перенос: ${l.course.name} · ${l.group.name}`,
-    body: `Пара ${dayShort(l.date)} в ${l.startTime} перенесена на ${dayShort(to.date)}, ${to.startTime}–${to.endTime}, ${roomLabel(to.room)}. Причина: ${to.reason}`,
+    title: `${sameDay && sameTime ? "Смена аудитории" : "Перенос"}: ${l.course.name} · ${l.group.name}`,
+    body: sameDay && sameTime ? `Пара ${dayShort(l.date)} в ${l.startTime} пройдёт в другой аудитории: ${roomLabel(to.room)} (была ${roomLabel(l.room)}). Причина: ${to.reason}` : `${summary}. Причина: ${to.reason}`,
     link: `/schedule?date=${ymd(to.date)}`,
   });
-  return l;
+  return { ...l, summary };
 }
 
 export async function cancelLesson(staff: SessionStaff, id: string, reason: string) {

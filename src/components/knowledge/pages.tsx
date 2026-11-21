@@ -25,7 +25,7 @@ export function DocRow({ d, href }: { d: DocListItem; href: string }) {
       <span className="min-w-0 flex-1">
         <span className="block font-semibold leading-snug">{d.title}</span>
         <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted">
-          <Badge tone="primary">{audienceLabel(d)}</Badge>
+          <Badge tone="primary" className="max-w-full whitespace-normal">{audienceLabel(d)}</Badge>
           <span>
             {authorName(d)} · {fmtDate(d.updatedAt)}
           </span>
@@ -46,8 +46,8 @@ export async function LibraryIndex({ user, base }: { user: Author; base: string 
   return (
     <>
       <PageHeader title="Библиотека" subtitle="Положения, инструкции и требования. Помощник отвечает по ним студентам — с цитатой и ссылкой на источник." />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
-        <div className="order-2 lg:order-1">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
+        <div className="order-2 min-w-0 lg:order-1">
           <SectionTitle>{role === "STAFF" ? "Материалы деканата" : "Мои материалы"}</SectionTitle>
           {docs.length ? (
             <div className="space-y-2.5">
@@ -63,7 +63,7 @@ export async function LibraryIndex({ user, base }: { user: Author; base: string 
             <SearchPreview base={base} />
           </Card>
         </div>
-        <Card className="order-1 h-fit lg:order-2">
+        <Card className="order-1 h-fit min-w-0 lg:order-2">
           <SectionTitle>Новый материал</SectionTitle>
           {role === "TEACHER" && !targets.length ? (
             <p className="text-sm text-muted">У вас пока нет дисциплин в расписании.</p>
@@ -97,7 +97,7 @@ export async function LibraryDoc({ user, base, id, fresh }: { user: Author; base
         </p>
       )}
       {doc.editable ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <Card>
             <DocForm role={role} faculties={faculties} staffFacultyId={user.staff?.facultyId ?? null} targets={targets} doc={{ id: doc.id, title: doc.title, body: doc.body, scope: doc.scope, facultyId: doc.facultyId, courseId: doc.courseId, groupId: doc.groupId }} />
           </Card>

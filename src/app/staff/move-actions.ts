@@ -32,6 +32,7 @@ export async function moveFromDraftAction(messageId: string, values: z.input<typ
   if (date.getTime() < new Date(new Date().toISOString().slice(0, 10)).getTime()) return { error: "Новая дата уже прошла" };
   const [startTime, endTime] = p.data.bell.split("|");
   const l = await moveLesson(staff, p.data.lessonId, { date, startTime, endTime, room: p.data.room, reason: p.data.reason });
+  if (l === "unchanged") return { error: "Дата, время и аудитория те же — переносить нечего" };
   if (!l) return { error: "Пара не найдена или уже отменена" };
   const text = `${l.course.name} перенесена на ${p.data.date.split("-").reverse().join(".")}, ${startTime}, ауд. ${p.data.room}`;
   await markDraftDone({ userId: user.id }, messageId, { movedText: text });

@@ -48,7 +48,7 @@ export function BookingForm({ days, purpose, requestId }: { days: Day[]; purpose
         <FormMessage error={state.error} ok={state.ok} />
       </div>
       <button type="submit" disabled={pending || !slot} className="mt-3 inline-flex min-h-12 items-center rounded-full bg-ink px-6 font-semibold text-ink-fg disabled:opacity-40">
-        {pending ? "Записываем…" : slot ? `Записаться на ${timeFmt.format(new Date(slot))}` : "Выберите время"}
+        {pending ? "Записываем…" : slot ? `Записаться: ${dayFmt.format(new Date(d.day))}, ${timeFmt.format(new Date(slot))}` : "Выберите время"}
       </button>
     </form>
   );

@@ -163,6 +163,11 @@ export function listDeadlines(s: SessionStudent, days = 14) {
   });
 }
 
+/** Одно дело с дедлайном — только из тех, что адресованы студенту. */
+export function getDeadline(s: SessionStudent, id: string) {
+  return prisma.deadline.findFirst({ where: { id, ...audienceFilter(s) }, include: { course: { select: { id: true, name: true } } } });
+}
+
 /* ---------- уведомления (по userId из сессии) ---------- */
 export function listNotifications(userId: string, unreadOnly = false) {
   return prisma.notification.findMany({

@@ -84,8 +84,8 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
         </Select>
         <div className="flex flex-1 gap-2">
           <input name="q" defaultValue={sp.q ?? ""} placeholder="Фамилия, логин или № зачётки" className="min-h-13 w-full min-w-0 rounded-2xl border border-border bg-surface px-4 text-[15px] outline-none focus:ring-2 focus:ring-ink/30" />
-          <button className="inline-flex min-h-13 shrink-0 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-ink-fg">
-            <Search size={16} /> <span className="hidden sm:inline">Найти</span>
+          <button aria-label="Найти студентов" className="inline-flex min-h-13 shrink-0 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-ink-fg">
+            <Search size={16} aria-hidden="true" /> <span className="hidden sm:inline">Найти</span>
           </button>
         </div>
       </form>

@@ -37,10 +37,10 @@ export function StaffShell({ children, name, position }: { children: React.React
             <Wordmark className="text-[18px] sm:text-[20px]" />
             <span className="hidden rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold text-ink-fg sm:inline">деканат</span>
           </Link>
-          <nav className="ml-6 hidden gap-1 xl:flex" aria-label="Разделы кабинета">
+          <nav className="ml-2 hidden gap-0.5 xl:flex 2xl:ml-6 2xl:gap-1" aria-label="Разделы кабинета">
             {nav.map((n) => (
-              <Link key={n.href} href={n.href} aria-current={active(n) ? "page" : undefined} className={cn("flex min-h-11 items-center gap-2 rounded-2xl px-3.5 text-sm font-semibold transition", active(n) ? "bg-ink text-ink-fg" : "text-muted hover:bg-surface/70 hover:text-fg")}>
-                <n.icon size={18} />
+              <Link key={n.href} href={n.href} aria-current={active(n) ? "page" : undefined} className={cn("flex min-h-11 items-center gap-2 rounded-2xl px-3 text-sm font-semibold transition 2xl:px-3.5", active(n) ? "bg-ink text-ink-fg" : "text-muted hover:bg-surface/70 hover:text-fg")}>
+                <n.icon size={18} className="max-2xl:hidden" />
                 {n.label}
               </Link>
             ))}
@@ -50,9 +50,9 @@ export function StaffShell({ children, name, position }: { children: React.React
             <div className="truncate text-sm font-bold">{name}</div>
             <div className="truncate text-xs text-muted">{position}</div>
           </div>
-          <OpenAssistant className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-border bg-surface p-1 text-sm font-semibold transition hover:border-ink sm:pr-4">
+          <OpenAssistant className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-border bg-surface p-1 text-sm font-semibold transition hover:border-ink sm:pr-4 xl:max-2xl:pr-1">
             <Mascot size={32} />
-            <span className="max-sm:sr-only">Помощник</span>
+            <span className="max-sm:sr-only xl:max-2xl:sr-only">Помощник</span>
           </OpenAssistant>
           <MessagesLink href="/staff/messages" className="size-11" />
           <form action={logoutAction}>

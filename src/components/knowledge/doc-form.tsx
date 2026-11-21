@@ -4,6 +4,7 @@ import { FileUp, PenLine } from "lucide-react";
 import { Input, Label, Select, Textarea } from "@/components/ui";
 import { FormMessage, SubmitButton } from "@/components/staff/bits";
 import { cn } from "@/lib/utils";
+import { FilePick } from "@/components/file-pick";
 import { createDocAction, updateDocAction, type LibState } from "@/app/library-actions";
 
 type Opt = { id: string; name: string };
@@ -31,7 +32,7 @@ export function DocForm({ role, doc, faculties = [], staffFacultyId = null, targ
       </div>
 
       {role === "STAFF" ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <Label htmlFor="scope">Для кого</Label>
             <Select id="scope" name="scope" value={scope} onChange={(e) => setScope(e.target.value as DocValues["scope"])}>
@@ -52,7 +53,7 @@ export function DocForm({ role, doc, faculties = [], staffFacultyId = null, targ
           )}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <input type="hidden" name="scope" value="COURSE" />
           <div>
             <Label htmlFor="courseId">Дисциплина</Label>
@@ -75,14 +76,14 @@ export function DocForm({ role, doc, faculties = [], staffFacultyId = null, targ
       )}
 
       {!doc && (
-        <div className="inline-flex rounded-full bg-surface-2 p-1" role="tablist" aria-label="Как добавить текст">
+        <div className="flex w-full rounded-full bg-surface-2 p-1 sm:inline-flex sm:w-auto" role="tablist" aria-label="Как добавить текст">
           {(
             [
-              ["text", "Написать текст", PenLine],
-              ["file", "Загрузить PDF или Word", FileUp],
+              ["text", "Написать", PenLine],
+              ["file", "PDF или Word", FileUp],
             ] as const
           ).map(([v, label, Icon]) => (
-            <button key={v} type="button" role="tab" aria-selected={source === v} onClick={() => setSource(v)} className={cn("inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold transition", source === v ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg")}>
+            <button key={v} type="button" role="tab" aria-selected={source === v} onClick={() => setSource(v)} className={cn("inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold transition sm:flex-none", source === v ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg")}>
               <Icon size={16} />
               {label}
             </button>
@@ -92,8 +93,8 @@ export function DocForm({ role, doc, faculties = [], staffFacultyId = null, targ
 
       {source === "file" && !doc ? (
         <div>
-          <Label htmlFor="file">Файл</Label>
-          <input id="file" name="file" type="file" accept=".pdf,.docx" required className="block w-full rounded-2xl border border-dashed border-border bg-surface-2/50 p-4 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-ink file:px-4 file:py-2 file:text-sm file:font-semibold file:text-ink-fg" />
+          <Label htmlFor="pick-file">Файл</Label>
+          <FilePick accept=".pdf,.docx" required />
           <p className="mt-1.5 text-[13px] text-muted">До 10 МБ. Текст извлечётся автоматически — после загрузки вы его проверите. Сканы без текста не подойдут.</p>
         </div>
       ) : (

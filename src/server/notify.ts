@@ -55,7 +55,7 @@ export async function remindDeadlines(student: { userId: string; facultyId: stri
       kind: "DEADLINE",
       title: hours < 24 ? "Дедлайн меньше чем через сутки" : `Дедлайн через ${days} ${days === 1 ? "день" : "дня"}`,
       body: d.title,
-      link: "/",
+      link: d.link ?? `/deadlines/${d.id}`,
       dedupeKey: `deadline:${d.id}:${bucket}`,
     });
   }

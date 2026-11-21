@@ -49,7 +49,7 @@ export default async function ServicesOverview() {
               <table className="mt-2 w-full min-w-[760px] text-sm">
                 <thead>
                   <tr className="text-left text-[12px] uppercase tracking-wide text-muted">
-                    <th className="px-4 py-2 font-semibold">Услуга</th>
+                    <th className="sticky left-0 z-10 bg-surface px-4 py-2 font-semibold">Услуга</th>
                     <th className="px-2 py-2 text-right font-semibold">Заявок</th>
                     <th className="px-2 py-2 text-right font-semibold">В срок</th>
                     <th className="px-2 py-2 text-right font-semibold">Ср. дней</th>
@@ -61,7 +61,7 @@ export default async function ServicesOverview() {
                 <tbody className="divide-y divide-border/60">
                   {rows.map((r) => (
                     <tr key={r.id} className={cn(!r.enabled && "opacity-60")}>
-                      <td className="px-4 py-2.5 font-medium">
+                      <td className="sticky left-0 z-10 w-40 max-w-40 bg-surface px-4 py-2.5 font-medium shadow-[1px_0_0_var(--color-border)] sm:w-auto sm:max-w-none sm:shadow-none">
                         {r.title}
                         {r.auto > 0 && <span className="ml-1.5 rounded-full bg-success-soft px-2 py-0.5 text-[12px] font-semibold text-success">авто: {r.auto}</span>}
                       </td>

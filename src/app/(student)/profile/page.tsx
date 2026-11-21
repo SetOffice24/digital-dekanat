@@ -63,7 +63,10 @@ export default async function ProfilePage() {
             ))}
           </dl>
           <p className="flex items-start gap-1.5 px-4 pb-3 pt-1 text-xs text-muted">
-            <ShieldCheck size={14} className="mt-px shrink-0 text-success" /> Эти данные видите только вы. Нашли ошибку? Напишите в деканат: «Заявки» → «Обращение в деканат».
+            <ShieldCheck size={14} className="mt-px shrink-0 text-success" /> Эти данные видите вы и сотрудники деканата. Нашли ошибку?{" "}
+            <Link href="/requests/new?type=APP_OTHER" className="font-semibold text-fg underline underline-offset-2">
+              Напишите в деканат
+            </Link>
           </p>
         </section>
 

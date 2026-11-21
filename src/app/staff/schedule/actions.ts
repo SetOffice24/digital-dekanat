@@ -13,7 +13,8 @@ const reason = z.string().trim().min(3, "Укажите причину (не к�
 const moveSchema = z.object({
   id: z.string().min(1),
   date: z.string().refine((s) => parseIsoDate(s) !== null, "Укажите дату переноса"),
-  bell: z.string().refine((s) => bells.some((b) => `${b.start}|${b.end}` === s), "Выберите пару"),
+  // "keep" — оставить текущее (в т.ч. нестандартное) время пары
+  bell: z.string().refine((s) => s === "keep" || bells.some((b) => `${b.start}|${b.end}` === s), "Выберите пару"),
   room: z.string().trim().min(1, "Укажите аудиторию").max(20, "Аудитория — не длиннее 20 символов"),
   reason,
 });
@@ -23,11 +24,12 @@ export async function moveLessonAction(_: SchedState, form: FormData): Promise<S
   const parsed = moveSchema.safeParse(Object.fromEntries(["id", "date", "bell", "room", "reason"].map((k) => [k, form.get(k) ?? ""])));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const v = parsed.data;
-  const [startTime, endTime] = v.bell.split("|");
+  const [startTime, endTime] = v.bell === "keep" ? [null, null] : v.bell.split("|");
   const l = await moveLesson(staff, v.id, { date: parseIsoDate(v.date)!, startTime, endTime, room: v.room, reason: v.reason });
+  if (l === "unchanged") return { error: "Дата, время и аудитория те же — переносить нечего" };
   if (!l) return { error: "Занятие не найдено или уже отменено" };
   revalidatePath("/staff/schedule");
-  return { ok: "Занятие перенесено, студенты получили уведомление" };
+  return { ok: `${l.summary}. Студенты и преподаватель получили уведомление` };
 }
 
 export async function cancelLessonAction(_: SchedState, form: FormData): Promise<SchedState> {

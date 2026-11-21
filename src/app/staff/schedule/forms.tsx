@@ -1,18 +1,26 @@
 "use client";
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, fmtShort, parseIsoDate, roomLabel } from "@/lib/utils";
 import { Input, Label, Select } from "@/components/ui";
 import { FormMessage, SubmitButton } from "@/components/staff/bits";
 import { bells } from "@/config/university";
 import { cancelLessonAction, moveLessonAction, type SchedState } from "./actions";
 
-export function MoveForm({ id, date, room }: { id: string; date: string; room: string }) {
+type LessonNow = { id: string; date: string; room: string; start: string; end: string };
+
+export function MoveForm({ id, date, room, start, end }: LessonNow) {
   const [state, action] = useActionState(moveLessonAction, {} as SchedState);
+  // по умолчанию — текущее время пары; нестандартное время — отдельным вариантом, а не молчаливая «1 пара»
+  const current = `${start}|${end}`;
+  const standard = bells.some((b) => `${b.start}|${b.end}` === current);
   return (
     <form action={action} className="space-y-3">
       <input type="hidden" name="id" value={id} />
-      <div className="grid grid-cols-2 gap-2">
+      <p className="text-sm text-muted">
+        Сейчас: {fmtShort(parseIsoDate(date)!)}, {start}–{end}, {roomLabel(room)}. Меняйте только то, что переносится, — остальное останется как есть.
+      </p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div>
           <Label htmlFor={`d-${id}`}>Новая дата</Label>
           <Input id={`d-${id}`} type="date" name="date" defaultValue={date} required />
@@ -24,7 +32,8 @@ export function MoveForm({ id, date, room }: { id: string; date: string; room: s
       </div>
       <div>
         <Label htmlFor={`b-${id}`}>Пара</Label>
-        <Select id={`b-${id}`} name="bell" required>
+        <Select id={`b-${id}`} name="bell" required defaultValue={standard ? current : "keep"}>
+          {!standard && <option value="keep">Как сейчас · {start}–{end}</option>}
           {bells.map((b) => (
             <option key={b.n} value={`${b.start}|${b.end}`}>
               {b.n} пара · {b.start}–{b.end}
@@ -62,7 +71,8 @@ export function CancelForm({ id }: { id: string }) {
 }
 
 /** Действия с парой: две компактные кнопки, форма раскрывается под строкой — одна за раз. */
-export function LessonActions({ id, date, room }: { id: string; date: string; room: string }) {
+export function LessonActions(lesson: LessonNow) {
+  const { id } = lesson;
   const [open, setOpen] = useState<"move" | "cancel" | null>(null);
   const btn = "inline-flex min-h-9 items-center rounded-full border px-3.5 text-sm font-semibold transition";
   return (
@@ -77,7 +87,7 @@ export function LessonActions({ id, date, room }: { id: string; date: string; ro
       </div>
       {open && (
         <div className="basis-full rounded-2xl bg-surface-2 p-3 sm:ml-[4.5rem]">
-          {open === "move" ? <MoveForm id={id} date={date} room={room} /> : <CancelForm id={id} />}
+          {open === "move" ? <MoveForm {...lesson} /> : <CancelForm id={id} />}
         </div>
       )}
     </div>

@@ -28,8 +28,8 @@ export function LessonItem({ lesson: l, highlight }: { lesson: LessonWithRefs; h
         <div className="flex items-start justify-between gap-3">
           <div className={cn("min-w-0 text-[17px] font-semibold leading-snug", cancelled && "text-muted line-through")}>{l.course.name}</div>
           {highlight === "now" && <span className="shrink-0 rounded-full bg-ink px-2.5 py-0.5 text-xs font-semibold text-ink-fg">Идёт</span>}
-          {change && <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold", cancelled ? "bg-danger-soft text-danger" : "bg-p-yellow text-[#0e0e10]")}>{change.label}</span>}
         </div>
+        {change && <span className={cn("mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold", cancelled ? "bg-danger-soft text-danger" : "bg-p-yellow text-[#0e0e10]")}>{change.label}</span>}
         <div className={cn("mt-1 text-[15px]", cancelled && "text-muted")}>
           {l.room} · {l.building}
         </div>

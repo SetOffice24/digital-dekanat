@@ -81,7 +81,7 @@ export default async function TodayPage() {
   for (const e of retakes)
     items.push({ key: "e" + e.id, kind: "retake", tone: "bg-danger-soft text-danger", title: `Пересдача: ${e.course.name}`, text: `${fmtDateTime(e.date)}, ${roomLabel(e.room)}`, href: "/grades" });
   for (const d of deadlines)
-    items.push({ key: "d" + d.id, kind: "deadline", tone: "bg-p-sky text-[#0e0e10]", title: d.title, text: `до ${fmtDateTime(d.dueAt)}`, href: d.link ?? "/notifications" });
+    items.push({ key: "d" + d.id, kind: "deadline", tone: "bg-p-sky text-[#0e0e10]", title: d.title, text: `до ${fmtDateTime(d.dueAt)}`, href: d.link ?? `/deadlines/${d.id}` });
   if (debts.length && !retakes.length)
     items.push({ key: "debt", kind: "debt", tone: "bg-danger-soft text-danger", title: `${debts.length} ${plural(debts.length, "долг", "долга", "долгов")}`, text: "Подайте заявление на пересдачу", href: "/requests/new?type=APP_RETAKE" });
   if (weekChanges)
