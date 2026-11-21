@@ -44,17 +44,10 @@ function ThresholdBar({ points, max, ratio, credit }: { points: number; max: num
       <div className="relative h-2.5 rounded-full bg-surface-2" role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={points} aria-label={`Баллы: ${points} из ${max}`}>
         <div className={cn("h-full rounded-full transition-all", tone)} style={{ width: `${Math.min(100, Math.round(ratio * 100))}%` }} />
         {steps.map((s) => (
-          <span key={s.grade} className="absolute top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-fg/25" style={{ left: `${s.at * 100}%` }} aria-hidden />
+          <span key={s.grade} title={s.grade === "зачёт" ? "зачёт" : `«${s.grade}»`} className="absolute top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-fg/25" style={{ left: `${s.at * 100}%` }} aria-hidden />
         ))}
       </div>
-      <div className="relative mt-1 h-4 text-[10px] font-semibold text-muted" aria-hidden>
-        {steps.map((s) => (
-          <span key={s.grade} className="absolute -translate-x-1/2" style={{ left: `${s.at * 100}%` }}>
-            {s.grade === "зачёт" ? "зачёт" : s.grade}
-          </span>
-        ))}
-      </div>
-      <p className={cn("mt-1 text-sm font-medium", !reached ? "text-warning" : "text-fg")}>{text}</p>
+      <p className={cn("mt-2 text-[15px] font-semibold leading-snug", !reached ? "text-warning" : "text-fg")}>{text}</p>
     </div>
   );
 }
@@ -148,13 +141,13 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
       <PageHeader title="Учёба" subtitle={`${student.course} курс · ${curSem} семестр`} />
 
       {/* Как у меня дела */}
-      <div className={cn("rounded-[32px] p-6 sm:p-8", status === "success" ? "bg-success-soft" : status === "warning" ? "bg-warning-soft" : "bg-danger-soft")}>
+      <div className={cn("rounded-[32px]", status === "success" ? "p-4 sm:p-6" : "p-6 sm:p-8", status === "success" ? "bg-success-soft" : status === "warning" ? "bg-warning-soft" : "bg-danger-soft")}>
         <div className={cn("flex items-center gap-2 font-extrabold", status === "success" ? "text-success" : status === "warning" ? "text-warning" : "text-danger")}>
           {status === "success" ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
           {statusText.title}
         </div>
         <p className="mt-1 text-sm">{statusText.text}</p>
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+        <div className={cn("grid grid-cols-3 gap-2 text-center", status === "success" ? "mt-3" : "mt-4")}>
           <div className="rounded-2xl bg-surface p-3">
             <div className="text-2xl font-extrabold tabular-nums">{avg ? avg.toFixed(2).replace(".", ",") : "—"}</div>
             <div className="text-[11px] font-semibold text-muted">средний за учёбу</div>
@@ -222,8 +215,10 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
                     <div className="mt-0.5 text-sm text-muted">
                       {h.course.name} · до {fmtDateTime(h.dueAt)}
                     </div>
+                    {/* на телефоне статус — под названием: название и срок получают всю ширину */}
+                    <span className={cn("mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold sm:hidden", hwState[h.state].cls)}>{hwState[h.state].label}</span>
                   </div>
-                  <span className={cn("shrink-0 rounded-full px-3 py-1 text-xs font-semibold", hwState[h.state].cls)}>{hwState[h.state].label}</span>
+                  <span className={cn("shrink-0 rounded-full px-3 py-1 text-xs font-semibold max-sm:hidden", hwState[h.state].cls)}>{hwState[h.state].label}</span>
                   <ChevronRight size={18} className="shrink-0 text-muted" />
                 </Link>
               ))}
@@ -292,16 +287,18 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
             {current.map(({ enrollment: e, points, max, ratio, final }) => (
               <Card key={e.id}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="font-bold leading-snug">{e.course.name}</div>
-                    <div className="text-xs text-muted">{assessmentLabel[e.course.assessment]}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-extrabold tabular-nums">
-                      {points}
-                      <span className="text-sm font-semibold text-muted">/{max}</span>
-                    </div>
+                <div className="flex items-start justify-between gap-3">
+                  <Link href={`/courses/${e.course.id}`} className="group/c min-w-0">
+                    <span className="font-bold leading-snug group-hover/c:underline">{e.course.name}</span>
+                    <ChevronRight size={15} className="ml-0.5 inline-block align-[-2px] text-muted" />
+                    <span className="block text-xs text-muted">
+                      {assessmentLabel[e.course.assessment]}
+                      {matCount[e.course.id] ? ` · ${matCount[e.course.id]} ${plural(matCount[e.course.id], "материал", "материала", "материалов")}` : ""}
+                    </span>
+                  </Link>
+                  <div className="shrink-0 text-right leading-none" aria-label={`${points} из ${max} баллов`}>
+                    <span className="text-2xl font-extrabold tabular-nums">{points}</span>
+                    <span className="text-sm font-semibold text-muted">/{max}</span>
                   </div>
                 </div>
                 {final ? (
@@ -311,9 +308,6 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
                 ) : (
                   <ThresholdBar points={points} max={max} ratio={ratio} credit={e.course.assessment === "CREDIT"} />
                 )}
-                <Link href={`/courses/${e.course.id}`} className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-fg">
-                  Материалы{matCount[e.course.id] ? ` (${matCount[e.course.id]})` : ""} и задания <ChevronRight size={15} />
-                </Link>
                 {/* Последняя оценка видна сразу, остальные — по нажатию: карточка не превращается в россыпь плашек */}
                 {e.grades.length > 0 && (
                   <details className="group mt-3 border-t border-border/60 pt-2.5 text-sm">

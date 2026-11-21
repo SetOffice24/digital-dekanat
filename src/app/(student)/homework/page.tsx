@@ -23,8 +23,10 @@ function Section({ title, list }: { title: string; list: Item[] }) {
               <div className="mt-0.5 text-sm text-muted">
                 {h.course.name} · до {fmtDateTime(h.dueAt)}
               </div>
+              {/* на телефоне статус — под названием: название и срок получают всю ширину */}
+              <span className={cn("mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold sm:hidden", hwState[h.state].cls)}>{hwState[h.state].label}</span>
             </div>
-            <span className={cn("shrink-0 rounded-full px-3 py-1 text-xs font-semibold", hwState[h.state].cls)}>{hwState[h.state].label}</span>
+            <span className={cn("shrink-0 rounded-full px-3 py-1 text-xs font-semibold max-sm:hidden", hwState[h.state].cls)}>{hwState[h.state].label}</span>
             <ChevronRight size={18} className="shrink-0 text-muted" />
           </Link>
         ))}
