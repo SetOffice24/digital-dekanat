@@ -19,6 +19,8 @@ export async function taughtStudentsWhere(teacherId: string): Promise<Prisma.Stu
   return { OR: [...(whole.length ? [{ groupId: { in: whole } }] : []), ...parts.map((p) => ({ groupId: p.groupId, subgroup: p.subgroup as number }))] };
 }
 
+export type AbsenceStatus = "confirmed" | "pending" | "self";
+
 export async function absentStudents(teacherId: string) {
   const today = moscowToday();
   const mine = await taughtStudentsWhere(teacherId);
@@ -35,13 +37,15 @@ export async function absentStudents(teacherId: string) {
   const absences = rows
     .map((r) => ({ r, p: (r.payload ?? {}) as Record<string, string> }))
     .filter(({ p }) => p.dateFrom && p.dateTo && p.dateTo >= from && p.dateFrom <= to)
-    .map(({ r, p }) => ({ key: r.id, name: `${r.student.lastName} ${r.student.firstName}`, group: r.student.group.name, from: p.dateFrom, to: p.dateTo, reason: "Заявление о пропуске", state: r.status === "READY" || r.status === "DONE" ? "подтверждено деканатом" : "на рассмотрении в деканате" }));
+    .map(({ r, p }) => ({ key: r.id, name: `${r.student.lastName} ${r.student.firstName}`, group: r.student.group.name, from: p.dateFrom, to: p.dateTo, reason: "Заявление о пропуске", status: (r.status === "READY" || r.status === "DONE" ? "confirmed" : "pending") as AbsenceStatus, state: r.status === "READY" || r.status === "DONE" ? "подтверждено деканатом" : "на рассмотрении в деканате", past: p.dateTo < iso(today) }));
   // «я заболел» из единого окна: студент сам предупредил преподавателей (даты — в отметке шага)
   const sick = await prisma.caseStep.findMany({
     where: { key: "teachers", doneAt: { gte: addDays(today, -14) }, case: { code: "sick", status: "OPEN", student: mine } },
     select: { caseId: true, note: true, case: { select: { student: { select: { lastName: true, firstName: true, group: { select: { name: true } } } } } } },
   });
-  const notified = sick.map((s) => ({ key: s.caseId, name: `${s.case.student.lastName} ${s.case.student.firstName}`, group: s.case.student.group.name, from: "", to: "", reason: `Сообщил(а) сам(а)${/(\d\d\.\d\d–\d\d\.\d\d)/.exec(s.note ?? "")?.[1] ? `, ${/(\d\d\.\d\d–\d\d\.\d\d)/.exec(s.note ?? "")?.[1]}` : ""}`, state: "заявление ещё не подано" }));
+  const notified = sick.map((s) => ({ key: s.caseId, name: `${s.case.student.lastName} ${s.case.student.firstName}`, group: s.case.student.group.name, from: "", to: "", status: "self" as AbsenceStatus, past: false, reason: `Сообщил(а) сам(а)${/(\d\d\.\d\d–\d\d\.\d\d)/.exec(s.note ?? "")?.[1] ? `, ${/(\d\d\.\d\d–\d\d\.\d\d)/.exec(s.note ?? "")?.[1]}` : ""}`, state: "заявление ещё не подано" }));
   const names = new Set(absences.map((a) => a.name));
-  return [...absences, ...notified.filter((n) => !names.has(n.name))];
+  // сначала текущие (подтверждённые выше ожидающих), прошедшие периоды — в конце, как история
+  const rank = { confirmed: 0, pending: 1, self: 2 } as const;
+  return [...absences, ...notified.filter((n) => !names.has(n.name))].sort((a, b) => Number(a.past) - Number(b.past) || rank[a.status] - rank[b.status]);
 }

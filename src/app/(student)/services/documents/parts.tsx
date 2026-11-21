@@ -3,6 +3,7 @@ import { useActionState, useState, useTransition } from "react";
 import { Eye, Trash2, Upload } from "lucide-react";
 import type { DocKind } from "@prisma/client";
 import { FormMessage } from "@/components/staff/bits";
+import { FilePick } from "@/components/file-pick";
 import { deleteDocumentAction, uploadDocumentAction, type ActState } from "../actions";
 
 type K = { kind: DocKind; title: string; expires: boolean; hint: string };
@@ -33,7 +34,7 @@ export function UploadDocForm({ kinds, initial, back }: { kinds: K[]; initial: D
         )}
       </div>
       <p className="text-[13px] text-muted">{k.hint}. PDF, JPG или PNG до 10 МБ; с фото убираются метаданные и геометки.</p>
-      <input name="file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required className="block w-full rounded-2xl border border-dashed border-border bg-surface-2/50 p-4 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-ink file:px-4 file:py-2 file:text-sm file:font-semibold file:text-ink-fg" />
+      <FilePick accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required />
       <FormMessage error={state.error} ok={state.ok} />
       <button type="submit" disabled={pending} className="inline-flex min-h-12 items-center gap-2 rounded-full bg-ink px-6 font-semibold text-ink-fg disabled:opacity-50">
         <Upload size={17} /> {pending ? "Загружаем…" : "Загрузить"}

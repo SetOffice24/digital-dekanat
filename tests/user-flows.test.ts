@@ -41,7 +41,9 @@ afterAll(async () => {
 
 describe("домашнее задание: проверка и баллы", () => {
   it("сдача сигналит преподавателю; «принять с баллами» создаёт одну связанную оценку; возврат снимает её", async () => {
-    const a = await db.assignment.findFirstOrThrow({ where: { teacherId: teacher.teacher!.id, groupId: anna.student!.groupId, submissions: { none: { studentId: anna.student!.id } } } });
+    // своё задание: не зависим от того, какие задания уже сдали другие тесты
+    const pair = await db.lesson.findFirstOrThrow({ where: { teacherId: teacher.teacher!.id, groupId: anna.student!.groupId }, select: { courseId: true } });
+    const a = await db.assignment.create({ data: { teacherId: teacher.teacher!.id, groupId: anna.student!.groupId, courseId: pair.courseId, title: "СЦЕНАРИЙ задание", description: "x", dueAt: new Date(Date.now() + 7 * 86400_000) } });
     const sub = await submitHomework(anna.student!, a.id, "сценарий", [pdf()]);
     expect(await db.notification.count({ where: { userId: teacher.id, dedupeKey: `submitted:${sub.id}:v${sub.version}` } })).toBe(1);
     const t = { id: teacher.teacher!.id };
@@ -55,7 +57,7 @@ describe("домашнее задание: проверка и баллы", () =
     expect((await db.grade.findUniqueOrThrow({ where: { submissionId: sub.id } })).points).toBe(19);
     expect(await reviewSubmission(t, sub.id, sub.version, "RETURNED", "Добавьте вывод")).toBe(true);
     expect(await db.grade.count({ where: { submissionId: sub.id } })).toBe(0);
-    await db.submission.delete({ where: { id: sub.id } });
+    await db.assignment.delete({ where: { id: a.id } });
   });
 });
 

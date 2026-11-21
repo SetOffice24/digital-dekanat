@@ -60,6 +60,12 @@ export function relativeTime(d: Date, base = new Date()) {
   return fmtDate(d);
 }
 
+/** Срок услуги для подписи: «сразу» при автовыдаче, иначе — регламент в рабочих днях. */
+export function serviceTerm(t: { autoIssue?: boolean; enabled?: boolean; slaDays: number }, paper = false) {
+  if (t.autoIssue && t.enabled !== false && !paper) return "сразу";
+  return `до ${t.slaDays} ${plural(t.slaDays, "рабочего дня", "рабочих дней", "рабочих дней")}`; // как в форме заказа
+}
+
 export function plural(n: number, one: string, few: string, many: string) {
   const m10 = n % 10, m100 = n % 100;
   if (m10 === 1 && m100 !== 11) return one;

@@ -5,7 +5,8 @@ import { getEnrollments, getExams, getLessons, listDeadlines, listRequests, curr
 import { remindDeadlines } from "@/server/notify";
 import { Countdown } from "@/components/countdown";
 import { EmptyState } from "@/components/ui";
-import { addDays, fmtDateTime, fmtDay, fmtShort, isoDate, minutesOf, moscowTime, moscowToday, plural, roomLabel } from "@/lib/utils";
+import { addDays, fmtDateTime, fmtDay, fmtShort, isoDate, minutesOf, moscowTime, moscowToday, plural, roomLabel, serviceTerm } from "@/lib/utils";
+import { prisma } from "@/server/db";
 import { requestStatusLabel } from "@/lib/labels";
 import { AttentionList, type AttentionItem } from "./attention-list";
 import { listHomework } from "@/server/repos/homework";
@@ -34,13 +35,14 @@ export default async function TodayPage() {
   const nowHM = moscowTime();
   const nowMin = minutesOf(nowHM);
 
-  const [lessons14, deadlines, requests, enrollments, exams, homework] = await Promise.all([
+  const [lessons14, deadlines, requests, enrollments, exams, homework, studyCert] = await Promise.all([
     getLessons(student, today, addDays(today, 14)),
     listDeadlines(student, 7),
     listRequests(student),
     getEnrollments(student),
     getExams(student),
     listHomework(student),
+    prisma.requestType.findFirst({ where: { code: "CERT_STUDY", enabled: true }, select: { autoIssue: true, enabled: true, slaDays: true } }),
   ]);
 
   const todayLessons = lessons14.filter((l) => l.date.getTime() === today.getTime());
@@ -89,7 +91,7 @@ export default async function TodayPage() {
   const itemsWord = `${items.length} ${plural(items.length, "дело", "дела", "дел")}`;
 
   const tiles = [
-    { href: "/requests/new", label: "Заказать справку", hint: "PDF с QR за 1 день", icon: <FilePlus2 size={22} />, tone: "bg-p-mint" },
+    { href: "/requests/new", label: "Заказать справку", hint: studyCert ? `Об обучении — ${serviceTerm(studyCert)}` : "Электронные, с QR", icon: <FilePlus2 size={22} />, tone: "bg-p-mint" },
     { href: "/schedule", label: "Расписание", hint: "Пары и переносы", icon: <CalendarRange size={22} />, tone: "bg-p-sky" },
     { href: "/grades", label: "Оценки", hint: "Баллы и сессия", icon: <GraduationCap size={22} />, tone: "bg-p-lilac" },
   ];

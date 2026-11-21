@@ -37,7 +37,7 @@ export function StaffShell({ children, name, position }: { children: React.React
             <Wordmark className="text-[18px] sm:text-[20px]" />
             <span className="hidden rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold text-ink-fg sm:inline">деканат</span>
           </Link>
-          <nav className="ml-6 hidden gap-1 lg:flex" aria-label="Разделы кабинета">
+          <nav className="ml-6 hidden gap-1 xl:flex" aria-label="Разделы кабинета">
             {nav.map((n) => (
               <Link key={n.href} href={n.href} aria-current={active(n) ? "page" : undefined} className={cn("flex min-h-11 items-center gap-2 rounded-2xl px-3.5 text-sm font-semibold transition", active(n) ? "bg-ink text-ink-fg" : "text-muted hover:bg-surface/70 hover:text-fg")}>
                 <n.icon size={18} />
@@ -45,7 +45,8 @@ export function StaffShell({ children, name, position }: { children: React.React
               </Link>
             ))}
           </nav>
-          <div className="min-w-0 flex-1 text-right leading-tight">
+          {/* на телефоне имя не помещается — только всплывающая подсказка у кнопки выхода */}
+          <div className="min-w-0 flex-1 text-right leading-tight max-sm:invisible">
             <div className="truncate text-sm font-bold">{name}</div>
             <div className="truncate text-xs text-muted">{position}</div>
           </div>
@@ -55,13 +56,13 @@ export function StaffShell({ children, name, position }: { children: React.React
           </OpenAssistant>
           <MessagesLink href="/staff/messages" className="size-11" />
           <form action={logoutAction}>
-            <button type="submit" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label="Выйти">
+            <button type="submit" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label={`Выйти (${name})`} title={`${name} · ${position} — выйти`}>
               <LogOut size={20} />
             </button>
           </form>
         </div>
-        {/* На телефоне и планшете — равные вкладки: все разделы видны сразу, без прокрутки вбок */}
-        <nav className="mx-auto grid w-full max-w-[100rem] grid-cols-3 gap-1 min-[440px]:grid-cols-6 px-3 pb-2.5 sm:px-5 md:px-7 lg:hidden" aria-label="Разделы кабинета">
+        {/* На телефоне, планшете и ноутбуке до 1280 px — равные вкладки: все разделы видны сразу, без прокрутки вбок */}
+        <nav className="mx-auto grid w-full max-w-[100rem] grid-cols-3 gap-1 min-[440px]:grid-cols-6 px-3 pb-2.5 sm:px-5 md:px-7 xl:hidden" aria-label="Разделы кабинета">
           {nav.map((n) => (
             <Link key={n.href} href={n.href} aria-current={active(n) ? "page" : undefined} className={cn("flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-2xl px-1 text-[13px] font-semibold transition sm:min-h-11 sm:px-2 sm:text-sm", active(n) ? "bg-ink text-ink-fg" : "text-muted hover:bg-surface/70 hover:text-fg")}>
               <n.icon size={17} className="shrink-0 max-sm:hidden" />

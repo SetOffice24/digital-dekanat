@@ -41,10 +41,24 @@ export default async function TeacherHome() {
 
   return (
     <>
-      <PageHeader title={`${hello}!`} subtitle={toReview ? `${summary} Ждут проверки домашних заданий: ${toReview}.` : summary} />
+      <PageHeader title={`${hello}!`} subtitle={summary} />
 
-      {(approvals > 0 || absent.length > 0 || retakes > 0) && (
+      {(approvals > 0 || absent.length > 0 || retakes > 0 || toReview > 0) && (
         <section className="mb-8 grid gap-2 lg:grid-cols-2">
+          {toReview > 0 && (
+            <Link href="/teacher/reviews" className="flex items-center gap-3 rounded-[24px] bg-p-sky/70 p-4 transition hover:opacity-90">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface">
+                <Check size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">
+                  Проверить {toReview} {plural(toReview, "работу", "работы", "работ")}
+                </span>
+                <span className="block text-[13px]">Домашние задания — по заданиям, дольше ждущие сверху</span>
+              </span>
+              <ArrowRight size={18} />
+            </Link>
+          )}
           {retakes > 0 && (
             <Link href="/teacher/retakes" className="flex items-center gap-3 rounded-[24px] bg-p-mint/70 p-4 transition hover:opacity-90">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface">
@@ -72,20 +86,24 @@ export default async function TeacherHome() {
           {absent.length > 0 && (
             <div className="rounded-[24px] border border-border/70 bg-surface p-4">
               <div className="mb-2 flex items-center gap-2 font-semibold">
-                <HeartPulse size={18} className="text-danger" /> Отсутствуют по уважительной причине
+                <HeartPulse size={18} className="text-danger" /> Заявления об отсутствии
               </div>
               <ul className="space-y-1.5 text-sm">
                 {absent.slice(0, 6).map((a) => (
-                  <li key={a.key}>
+                  <li key={a.key} className={a.past ? "opacity-60" : undefined}>
                     <b>{a.name}</b> <span className="text-muted">· {a.group}</span>
                     {a.from && (
                       <span>
                         {" "}
                         · {dm(a.from)}–{dm(a.to)}
+                        {a.past && <span className="text-muted"> (прошло)</span>}
                       </span>
                     )}
-                    <span className="block text-[13px] text-muted">
-                      {a.reason} — {a.state}
+                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[13px] text-muted">
+                      <span className={a.status === "confirmed" ? "rounded-full bg-success-soft px-2 font-semibold text-success" : a.status === "pending" ? "rounded-full bg-warning-soft px-2 font-semibold text-warning" : "rounded-full bg-surface-2 px-2 font-semibold"}>
+                        {a.status === "confirmed" ? "уважительная — подтверждено" : a.status === "pending" ? "ещё не подтверждено" : "заявления нет"}
+                      </span>
+                      {a.reason}
                     </span>
                   </li>
                 ))}

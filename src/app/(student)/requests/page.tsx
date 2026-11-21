@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CalendarClock, ChevronRight, Download, FilePlus2, FileText, FolderLock, GraduationCap, MessageCircleQuestion, ShieldCheck, Wallet, ArrowRight } from "lucide-react";
+import { prisma } from "@/server/db";
 import { requireStudent } from "@/server/auth";
 import { listRequests } from "@/server/repos/student";
 import { listMyDocuments, isUsable } from "@/server/services/documents";
@@ -10,16 +11,16 @@ import { ButtonLink, PageHeader, Progress } from "@/components/ui";
 import { StatusBadge } from "@/components/status-badge";
 import { situationIcon } from "@/components/services/icons";
 import { deanery } from "@/config/services";
-import { addDays, cn, dueDate, fmtDate, fmtDateTime, fmtShort, plural } from "@/lib/utils";
+import { addDays, cn, dueDate, fmtDate, fmtDateTime, fmtShort, plural, serviceTerm } from "@/lib/utils";
 import { startCaseAction } from "../services/actions";
 
 export const metadata = { title: "Услуги" };
 
 /** Самое частое — в один клик: сразу открывается нужная форма. */
 const QUICK = [
-  { code: "CERT_STUDY", title: "Справка об обучении", text: "PDF с QR · сразу", icon: GraduationCap },
-  { code: "CERT_SCHOLARSHIP", title: "Справка о стипендии", text: "PDF · за 2 дня", icon: Wallet },
-  { code: "CERT_MILITARY", title: "Для военкомата", text: "С печатью · за 3 дня", icon: ShieldCheck },
+  { code: "CERT_STUDY", title: "Справка об обучении", text: "PDF с QR", icon: GraduationCap },
+  { code: "CERT_SCHOLARSHIP", title: "Справка о стипендии", text: "PDF с QR", icon: Wallet },
+  { code: "CERT_MILITARY", title: "Для военкомата", text: "С печатью", icon: ShieldCheck },
 ] as const;
 
 /**
@@ -29,7 +30,12 @@ const QUICK = [
  */
 export default async function ServicesHub() {
   const { student } = await requireStudent();
-  const [requests, docs, appts, sits] = await Promise.all([listRequests(student), listMyDocuments(student), myAppointments(student.id), situationsFor(student.id)]);
+  const [requests, docs, appts, sits, quickTypes] = await Promise.all([listRequests(student), listMyDocuments(student), myAppointments(student.id), situationsFor(student.id), prisma.requestType.findMany({ where: { code: { in: QUICK.map((q) => q.code) }, enabled: true }, select: { code: true, autoIssue: true, enabled: true, slaDays: true } })]);
+  // срок — из настроек услуги (деканат может выключить автовыдачу): одна и та же услуга везде обещает одно и то же
+  const quick = QUICK.flatMap((q) => {
+    const t = quickTypes.find((x) => x.code === q.code);
+    return t ? [{ ...q, text: `${q.text} · ${serviceTerm(t)}` }] : [];
+  });
   const openCases = (await Promise.all(sits.filter((s) => s.openCaseId).map((s) => getCase(student, s.openCaseId!)))).filter((c): c is NonNullable<typeof c> => !!c);
 
   const needAnswer = requests.filter((r) => r.status === "NEED_INFO");
@@ -134,6 +140,14 @@ export default async function ServicesHub() {
         </div>
       )}
 
+      {/* ---------- Мои обращения в работе: повторный визит обычно ради статуса — они выше каталога ---------- */}
+      {inProgress.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-2 text-[15px] font-bold">В работе · {inProgress.length}</h2>
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">{inProgress.map((r) => <Row key={r.id} r={r} />)}</div>
+        </section>
+      )}
+
       {/* ---------- Открытые ситуации ---------- */}
       {openCases.length > 0 && (
         <section className="mb-8">
@@ -236,7 +250,7 @@ export default async function ServicesHub() {
       <section className="mb-8">
         <h2 className="mb-2 text-[15px] font-bold">Часто заказывают</h2>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {QUICK.map((q) => (
+          {quick.map((q) => (
             <Link key={q.code} href={`/requests/new?type=${q.code}`} className="flex items-center gap-3 rounded-[24px] border border-border/70 bg-surface p-3.5 transition hover:border-ink">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-p-mint text-[#0e0e10]">
                 <q.icon size={20} />
@@ -253,13 +267,7 @@ export default async function ServicesHub() {
         </ButtonLink>
       </section>
 
-      {/* ---------- Мои обращения ---------- */}
-      {inProgress.length > 0 && (
-        <>
-          <h2 className="mb-2 text-[15px] font-bold">В работе</h2>
-          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">{inProgress.map((r) => <Row key={r.id} r={r} />)}</div>
-        </>
-      )}
+      {/* ---------- Завершённые обращения ---------- */}
       {archive.length > 0 && (
         <>
           <h2 className="mb-2 mt-6 text-[15px] font-bold">Завершённые</h2>

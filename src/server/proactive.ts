@@ -189,7 +189,7 @@ async function compose(s: DigestStudent, slot: "day" | "eve", day: string, hhmm:
       : `${s.firstName}, напоминаю о срочном:\n${fresh.map((n) => `• ${n.text}`).join("\n")}`;
   const links = [...new Map(fresh.map((n) => [n.href, { href: n.href, label: n.label }])).values()].slice(0, 3);
   const suggestions = [...new Map(fresh.filter((n) => n.action).map((n) => [n.action!.label, n.action!])).values()].slice(0, 3);
-  const title = slot === "day" ? `Главное на ${new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", timeZone: "UTC" }).format(moscowToday(now))}` : "Срочное на вечер";
+  const title = slot === "day" ? `Сегодня, ${new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short", timeZone: "UTC" }).format(moscowToday(now))}` : "Срочное на вечер";
 
   const chat = await prisma.aiChat.create({
     data: {

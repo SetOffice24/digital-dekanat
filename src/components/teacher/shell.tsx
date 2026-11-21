@@ -10,7 +10,13 @@ import { Mascot } from "@/components/assistant/mascot";
 import { ReminderNotice } from "@/components/reminder-notice";
 import { RoleLiveNotice } from "@/components/role-live-notice";
 
-/** Кабинет преподавателя: простая шапка без навигации — раздел один. */
+const extra = [
+  { href: "/teacher/approvals", label: "Согласования", title: "Согласования: перезачёты дисциплин", icon: GitBranch },
+  { href: "/teacher/retakes", label: "Пересдачи", title: "Пересдачи: назначенные деканатом, результат", icon: ClipboardCheck },
+  { href: "/teacher/library", label: "Библиотека", title: "Библиотека: материалы, по которым помощник отвечает студентам", icon: BookOpen },
+];
+
+/** Кабинет преподавателя: простая шапка — главный раздел один, остальные значками (на телефоне — подписанным рядом). */
 export function TeacherShell({ children, name, department }: { children: React.ReactNode; name: string; department: string }) {
   return (
     <AssistantProvider firstName={name} role="TEACHER">
@@ -21,7 +27,7 @@ export function TeacherShell({ children, name, department }: { children: React.R
             <Wordmark className="text-[18px] sm:text-[20px]" />
             <span className="hidden rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold text-ink-fg sm:inline">преподаватель</span>
           </Link>
-          <div className="min-w-0 flex-1 text-right leading-tight">
+          <div className="min-w-0 flex-1 text-right leading-tight max-sm:invisible">
             <div className="truncate text-sm font-bold">{name}</div>
             <div className="hidden truncate text-xs text-muted sm:block">{department}</div>
           </div>
@@ -29,22 +35,27 @@ export function TeacherShell({ children, name, department }: { children: React.R
             <Mascot size={32} />
             <span className="max-sm:sr-only">Помощник</span>
           </OpenAssistant>
-          <Link href="/teacher/approvals" className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg" aria-label="Согласования" title="Согласования: перезачёты дисциплин">
-            <GitBranch size={20} />
-          </Link>
-          <Link href="/teacher/retakes" className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg" aria-label="Пересдачи" title="Пересдачи: назначенные деканатом, результат">
-            <ClipboardCheck size={20} />
-          </Link>
-          <Link href="/teacher/library" className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg" aria-label="Библиотека для помощника" title="Библиотека: материалы, по которым помощник отвечает студентам">
-            <BookOpen size={20} />
-          </Link>
+          {extra.map((x) => (
+            <Link key={x.href} href={x.href} className="hidden size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg sm:flex" aria-label={x.label} title={x.title}>
+              <x.icon size={20} />
+            </Link>
+          ))}
           <MessagesLink href="/teacher/messages" className="size-11" />
           <form action={logoutAction}>
-            <button type="submit" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label="Выйти">
+            <button type="submit" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label={`Выйти (${name})`} title={`${name} — выйти`}>
               <LogOut size={20} />
             </button>
           </form>
         </div>
+        {/* телефон: разделы с подписями под шапкой — всё доступно без прокрутки вбок */}
+        <nav className="grid grid-cols-3 gap-1 px-3 pb-2.5 sm:hidden" aria-label="Разделы кабинета">
+          {extra.map((x) => (
+            <Link key={x.href} href={x.href} className="flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-2xl px-1 text-[13px] font-semibold text-muted hover:bg-surface/70 hover:text-fg">
+              <x.icon size={16} className="shrink-0 max-[400px]:hidden" />
+              <span className="truncate">{x.label}</span>
+            </Link>
+          ))}
+        </nav>
       </header>
       <main className="flex-1 px-4 pb-10 pt-6 sm:px-6">
         <div className="mx-auto w-full max-w-5xl">{children}</div>

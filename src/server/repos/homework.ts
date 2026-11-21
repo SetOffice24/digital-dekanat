@@ -159,9 +159,35 @@ export async function reviewSubmission(
   return true;
 }
 
+/**
+ * Очередь проверки: все сдачи «на проверке» по заданиям преподавателя (только текущие учебные связи),
+ * сгруппированы по заданию, дольше всего ждущие — сверху.
+ */
+export async function reviewQueue(teacher: SessionTeacher) {
+  const rows = await prisma.submission.findMany({
+    where: { status: "SUBMITTED", assignment: { teacherId: teacher.id } },
+    orderBy: { submittedAt: "asc" },
+    take: 300,
+    select: { id: true, submittedAt: true, version: true, student: { select: { lastName: true, firstName: true } }, assignment: { select: { id: true, title: true, dueAt: true, groupId: true, courseId: true, group: { select: { name: true } }, course: { select: { name: true } } } } },
+  });
+  const allowed = new Map<string, boolean>();
+  const groups = new Map<string, { assignment: (typeof rows)[number]["assignment"]; items: { id: string; name: string; submittedAt: Date; late: boolean; resubmitted: boolean; waitDays: number }[] }>();
+  const now = Date.now();
+  for (const r of rows) {
+    const pair = r.assignment.groupId + "|" + r.assignment.courseId;
+    if (!allowed.has(pair)) allowed.set(pair, await teachesPair(teacher, r.assignment.groupId, r.assignment.courseId));
+    if (!allowed.get(pair)) continue;
+    const g = groups.get(r.assignment.id) ?? { assignment: r.assignment, items: [] };
+    g.items.push({ id: r.id, name: `${r.student.lastName} ${r.student.firstName}`, submittedAt: r.submittedAt, late: r.submittedAt > r.assignment.dueAt, resubmitted: r.version > 1, waitDays: Math.floor((now - r.submittedAt.getTime()) / 86400_000) });
+    groups.set(r.assignment.id, g);
+  }
+  return [...groups.values()];
+}
+
 /** Сколько сдач ждут проверки у преподавателя — для главной. */
-export function pendingReviews(teacher: SessionTeacher) {
-  return prisma.submission.count({ where: { status: "SUBMITTED", assignment: { teacherId: teacher.id } } });
+export async function pendingReviews(teacher: SessionTeacher) {
+  // то же, что в очереди «Проверить работы» (только текущие учебные связи) — число и список совпадают
+  return (await reviewQueue(teacher)).reduce((n, g) => n + g.items.length, 0);
 }
 
 /* ---------------- студент ---------------- */

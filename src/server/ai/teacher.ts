@@ -173,7 +173,7 @@ export const teacherTools: Tool<TeacherContext>[] = [
     examples: ["Что ждёт проверки?", "Покажи работы на проверке"],
     not: ["не сдал", "кто сдал"],
     run: (_msg, ctx) => ({
-      text: ctx.pending.length ? `Ждут проверки ${ctx.pending.length} ${plural(ctx.pending.length, "работа", "работы", "работ")}. Принять или вернуть на доработку можно прямо здесь; оценку ставите вы в журнале.` : "Все сданные работы проверены — новых нет.",
+      text: ctx.pending.length ? `Ждут проверки ${ctx.pending.length} ${plural(ctx.pending.length, "работа", "работы", "работ")}. Принять или вернуть на доработку можно прямо здесь; принять с баллами — в карточке проверки задания, баллы сразу попадут в журнал.` : "Все сданные работы проверены — новых нет.",
       widget: ctx.pending.length ? { type: "teacher.reviews", params: {} } : undefined,
     }),
   },

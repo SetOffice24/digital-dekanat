@@ -344,7 +344,7 @@ export function AssistantPanel({ firstName, onClose, mode = "drawer", role = "ST
                   send(input);
                 }
               }}
-              placeholder="Напишите или скажите, что нужно…"
+              placeholder="Ваш вопрос…"
               className="max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-[15px] outline-none placeholder:text-muted focus-visible:outline-none"
             />
             <VoiceButton onText={setInput} disabled={busy} />

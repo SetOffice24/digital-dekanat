@@ -2,6 +2,7 @@
 import { useActionState, useState } from "react";
 import { Upload } from "lucide-react";
 import { FormMessage } from "@/components/staff/bits";
+import { FilePick } from "@/components/file-pick";
 import { replaceRequestDocumentAction, type ActState } from "../../services/actions";
 
 /** «Загрузить новую версию» для документа, который деканат не принял, — прямо в этой заявке. */
@@ -17,7 +18,7 @@ export function ReplaceDocForm({ requestId, docId, expires }: { requestId: strin
     );
   return (
     <form action={action} className="space-y-2">
-      <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required className="block w-full text-sm" />
+      <FilePick accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required />
       {expires && (
         <label className="block text-sm">
           <span className="text-muted">Действует до</span>
