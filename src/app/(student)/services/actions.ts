@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import type { DocKind } from "@prisma/client";
 import { requireStudent } from "@/server/auth";
 import { CaseError, closeCase, markRead, notifyTeachers, startCase } from "@/server/services/situations";
-import { deleteDocument, DocumentError, uploadDocument } from "@/server/services/documents";
+import { deleteDocument, DocumentError, replaceRequestDocument, uploadDocument } from "@/server/services/documents";
 import { AppointmentError, bookAppointment, cancelAppointment } from "@/server/services/appointments";
 import { rateRequest, ServiceError } from "@/server/services/requests";
 import { docKinds } from "@/config/services";
@@ -64,6 +64,24 @@ export async function uploadDocumentAction(_: ActState, form: FormData): Promise
   const back = String(form.get("back") ?? "");
   if (back.startsWith("/services/case/") || back.startsWith("/requests/new")) redirect(back);
   return { ok: `${docKinds[kind].title} загружен. Деканат проверит его при первой заявке.` };
+}
+
+/** Заменить отклонённый документ в открытой заявке (новая версия — на проверку, старая — в истории заявки). */
+export async function replaceRequestDocumentAction(requestId: string, docId: string, _: ActState, form: FormData): Promise<ActState> {
+  const { student } = await requireStudent();
+  if (!id.safeParse(requestId).success || !id.safeParse(docId).success) return { error: "Документ не найден" };
+  const file = form.get("file");
+  if (!(file instanceof File) || !file.size) return { error: "Выберите файл" };
+  try {
+    await replaceRequestDocument(student, requestId, docId, file, String(form.get("validUntil") ?? "") || null);
+  } catch (e) {
+    if (e instanceof DocumentError) return { error: e.message };
+    console.error("document replace", e);
+    return { error: "Не удалось обработать файл — попробуйте другой" };
+  }
+  revalidatePath(`/requests/${requestId}`);
+  revalidatePath("/services/documents");
+  return { ok: "Новая версия приложена — деканат проверит её." };
 }
 
 export async function deleteDocumentAction(docId: string): Promise<ActState> {

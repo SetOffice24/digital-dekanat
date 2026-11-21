@@ -13,7 +13,7 @@ const created: string[] = [];
 let anna: Viewer, petr: Viewer, teacher: Viewer, staff: Viewer, classmate: Viewer, outsiderStaff: Viewer, facultyStaff: Viewer;
 
 const load = async (login: string) => viewerOf(await db.user.findUniqueOrThrow({ where: { login }, include: { student: true, staff: true, teacher: true } }));
-const pdf = (name = "вопрос.pdf") => new File(["%PDF-1.4 test"], name, { type: "application/pdf" });
+const pdf = (name = "вопрос.pdf") => new File(["%PDF-1.4 test\n%%EOF\n"], name, { type: "application/pdf" });
 
 beforeAll(async () => {
   [anna, petr, teacher, staff] = await Promise.all(["anna.lesnova", "petr.ozerov", "teacher", "dekanat"].map(load));

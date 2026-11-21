@@ -201,6 +201,7 @@ model Student {
   documents     StudentDocument[]
   cases         SituationCase[]
   appointments  Appointment[]
+  retakes       Exam[]
   /// код электронного студенческого билета (QR → публичная проверка «действующий студент»)
   idCode        String?            @unique
 }
@@ -227,6 +228,7 @@ model Teacher {
   materials   Material[]
   assignments Assignment[]
   approvals   RequestApproval[]
+  retakes     Exam[]
 }
 
 model Course {
@@ -298,28 +300,52 @@ model Enrollment {
 }
 
 model Grade {
-  id           String     @id @default(cuid())
+  id           String      @id @default(cuid())
   enrollmentId String
-  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  enrollment   Enrollment  @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   kind         GradeKind
   value        String
   points       Int?
   date         DateTime
   note         String?
+  /// оценка за конкретную сдачу ДЗ (одна на сдачу); возврат работы снимает её
+  submissionId String?     @unique
+  submission   Submission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  /// основание: заявление (перезачёт, пересдача)
+  requestId    String?
+  request      Request?    @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  /// кто поставил (преподаватель или сотрудник деканата)
+  authorUserId String?
 
   @@index([enrollmentId])
 }
 
 model Exam {
-  id       String   @id @default(cuid())
-  courseId String
-  course   Course   @relation(fields: [courseId], references: [id])
-  groupId  String
-  group    Group    @relation(fields: [groupId], references: [id])
-  date     DateTime
-  room     String
-  kind     ExamKind
-  teacher  String
+  id           String    @id @default(cuid())
+  courseId     String
+  course       Course    @relation(fields: [courseId], references: [id])
+  groupId      String
+  group        Group     @relation(fields: [groupId], references: [id])
+  date         DateTime
+  room         String
+  kind         ExamKind
+  teacher      String
+  /// индивидуальная пересдача: только этому студенту (у групповых экзаменов — null)
+  studentId    String?
+  student      Student?  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  /// заявление, по которому назначена
+  requestId    String?   @unique
+  request      Request?  @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  /// преподаватель с кабинетом, который фиксирует результат
+  teacherId    String?
+  teacherRef   Teacher?  @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  /// зачисление с задолженностью, которое закрывает результат
+  enrollmentId String?
+  /// результат зафиксирован
+  resultAt     DateTime?
+
+  @@index([studentId])
+  @@index([teacherId])
 }
 
 model RequestType {
@@ -376,6 +402,8 @@ model Request {
   approvals     RequestApproval[]
   documents     RequestDocument[]
   appointments  Appointment[]
+  grades        Grade[]
+  retake        Exam?
 
   @@index([studentId, createdAt])
   @@index([status])
@@ -573,6 +601,7 @@ model Submission {
   submittedAt    DateTime         @default(now())
   reviewedAt     DateTime?
   files          Attachment[]
+  grade          Grade?
 
   @@unique([assignmentId, studentId])
 }
@@ -869,6 +898,8 @@ model RequestDocument {
   request    Request         @relation(fields: [requestId], references: [id], onDelete: Cascade)
   documentId String
   document   StudentDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  /// документ заменён студентом новой версией (старая остаётся в истории заявки)
+  replacedAt DateTime?
 
   @@id([requestId, documentId])
 }

@@ -14,6 +14,16 @@ import { parseFields } from "@/lib/request-fields";
 import { requestStatusLabel } from "@/lib/labels";
 import { cn, dueDate, fmtDate, fmtDateTime } from "@/lib/utils";
 import { AnswerForm } from "./answer-form";
+import { ReplaceDocForm } from "./replace-doc";
+
+/** Услуги, результат которых наступает вне сервиса: что именно сделал деканат. */
+const OUTSIDE: Record<string, string> = {
+  APP_MATHELP: "Деканат принял решение и передал его на выплату. Деньги поступят на карту отдельно — сроки зависят от бухгалтерии вуза.",
+  ACC_BANK: "Новые реквизиты переданы для следующих выплат стипендии.",
+  DORM_CHECKIN: "Направление на заселение выдано. Само заселение оформляет общежитие — с направлением и документами.",
+  APP_TRANSFER: "Решение деканата оформлено. Перевод выполняется приказом — после него новая группа и расписание появятся в кабинете.",
+  APP_ACADEMIC_LEAVE: "Решение деканата оформлено. Отпуск начинается с даты приказа — деканат сообщит её отдельно.",
+};
 
 export const metadata = { title: "Заявка" };
 
@@ -38,7 +48,10 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
   const pending = r.approvals.find((a) => a.status === "PENDING");
   const late = (r.status === "NEW" || r.status === "IN_REVIEW") && !pending && due < new Date();
   const finished = r.status === "READY" || r.status === "DONE" || r.status === "REJECTED";
-  const needsVisit = r.status === "READY" && (r.wantsPaper || !r.certificate);
+  // пересдача в статусе «Готово» — это назначенная дата, забирать в деканате нечего
+  const needsVisit = r.status === "READY" && (r.wantsPaper || !r.certificate) && !r.retake && !OUTSIDE[r.type.code];
+  // что «выполнено» значит для услуг, итог которых наступает вне сервиса (честно, без обещаний)
+  const outside = (r.status === "READY" || r.status === "DONE") ? OUTSIDE[r.type.code] : null;
   const who = (role: string) => (role === "STAFF" ? "деканат" : role === "TEACHER" ? "преподаватель" : "вы");
 
   return (
@@ -79,6 +92,15 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
           <Zap size={15} /> Выдана автоматически сразу после заказа — без очереди
         </p>
       )}
+      {r.retake && !r.retake.resultAt && r.status !== "REJECTED" && (
+        <p className="mb-4 flex items-start gap-2 rounded-xl bg-p-mint/60 px-3 py-2 text-sm">
+          <CalendarClock size={16} className="mt-0.5 shrink-0" />
+          <span>
+            Пересдача: <b>{r.retake.course.name}</b>, {fmtDateTime(r.retake.date)}, ауд. {r.retake.room}, принимает {r.retake.teacher}. Результат внесёт преподаватель — долг закроется в «Учёбе» сам.
+          </span>
+        </p>
+      )}
+      {outside && <p className="mb-4 rounded-xl bg-surface-2 px-3 py-2 text-sm">{outside}</p>}
       {late && (
         <p className="mb-4 rounded-xl bg-danger-soft px-3 py-2 text-sm font-semibold text-danger">
           Срок по регламенту прошёл{r.escalatedAt ? " — заявка на контроле у руководителя деканата" : ""}. Мы уже разбираемся.
@@ -245,14 +267,22 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
         <>
           <SectionTitle>Приложенные документы</SectionTitle>
           <Card className="divide-y divide-border p-0">
-            {r.documents.map(({ document: d }) => (
-              <a key={d.id} href={`/api/documents/${d.id}`} target="_blank" rel="noopener" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-surface-2/50">
-                <FileText size={16} className="shrink-0 text-muted" />
-                <span className="min-w-0 flex-1 font-semibold">{docKinds[d.kind].title}</span>
-                <span className={cn("rounded-full px-2.5 py-0.5 text-[13px] font-semibold", d.status === "VERIFIED" ? "bg-success-soft text-success" : d.status === "REJECTED" ? "bg-danger-soft text-danger" : "bg-surface-2 text-muted")}>
-                  {d.status === "VERIFIED" ? "проверен" : d.status === "REJECTED" ? "не принят" : "на проверке"}
-                </span>
-              </a>
+            {[...r.documents].sort((a, b) => Number(!!a.replacedAt) - Number(!!b.replacedAt)).map(({ document: d, replacedAt }) => (
+              <div key={d.id} className={cn("px-4 py-3 text-sm", replacedAt && "opacity-60")}>
+                <a href={`/api/documents/${d.id}`} target="_blank" rel="noopener" className="flex items-center gap-3 hover:underline">
+                  <FileText size={16} className="shrink-0 text-muted" />
+                  <span className={cn("min-w-0 flex-1 font-semibold", replacedAt && "line-through")}>{docKinds[d.kind].title}</span>
+                  <span className={cn("rounded-full px-2.5 py-0.5 text-[13px] font-semibold", replacedAt ? "bg-surface-2 text-muted" : d.status === "VERIFIED" ? "bg-success-soft text-success" : d.status === "REJECTED" ? "bg-danger-soft text-danger" : "bg-surface-2 text-muted")}>
+                    {replacedAt ? `заменён ${fmtDate(replacedAt)}` : d.status === "VERIFIED" ? "проверен" : d.status === "REJECTED" ? "не принят" : "на проверке"}
+                  </span>
+                </a>
+                {!replacedAt && d.status === "REJECTED" && (
+                  <div className="mt-2 pl-7">
+                    {d.reviewNote && <p className="mb-2 text-[13px] text-danger">{d.reviewNote}</p>}
+                    {!finished && <ReplaceDocForm requestId={r.id} docId={d.id} expires={docKinds[d.kind].expires} />}
+                  </div>
+                )}
+              </div>
             ))}
           </Card>
         </>

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireStudent } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { createRequest } from "@/server/repos/student";
-import { getDraftMessage, markDraftDone, markDraftOrdered } from "@/server/repos/assistant";
+import { ServiceError } from "@/server/services/requests";
+import { claimDraft, getDraftMessage, markDraftDone, markDraftOrdered, releaseDraft } from "@/server/repos/assistant";
 import { parseFields, payloadSchema } from "@/lib/request-fields";
 
 export type OrderResult = { ok?: { id: string; number: number }; error?: string; fieldErrors?: Record<string, string> };
@@ -33,7 +34,15 @@ export async function orderFromDraftAction(messageId: string, values: Record<str
     for (const i of parsed.error.issues) fieldErrors[String(i.path[0])] = i.message;
     return { error: "Заполните выделенные поля", fieldErrors };
   }
-  const r = await createRequest(student, type.id, parsed.data as Record<string, string>, Boolean(wantsPaper), "Заказано через помощника");
+  if (!(await claimDraft(student, messageId, "requestId"))) return { error: "Заявка уже оформляется — обновите чат" };
+  let r;
+  try {
+    r = await createRequest(student, type.id, parsed.data as Record<string, string>, Boolean(wantsPaper), "Заказано через помощника");
+  } catch (e) {
+    await releaseDraft(student, messageId);
+    if (e instanceof ServiceError) return { error: e.message };
+    throw e;
+  }
   await markDraftOrdered(student, messageId, r.id);
   revalidatePath("/requests");
   revalidatePath("/");

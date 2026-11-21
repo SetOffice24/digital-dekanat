@@ -8,7 +8,7 @@ import { Prisma, type SubmissionStatus } from "@prisma/client";
 import { prisma } from "../db";
 import { notify } from "../notify";
 import { removeStored, storeFiles } from "../files";
-import { teachesPair, TeacherAccessError, type SessionTeacher } from "./teacher";
+import { MAX_POINTS, teachesPair, TeacherAccessError, type SessionTeacher } from "./teacher";
 import type { SessionStudent } from "./student";
 
 const fileSel = { select: { id: true, name: true, size: true } } as const;
@@ -98,7 +98,7 @@ export async function getAssignmentForTeacher(teacher: SessionTeacher, id: strin
   const students = await prisma.student.findMany({
     where: { OR: [{ groupId: a.groupId }, { submissions: { some: { assignmentId: id } } }] },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-    select: { id: true, lastName: true, firstName: true, groupId: true, group: { select: { name: true } }, submissions: { where: { assignmentId: id }, include: { files: fileSel } } },
+    select: { id: true, lastName: true, firstName: true, groupId: true, group: { select: { name: true } }, submissions: { where: { assignmentId: id }, include: { files: fileSel, grade: { select: { points: true } } } } },
   });
   return {
     assignment: a,
@@ -109,22 +109,51 @@ export async function getAssignmentForTeacher(teacher: SessionTeacher, id: strin
 /**
  * Принять / вернуть сдачу. Проверка привязана к версии: если студент успел прислать новую — «stale», ничего не меняем
  * (иначе преподаватель «принял» бы файлы, которых не видел). Повтор того же решения — без нового уведомления.
+ * Баллы за работу (по желанию преподавателя) — в том же действии и той же транзакции: оценка связана со сдачей
+ * (Grade.submissionId, одна на сдачу), видна студенту в задании и в журнале. Возврат на доработку снимает баллы за работу —
+ * преподаватель видит это предупреждение до нажатия. ИИ баллы не ставит.
  */
-export async function reviewSubmission(teacher: SessionTeacher, submissionId: string, version: number, status: "ACCEPTED" | "RETURNED", comment: string | null): Promise<true | "stale" | null> {
+export async function reviewSubmission(
+  teacher: SessionTeacher,
+  submissionId: string,
+  version: number,
+  status: "ACCEPTED" | "RETURNED",
+  comment: string | null,
+  points: number | null = null,
+): Promise<true | "stale" | null> {
   const s = await prisma.submission.findUnique({
     where: { id: submissionId },
-    include: { assignment: { select: { id: true, title: true, groupId: true, courseId: true, course: { select: { name: true } } } }, student: { select: { userId: true } } },
+    include: {
+      assignment: { select: { id: true, title: true, groupId: true, courseId: true, course: { select: { name: true } } } },
+      student: { select: { userId: true, course: true } },
+      grade: { select: { id: true, points: true } },
+    },
   });
   if (!s || !(await teachesPair(teacher, s.assignment.groupId, s.assignment.courseId))) return null;
   if (s.version !== version) return "stale";
-  if (s.status === status && s.teacherComment === comment) return true;
-  const { count } = await prisma.submission.updateMany({ where: { id: submissionId, version }, data: { status, teacherComment: comment, reviewedAt: new Date() } });
-  if (!count) return "stale";
+  const pts = status === "ACCEPTED" ? points : null;
+  if (s.status === status && s.teacherComment === comment && (s.grade?.points ?? null) === pts) return true;
+  // баллы — в зачисление текущего семестра студента по этой дисциплине
+  const enrollment = pts === null ? null : await prisma.enrollment.findFirst({ where: { studentId: s.studentId, courseId: s.assignment.courseId, semester: s.student.course * 2 - 1 }, select: { id: true } });
+  if (pts !== null && !enrollment) throw new HomeworkError("Студент не зачислен на дисциплину в этом семестре — баллы поставить нельзя, примите без баллов");
+  const ok = await prisma.$transaction(async (tx) => {
+    const { count } = await tx.submission.updateMany({ where: { id: submissionId, version }, data: { status, teacherComment: comment, reviewedAt: new Date() } });
+    if (!count) return false;
+    if (pts === null) await tx.grade.deleteMany({ where: { submissionId } });
+    else
+      await tx.grade.upsert({
+        where: { submissionId },
+        create: { submissionId, enrollmentId: enrollment!.id, kind: "CURRENT", value: String(pts), points: pts, date: new Date(), note: `ДЗ «${s.assignment.title}»`, authorUserId: (await tx.teacher.findUnique({ where: { id: teacher.id }, select: { userId: true } }))?.userId ?? null },
+        update: { value: String(pts), points: pts, date: new Date() },
+      });
+    return true;
+  });
+  if (!ok) return "stale";
   await notify([s.student.userId], {
-    dedupeKey: `review:${submissionId}:v${version}:${status}`,
+    dedupeKey: `review:${submissionId}:v${version}:${status}:${pts ?? "-"}`,
     kind: "GRADE",
-    title: status === "ACCEPTED" ? `Домашнее задание принято` : `Домашнее задание — на доработку`,
-    body: `${s.assignment.course.name}: «${s.assignment.title}»${comment ? `. Комментарий: ${comment}` : ""}`,
+    title: status === "ACCEPTED" ? (pts !== null ? `Домашнее задание принято: ${pts} из ${MAX_POINTS}` : `Домашнее задание принято`) : `Домашнее задание — на доработку`,
+    body: `${s.assignment.course.name}: «${s.assignment.title}»${status === "RETURNED" && s.grade ? " (баллы за работу сняты до повторной проверки)" : ""}${comment ? `. Комментарий: ${comment}` : ""}`,
     link: `/homework/${s.assignment.id}`,
   });
   return true;
@@ -163,7 +192,7 @@ export async function listHomework(s: SessionStudent) {
 export async function getHomework(s: SessionStudent, id: string) {
   const a = await prisma.assignment.findFirst({
     where: { id, ...mineOrMyGroup(s) },
-    include: { files: fileSel, course: { select: { id: true, name: true } }, teacher: { select: { fullName: true } }, submissions: { where: { studentId: s.id }, include: { files: fileSel } } },
+    include: { files: fileSel, course: { select: { id: true, name: true } }, teacher: { select: { fullName: true } }, submissions: { where: { studentId: s.id }, include: { files: fileSel, grade: { select: { points: true } } } } },
   });
   if (!a) return null;
   const sub = a.submissions[0] ?? null;
@@ -178,7 +207,7 @@ export class HomeworkError extends Error {}
  * Сдача после срока разрешена — у преподавателя она видна с отметкой «после срока» (решение команды 18.11).
  */
 export async function submitHomework(s: SessionStudent, id: string, comment: string | null, files: File[]) {
-  const a = await prisma.assignment.findFirst({ where: { id, ...mineOrMyGroup(s) }, select: { id: true, groupId: true } });
+  const a = await prisma.assignment.findFirst({ where: { id, ...mineOrMyGroup(s) }, select: { id: true, groupId: true, courseId: true, title: true, teacher: { select: { userId: true } }, course: { select: { name: true } } } });
   if (!a) throw new HomeworkError("Задание не найдено");
   const prev = await prisma.submission.findUnique({ where: { assignmentId_studentId: { assignmentId: id, studentId: s.id } }, include: { files: { select: { id: true, storageKey: true } } } });
   // задание прежней группы (после перевода) — только доработка уже возвращённой работы, новые сдачи нельзя
@@ -199,6 +228,17 @@ export async function submitHomework(s: SessionStudent, id: string, comment: str
       return tx.submission.findUniqueOrThrow({ where: { id: prev.id } });
     });
     if (prev) await removeStored(prev.files.map((f) => f.storageKey));
+    // сигнал преподавателю: новая сдача ждёт проверки (по одному на версию — повторы не множатся)
+    if (a.teacher.userId) {
+      const who = await prisma.student.findUnique({ where: { id: s.id }, select: { lastName: true, firstName: true } });
+      await notify([a.teacher.userId], {
+        kind: "DEADLINE",
+        title: sub.version > 1 ? "Исправленная работа на проверке" : "Новая работа на проверке",
+        body: `${who ? `${who.lastName} ${who.firstName}` : "Студент"} — ${a.course.name}: «${a.title}»`,
+        link: `/teacher/${a.groupId}/${a.courseId}/homework/${a.id}`,
+        dedupeKey: `submitted:${sub.id}:v${sub.version}`,
+      }).catch((e) => console.error("notify teacher", e));
+    }
     return sub;
   } catch (e) {
     await removeStored(stored.map((f) => f.storageKey));

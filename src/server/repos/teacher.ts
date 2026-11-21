@@ -79,9 +79,10 @@ export async function getGradebook(teacher: SessionTeacher, groupId: string, cou
 export async function addGrade(teacher: SessionTeacher, enrollmentId: string, points: number, note: string) {
   const enr = await prisma.enrollment.findUnique({
     where: { id: enrollmentId },
-    select: { courseId: true, course: { select: { name: true } }, student: { select: { userId: true, groupId: true } } },
+    select: { courseId: true, semester: true, course: { select: { name: true } }, student: { select: { userId: true, groupId: true, course: true } } },
   });
-  if (!enr || !(await teachesPair(teacher, enr.student.groupId, enr.courseId))) throw new TeacherAccessError("Нет доступа к этому студенту");
+  // только текущий семестр: прошлые зачисления (другой период, возможно другой преподаватель) не меняем
+  if (!enr || enr.semester !== semesterOf(enr.student.course) || !(await teachesPair(teacher, enr.student.groupId, enr.courseId))) throw new TeacherAccessError("Нет доступа к этому студенту");
   const grade = await prisma.grade.create({ data: { enrollmentId, kind: "CURRENT", value: String(points), points, date: new Date(), note } });
   await notify([enr.student.userId], { kind: "GRADE", title: "Новая оценка", body: `${enr.course.name}: ${points} баллов — ${note}`, link: "/grades" });
   return grade;
@@ -90,9 +91,9 @@ export async function addGrade(teacher: SessionTeacher, enrollmentId: string, po
 export async function deleteGrade(teacher: SessionTeacher, gradeId: string) {
   const g = await prisma.grade.findUnique({
     where: { id: gradeId },
-    select: { kind: true, enrollment: { select: { courseId: true, student: { select: { groupId: true } } } } },
+    select: { kind: true, enrollment: { select: { courseId: true, semester: true, student: { select: { groupId: true, course: true } } } } },
   });
-  if (!g || g.kind !== "CURRENT" || !(await teachesPair(teacher, g.enrollment.student.groupId, g.enrollment.courseId))) return false;
+  if (!g || g.kind !== "CURRENT" || g.enrollment.semester !== semesterOf(g.enrollment.student.course) || !(await teachesPair(teacher, g.enrollment.student.groupId, g.enrollment.courseId))) return false;
   await prisma.grade.delete({ where: { id: gradeId } });
   return true;
 }
@@ -134,9 +135,9 @@ export async function addGradesBulk(teacher: SessionTeacher, groupId: string, co
   const course = await prisma.course.findUnique({ where: { id: courseId }, select: { name: true } });
   const enrs = await prisma.enrollment.findMany({
     where: { id: { in: items.map((i) => i.enrollmentId) }, courseId, student: { groupId } },
-    select: { id: true, student: { select: { userId: true } } },
+    select: { id: true, semester: true, student: { select: { userId: true, course: true } } },
   });
-  const allowed = new Map(enrs.map((e) => [e.id, e.student.userId]));
+  const allowed = new Map(enrs.filter((e) => e.semester === semesterOf(e.student.course)).map((e) => [e.id, e.student.userId]));
   const ok = items.filter((i) => allowed.has(i.enrollmentId));
   if (ok.length !== items.length) throw new TeacherAccessError("Часть студентов не из этой группы");
   const now = new Date();

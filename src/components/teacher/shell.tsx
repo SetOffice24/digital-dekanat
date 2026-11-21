@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { BookOpen, GitBranch, LogOut } from "lucide-react";
+import { BookOpen, ClipboardCheck, GitBranch, LogOut } from "lucide-react";
 import { Wordmark } from "@/components/logo";
 import { logoutAction } from "@/app/login/actions";
 import { university } from "@/config/university";
@@ -8,6 +8,7 @@ import { MessagesLink } from "@/components/messages/messages-link";
 import { AssistantProvider, OpenAssistant } from "@/components/assistant/provider";
 import { Mascot } from "@/components/assistant/mascot";
 import { ReminderNotice } from "@/components/reminder-notice";
+import { RoleLiveNotice } from "@/components/role-live-notice";
 
 /** Кабинет преподавателя: простая шапка без навигации — раздел один. */
 export function TeacherShell({ children, name, department }: { children: React.ReactNode; name: string; department: string }) {
@@ -31,6 +32,9 @@ export function TeacherShell({ children, name, department }: { children: React.R
           <Link href="/teacher/approvals" className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg" aria-label="Согласования" title="Согласования: перезачёты дисциплин">
             <GitBranch size={20} />
           </Link>
+          <Link href="/teacher/retakes" className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg" aria-label="Пересдачи" title="Пересдачи: назначенные деканатом, результат">
+            <ClipboardCheck size={20} />
+          </Link>
           <Link href="/teacher/library" className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg" aria-label="Библиотека для помощника" title="Библиотека: материалы, по которым помощник отвечает студентам">
             <BookOpen size={20} />
           </Link>
@@ -50,6 +54,7 @@ export function TeacherShell({ children, name, department }: { children: React.R
       </footer>
     </div>
     <ReminderNotice />
+    <RoleLiveNotice home="/teacher" />
     </AssistantProvider>
   );
 }

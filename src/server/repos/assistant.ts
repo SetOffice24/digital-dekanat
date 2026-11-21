@@ -57,8 +57,33 @@ export function getDraftMessage(o: ChatOwner, messageId: string) {
 export async function markDraftDone(o: ChatOwner, messageId: string, done: Record<string, string>) {
   const m = await prisma.aiMessage.findFirst({ where: { id: messageId, chat: { userId: o.userId } }, select: { draft: true } });
   if (!m?.draft) return false;
-  await prisma.aiMessage.update({ where: { id: messageId }, data: { draft: { ...(m.draft as object), ...done } } });
+  const { claimedAt: _claim, ...rest } = m.draft as Record<string, unknown>;
+  void _claim;
+  await prisma.aiMessage.update({ where: { id: messageId }, data: { draft: { ...rest, ...done } as Prisma.InputJsonObject } });
   return true;
+}
+
+/**
+ * Захватить черновик под выполнение действия. Атомарно (один UPDATE с условием): из параллельных нажатий
+ * true получит только один запрос, остальные — false и не создадут дубль. После действия — markDraftDone
+ * (ключ результата + снятие захвата) или releaseDraft при ошибке, чтобы можно было повторить.
+ * doneKey — поле черновика, означающее «уже выполнено» (requestId, assignmentId, sentTo, reminderWhen).
+ */
+export async function claimDraft(o: ChatOwner, messageId: string, doneKey: string) {
+  const n = await prisma.$executeRaw`
+    UPDATE "AiMessage" m SET draft = jsonb_set(m.draft::jsonb, '{claimedAt}', to_jsonb(now()::text))
+    FROM "AiChat" c
+    WHERE m.id = ${messageId} AND m."chatId" = c.id AND c."userId" = ${o.userId}
+      AND m.draft IS NOT NULL AND NOT (m.draft::jsonb ? 'claimedAt') AND NOT (m.draft::jsonb ? ${doneKey})`;
+  return n > 0;
+}
+
+/** Снять захват черновика (действие не удалось — можно нажать ещё раз). */
+export async function releaseDraft(o: ChatOwner, messageId: string) {
+  await prisma.$executeRaw`
+    UPDATE "AiMessage" m SET draft = m.draft::jsonb - 'claimedAt'
+    FROM "AiChat" c
+    WHERE m.id = ${messageId} AND m."chatId" = c.id AND c."userId" = ${o.userId} AND m.draft IS NOT NULL`;
 }
 
 /** Студенческая заявка по черновику (историческое имя). */

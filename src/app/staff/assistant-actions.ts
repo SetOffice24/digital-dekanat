@@ -3,7 +3,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/server/auth";
 import { createAnnouncement } from "@/server/repos/staff";
-import { getDraftMessage, markDraftDone } from "@/server/repos/assistant";
+import { claimDraft, getDraftMessage, markDraftDone, releaseDraft } from "@/server/repos/assistant";
 
 const schema = z.object({
   audience: z.enum(["ALL", "FACULTY", "GROUP"]),
@@ -26,8 +26,18 @@ export async function announceFromDraftAction(messageId: string, values: { audie
   const p = schema.safeParse(values);
   if (!p.success) return { error: p.error.issues[0].message };
   if (p.data.audience === "GROUP" && !p.data.groupId) return { error: "Выберите группу" };
-  const sentTo = await createAnnouncement(staff, { title: p.data.title, body: p.data.body, audience: p.data.audience, facultyId: staff.facultyId, groupId: p.data.groupId || null, pinned: false });
-  if (sentTo === null) return { error: "Эта аудитория вне вашей области" };
+  if (!(await claimDraft({ userId: user.id }, messageId, "sentTo"))) return { error: "Объявление уже публикуется — обновите чат" };
+  let sentTo: number | null;
+  try {
+    sentTo = await createAnnouncement(staff, { title: p.data.title, body: p.data.body, audience: p.data.audience, facultyId: staff.facultyId, groupId: p.data.groupId || null, pinned: false });
+  } catch (e) {
+    await releaseDraft({ userId: user.id }, messageId);
+    throw e;
+  }
+  if (sentTo === null) {
+    await releaseDraft({ userId: user.id }, messageId);
+    return { error: "Эта аудитория вне вашей области" };
+  }
   await markDraftDone({ userId: user.id }, messageId, { sentTo: String(sentTo) });
   revalidatePath("/staff/announcements");
   return { ok: { sentTo } };

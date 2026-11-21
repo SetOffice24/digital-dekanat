@@ -1,5 +1,9 @@
 {$SITE_HOST} {
 	encode zstd gzip
 	header Strict-Transport-Security "max-age=31536000"
+	# жёсткий предел тела запроса: больше 13 МБ отклоняется до приложения (файлы — до 10 МБ, Server Actions — до 12 МБ)
+	request_body {
+		max_size 13MB
+	}
 	reverse_proxy app:3000
 }

@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, CalendarDays, Check, MapPin, UserCheck } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, Check, MapPin, UserCheck, ClipboardCheck } from "lucide-react";
 import { requireTeacher } from "@/server/auth";
 import { listClasses, teachingDay } from "@/server/repos/teacher";
 import { pendingReviews } from "@/server/repos/homework";
 import { teacherOverview } from "@/server/repos/analytics";
 import { countApprovals } from "@/server/services/requests";
 import { absentStudents } from "@/server/services/teacher";
+import { countRetakesToGrade } from "@/server/services/academic";
 import { GitBranch, HeartPulse } from "lucide-react";
 import { EmptyState, PageHeader } from "@/components/ui";
 import { lessonKindLabel } from "@/lib/labels";
@@ -20,7 +21,7 @@ export const metadata = { title: "Сегодня" };
 export default async function TeacherHome() {
   const { user, teacher } = await requireTeacher();
   const today = moscowToday();
-  const [approvals, absent] = await Promise.all([countApprovals({ teacherId: teacher.id, userId: user.id }), absentStudents(teacher.id)]);
+  const [approvals, absent, retakes] = await Promise.all([countApprovals({ teacherId: teacher.id, userId: user.id }), absentStudents(teacher.id), countRetakesToGrade(teacher.id)]);
   const dm = (iso: string) => (iso ? iso.split("-").reverse().slice(0, 2).join(".") : "");
   const [day, classes, toReview, overview] = await Promise.all([teachingDay(teacher, today), listClasses(teacher), pendingReviews(teacher), teacherOverview(teacher)]);
   const ov = new Map(overview.map((o) => [o.groupId + o.courseId, o]));
@@ -42,8 +43,20 @@ export default async function TeacherHome() {
     <>
       <PageHeader title={`${hello}!`} subtitle={toReview ? `${summary} Ждут проверки домашних заданий: ${toReview}.` : summary} />
 
-      {(approvals > 0 || absent.length > 0) && (
+      {(approvals > 0 || absent.length > 0 || retakes > 0) && (
         <section className="mb-8 grid gap-2 lg:grid-cols-2">
+          {retakes > 0 && (
+            <Link href="/teacher/retakes" className="flex items-center gap-3 rounded-[24px] bg-p-mint/70 p-4 transition hover:opacity-90">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface">
+                <ClipboardCheck size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Внесите результат пересдачи: {retakes}</span>
+                <span className="block text-[13px]">Долг студента закроется в успеваемости сам</span>
+              </span>
+              <ArrowRight size={18} />
+            </Link>
+          )}
           {approvals > 0 && (
             <Link href="/teacher/approvals" className="flex items-center gap-3 rounded-[24px] bg-p-yellow/70 p-4 transition hover:opacity-90">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface">

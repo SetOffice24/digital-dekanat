@@ -2,7 +2,8 @@ import "server-only";
 /**
  * Напоминания, поставленные через помощника. В срок — уведомление в колокольчике и push на устройства.
  * Доставка: фоновый таймер сервера раз в минуту (src/instrumentation.ts) и, на всякий случай,
- * при каждом опросе счётчика уведомлений открытым кабинетом. Повторной доставки нет: sentAt ставится условно.
+ * при каждом опросе счётчика уведомлений открытым кабинетом. Порядок: уведомление (с dedupeKey — повтор не задвоит),
+ * затем sentAt. Сбой уведомления или падение процесса между шагами — напоминание повторится на следующем тике, а не потеряется.
  */
 import { prisma } from "./db";
 import { notify } from "./notify";
@@ -12,9 +13,13 @@ import { norm, parseDay } from "./ai/common";
 export async function deliverDueReminders(userId?: string) {
   const due = await prisma.reminder.findMany({ where: { sentAt: null, dueAt: { lte: new Date() }, ...(userId ? { userId } : {}) }, take: 100, select: { id: true, userId: true, text: true, link: true } });
   for (const r of due) {
-    const { count } = await prisma.reminder.updateMany({ where: { id: r.id, sentAt: null }, data: { sentAt: new Date() } });
-    if (!count) continue; // уже доставил другой вызов
-    await notify([r.userId], { kind: "SYSTEM", title: "Напоминание", body: r.text, link: r.link ?? undefined, dedupeKey: `reminder:${r.id}` }).catch((e) => console.error("reminder notify failed", e));
+    try {
+      await notify([r.userId], { kind: "SYSTEM", title: "Напоминание", body: r.text, link: r.link ?? undefined, dedupeKey: `reminder:${r.id}` });
+    } catch (e) {
+      console.error("reminder notify failed", e);
+      continue; // sentAt не ставим — повторим на следующем тике
+    }
+    await prisma.reminder.updateMany({ where: { id: r.id, sentAt: null }, data: { sentAt: new Date() } });
   }
   return due.length;
 }

@@ -150,7 +150,7 @@ export default async function ServicesHub() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold">{c.situation.title}</span>
-                      <span className="block truncate text-[13px] text-muted">{next ? `Дальше: ${next.title}` : "Все шаги выполнены — можно завершить"}</span>
+                      <span className="block truncate text-[13px] text-muted">{next ? `Дальше: ${next.title}` : "Ваши шаги выполнены — дальше за деканатом"}</span>
                     </span>
                     <span className="text-sm font-semibold tabular-nums">
                       {c.progress.done}/{c.progress.total}

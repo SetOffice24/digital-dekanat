@@ -12,12 +12,16 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import type { DocKind, DocStatus, Prisma } from "@prisma/client";
 import { prisma } from "../db";
+import { isWholePdf } from "../files";
 import { notify } from "../notify";
 import { studentScope, type SessionStaff } from "../repos/staff";
 import { docKinds } from "@/config/services";
 import { moscowToday } from "@/lib/utils";
 
 export const MAX_DOC_MB = 10;
+/** Квота студента: не больше 30 файлов и 100 МБ — загрузки не забьют диск сервера. */
+const MAX_DOCS = 30;
+const MAX_TOTAL_MB = 100;
 const dir = () => path.join(process.env.DATA_DIR || "./data", "documents");
 const OPEN_STATUSES = ["NEW", "IN_REVIEW", "NEED_INFO"] as const;
 
@@ -26,7 +30,7 @@ export class DocumentError extends Error {}
 type DocStudent = { id: string; userId: string };
 
 function sniff(buf: Buffer): "pdf" | "jpg" | "png" | null {
-  if (buf.subarray(0, 5).toString("latin1") === "%PDF-") return "pdf";
+  if (isWholePdf(buf)) return "pdf";
   if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "jpg";
   if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "png";
   return null;
@@ -55,6 +59,9 @@ export async function uploadDocument(s: DocStudent, kind: DocKind, file: File, v
   if (!(kind in docKinds)) throw new DocumentError("Неизвестный вид документа");
   if (!file || !file.size) throw new DocumentError("Выберите файл");
   if (file.size > MAX_DOC_MB * 1024 * 1024) throw new DocumentError(`Файл больше ${MAX_DOC_MB} МБ`);
+  const used = await prisma.studentDocument.aggregate({ where: { studentId: s.id }, _count: { _all: true }, _sum: { size: true } });
+  if (used._count._all >= MAX_DOCS) throw new DocumentError(`Загружено уже ${MAX_DOCS} документов — удалите старые, чтобы добавить новый`);
+  if ((used._sum.size ?? 0) + file.size > MAX_TOTAL_MB * 1024 * 1024) throw new DocumentError(`Документы занимают больше ${MAX_TOTAL_MB} МБ — удалите старые`);
   let buf: Buffer = Buffer.from(await file.arrayBuffer());
   const fmt = sniff(buf);
   if (!fmt) throw new DocumentError("Подходят PDF, JPG и PNG — проверьте, что файл открывается");
@@ -89,9 +96,47 @@ export async function deleteDocument(s: DocStudent, id: string) {
   const d = await prisma.studentDocument.findFirst({ where: { id, studentId: s.id }, select: { id: true, storageKey: true, requests: { where: { request: { status: { in: [...OPEN_STATUSES] } } }, select: { request: { select: { number: true } } } } } });
   if (!d) return false;
   if (d.requests.length) throw new DocumentError(`Документ приложен к заявке №${d.requests[0].request.number} — удалить можно после её завершения`);
-  await prisma.studentDocument.delete({ where: { id } });
+  // условие повторяется в самом удалении: если заявку с документом подали параллельно — не удаляем
+  const { count } = await prisma.studentDocument.deleteMany({ where: { id, studentId: s.id, requests: { none: { request: { status: { in: [...OPEN_STATUSES] } } } } } });
+  if (!count) throw new DocumentError("Документ только что приложили к заявке — удалить можно после её завершения");
   await fs.unlink(path.join(dir(), d.storageKey)).catch(() => {});
   return true;
+}
+
+/**
+ * Заменить отклонённый документ в конкретной открытой заявке (не во всех сразу): новая версия загружается и
+ * приложится к этой заявке, старая остаётся в её истории с отметкой «заменён». Заявка, ждавшая ответа студента,
+ * возвращается деканату в работу; деканат получает уведомление.
+ */
+export async function replaceRequestDocument(s: DocStudent, requestId: string, oldDocId: string, file: File, validUntil?: string | null) {
+  const link = await prisma.requestDocument.findFirst({
+    where: { requestId, documentId: oldDocId, replacedAt: null, request: { studentId: s.id, status: { in: [...OPEN_STATUSES] } }, document: { studentId: s.id } },
+    select: { document: { select: { kind: true, status: true } }, request: { select: { number: true, status: true, student: { select: { facultyId: true } }, type: { select: { title: true } } } } },
+  });
+  if (!link) throw new DocumentError("Заявка уже не в работе или документ заменён — обновите страницу");
+  if (link.document.status !== "REJECTED") throw new DocumentError("Заменить можно документ, который деканат не принял");
+  const fresh = await uploadDocument(s, link.document.kind, file, validUntil);
+  const title = docKinds[link.document.kind].title;
+  try {
+    await prisma.$transaction(async (tx) => {
+      const { count } = await tx.requestDocument.updateMany({ where: { requestId, documentId: oldDocId, replacedAt: null }, data: { replacedAt: new Date() } });
+      if (!count) throw new DocumentError("Документ уже заменён — обновите страницу");
+      await tx.requestDocument.create({ data: { requestId, documentId: fresh.id } });
+      // ждали ответа студента — заявка снова у деканата (условно: если статус уже сменили, не трогаем)
+      const back = await tx.request.updateMany({ where: { id: requestId, status: "NEED_INFO" }, data: { status: "IN_REVIEW" } });
+      await tx.requestEvent.create({ data: { requestId, fromStatus: link.request.status, toStatus: back.count ? "IN_REVIEW" : link.request.status, authorUserId: s.userId, message: `Студент заменил документ «${title}» — новая версия на проверке` } });
+    });
+  } catch (e) {
+    await prisma.studentDocument.delete({ where: { id: fresh.id } }).catch(() => {});
+    await fs.unlink(path.join(dir(), fresh.storageKey)).catch(() => {});
+    throw e;
+  }
+  const staff = await prisma.staff.findMany({ where: { OR: [{ facultyId: null }, { facultyId: link.request.student.facultyId }] }, select: { userId: true } });
+  await notify(
+    staff.map((x) => x.userId),
+    { kind: "REQUEST_STATUS", title: "Документ заменён", body: `«${link.request.type.title}» № ${link.request.number}: студент загрузил новую версию — «${title}».`, link: `/staff/requests/${requestId}`, dedupeKey: `doc-replaced:${fresh.id}` },
+  );
+  return fresh;
 }
 
 /** Условие «документ виден сотруднику деканата». */

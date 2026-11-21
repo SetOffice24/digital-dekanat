@@ -50,6 +50,11 @@ describe("студент: только задания своей группы", 
     expect(() => checkContent("page.pdf", Buffer.from("<html><script>alert(1)</script>"))).toThrow();
     expect(() => checkContent("prog.doc", Buffer.from([0x4d, 0x5a, 0x90, 0x00]))).toThrow();
     expect(() => checkContent("table.xlsx", fixture.docx)).toThrow();
+    // обрезанный PDF, ZIP без оглавления, документ с макросами — отказ
+    expect(() => checkContent("cut.pdf", fixture.pdf.subarray(0, fixture.pdf.length - 4096))).toThrow();
+    expect(() => checkContent("cut.docx", Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from("[Content_Types].xml word/")]))).toThrow();
+    expect(() => checkContent("macro.docx", Buffer.concat([fixture.docx, Buffer.from("vbaProject.bin")]))).toThrow();
+    expect(() => checkContent("macro.doc", Buffer.concat([Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]), Buffer.from("_VBA_PROJECT", "utf16le")]))).toThrow();
     const own = (await listHomework(anna)).find((h) => h.state === "todo")!;
     await expect(submitHomework(anna, own.id, null, [new File(["<html>"], "fake.pdf")])).rejects.toThrow(/не похож/);
   });

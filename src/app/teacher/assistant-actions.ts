@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireTeacher } from "@/server/auth";
 import { createAssignment } from "@/server/repos/homework";
 import { TeacherAccessError } from "@/server/repos/teacher";
-import { getDraftMessage, markDraftDone } from "@/server/repos/assistant";
+import { claimDraft, getDraftMessage, markDraftDone, releaseDraft } from "@/server/repos/assistant";
 import { prisma } from "@/server/db";
 
 const schema = z.object({
@@ -33,12 +33,14 @@ export async function assignFromDraftAction(messageId: string, values: { pair: s
   const [groupId, courseId] = p.data.pair.split("|");
   const dueAt = new Date(`${p.data.dueAt}:00+03:00`); // срок — по Москве
   if (Number.isNaN(dueAt.getTime()) || dueAt.getTime() < Date.now()) return { error: "Срок сдачи должен быть в будущем" };
+  if (!(await claimDraft({ userId: user.id }, messageId, "assignmentId"))) return { error: "Задание уже выдаётся — обновите чат" };
   try {
     const a = await createAssignment(teacher, user.id, groupId, courseId, { title: p.data.title, description: p.data.description, dueAt }, []);
     await markDraftDone({ userId: user.id }, messageId, { assignmentId: a.id });
     revalidatePath(`/teacher/${groupId}/${courseId}/homework`);
     return { ok: { href: `/teacher/${groupId}/${courseId}/homework/${a.id}`, title: a.title } };
   } catch (e) {
+    await releaseDraft({ userId: user.id }, messageId);
     if (e instanceof TeacherAccessError) return { error: e.message };
     throw e;
   }

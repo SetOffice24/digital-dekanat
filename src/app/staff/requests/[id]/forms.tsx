@@ -14,7 +14,9 @@ export type NextRequest = { id: string; number: number; title: string } | null;
 type Decision = { status: "IN_REVIEW" | "NEED_INFO" | "READY" | "DONE" | "REJECTED"; label: string; primary?: boolean; danger?: boolean };
 
 /** Понятные решения вместо выбора «нового статуса» из списка. */
-export function decisionsFor(status: string, isCertificate: boolean): Decision[] {
+export function decisionsFor(status: string, isCertificate: boolean, resultType = false): Decision[] {
+  // пересдача / перезачёт: выполнение — через форму учебного результата рядом, здесь — только уточнение и отказ
+  if (resultType) return decisionsFor(status, isCertificate).filter((d) => d.status !== "READY" && d.status !== "DONE");
   if (status === "NEW") return [{ status: "IN_REVIEW", label: "Взять в работу", primary: true }, { status: "NEED_INFO", label: "Запросить уточнение" }, { status: "REJECTED", label: "Отклонить", danger: true }];
   if (status === "READY") return [{ status: "DONE", label: "Отметить выданной", primary: true }];
   if (status === "NEED_INFO") return [{ status: "IN_REVIEW", label: "Вернуть в работу", primary: true }, { status: "REJECTED", label: "Отклонить", danger: true }];
@@ -33,10 +35,11 @@ function NextLink({ next, className = "" }: { next: NextRequest; className?: str
   );
 }
 
-export function DecisionForm({ id, status, isCertificate, next }: { id: string; status: string; isCertificate: boolean; next: NextRequest }) {
+export function DecisionForm({ id, status, isCertificate, next, resultType = false }: { id: string; status: string; isCertificate: boolean; next: NextRequest; resultType?: boolean }) {
   const [state, action, pending] = useActionState(changeStatusAction, init);
   const [message, setMessage] = useState("");
-  const decisions = decisionsFor(status, isCertificate);
+  const decisions = decisionsFor(status, isCertificate, resultType);
+  if (!decisions.length) return <p className="text-sm text-muted">Выполнение — через форму ниже: так результат попадёт в успеваемость.</p>;
   return (
     <form action={action} className="space-y-3">
       <input type="hidden" name="id" value={id} />
@@ -100,10 +103,10 @@ export function DecisionForm({ id, status, isCertificate, next }: { id: string; 
  * Телефон: главное действие закреплено внизу экрана — не нужно листать до конца карточки.
  * Остальные решения (уточнение, отказ — с обязательным комментарием) — по кнопке «Другие действия».
  */
-export function MobileDecisionBar({ id, status, isCertificate, closed, next }: { id: string; status: string; isCertificate: boolean; closed: boolean; next: NextRequest }) {
+export function MobileDecisionBar({ id, status, isCertificate, closed, next, resultType = false }: { id: string; status: string; isCertificate: boolean; closed: boolean; next: NextRequest; resultType?: boolean }) {
   const [state, action, pending] = useActionState(changeStatusAction, init);
-  const primary = closed ? null : decisionsFor(status, isCertificate).find((d) => d.primary);
-  const more = !closed && decisionsFor(status, isCertificate).length > 1;
+  const primary = closed ? null : decisionsFor(status, isCertificate, resultType).find((d) => d.primary);
+  const more = !closed && decisionsFor(status, isCertificate, resultType).length > 1;
   // когда карточка «Действия» уже на экране — панель не дублирует её кнопки
   const [actionsVisible, setActionsVisible] = useState(false);
   useEffect(() => {

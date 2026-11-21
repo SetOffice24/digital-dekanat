@@ -64,17 +64,21 @@ export function summarize(enrollments: EnrollmentWithGrades[], curSem: number) {
   const current = enrollments
     .filter((e) => e.semester === curSem)
     .map((e) => {
-      const pts = e.grades.reduce((a, g) => a + (g.points ?? 0), 0);
-      const max = Math.max(e.grades.length * 20, 1);
-      return { enrollment: e, points: pts, max, ratio: pts / max };
+      const work = e.grades.filter((g) => g.kind === "CURRENT" || g.kind === "MIDTERM");
+      const pts = work.reduce((a, g) => a + (g.points ?? 0), 0);
+      const max = Math.max(work.length * 20, 1);
+      // итоговая уже есть (например, перезачёт) — дисциплина закрыта
+      const final = [...e.grades].reverse().find((g) => g.kind === "FINAL" || g.kind === "RETAKE") ?? null;
+      return { enrollment: e, points: pts, max, ratio: pts / max, final };
     });
-  const risky = current.filter((c) => c.ratio < 0.6);
+  const risky = current.filter((c) => !c.final && c.ratio < 0.6);
   return { avg, debts, current, risky };
 }
 
 export function getExams(s: SessionStudent) {
   return prisma.exam.findMany({
-    where: { groupId: s.groupId },
+    // экзамены группы + индивидуальные пересдачи самого студента (чужие пересдачи не видны)
+    where: { OR: [{ groupId: s.groupId, studentId: null }, { studentId: s.id }] },
     include: { course: true },
     orderBy: { date: "asc" },
   });
@@ -101,6 +105,7 @@ export function getRequest(s: SessionStudent, id: string) {
       documents: { include: { document: { select: { id: true, kind: true, status: true, reviewNote: true } } } },
       appointments: { where: { status: "BOOKED" }, select: { id: true, startsAt: true } },
       case: { select: { id: true, code: true } },
+      retake: { select: { date: true, room: true, teacher: true, resultAt: true, course: { select: { name: true } } } },
     },
   });
 }
@@ -120,11 +125,12 @@ export async function createRequest(s: SessionStudent, typeId: string, payload: 
 }
 
 export async function answerRequest(s: SessionStudent, id: string, message: string) {
-  const r = await prisma.request.findFirst({ where: { id, studentId: s.id } });
-  if (!r || r.status !== "NEED_INFO") return null;
-  return prisma.request.update({
-    where: { id: r.id },
-    data: { status: "IN_REVIEW", events: { create: { fromStatus: "NEED_INFO", toStatus: "IN_REVIEW", authorUserId: s.userId, message } } },
+  // условное обновление: если деканат параллельно сменил статус (отклонил, выполнил), ответ не вернёт заявку в работу
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.request.updateMany({ where: { id, studentId: s.id, status: "NEED_INFO" }, data: { status: "IN_REVIEW" } });
+    if (!count) return null;
+    await tx.requestEvent.create({ data: { requestId: id, fromStatus: "NEED_INFO", toStatus: "IN_REVIEW", authorUserId: s.userId, message } });
+    return tx.request.findUnique({ where: { id } });
   });
 }
 

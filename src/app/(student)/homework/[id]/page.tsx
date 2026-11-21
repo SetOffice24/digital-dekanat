@@ -42,6 +42,12 @@ export default async function HomeworkItem({ params }: { params: Promise<{ id: s
         <div className="text-sm opacity-90">{st.hint}</div>
       </div>
 
+      {s?.status === "ACCEPTED" && s.grade?.points != null && (
+        <p className="mt-3 rounded-2xl border border-border/70 bg-surface px-4 py-3 text-[15px]">
+          За работу: <b className="tabular-nums">{s.grade.points} из 20</b> баллов — уже в успеваемости.
+        </p>
+      )}
+
       {s?.teacherComment && (
         <div className="mt-3 flex gap-3 rounded-2xl border border-border/70 bg-surface p-4">
           <MessageSquareText size={18} className="mt-0.5 shrink-0 text-muted" />

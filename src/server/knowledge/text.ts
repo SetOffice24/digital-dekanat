@@ -14,20 +14,56 @@ const MAX_PAGES = 150;
 const MAX_TEXT = 400_000;
 const TIMEOUT_MS = 20_000;
 
-/** Ограничение времени разбора: «тяжёлый» файл не держит запрос бесконечно. */
-const withTimeout = <T>(p: Promise<T>) =>
-  Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new ExtractError("Файл слишком сложный для разбора — вставьте текст вручную")), TIMEOUT_MS))]);
+/** Ограничение времени ожидания: «тяжёлый» файл не держит запрос бесконечно. Таймер снимается в любом исходе. */
+async function withTimeout<T>(p: Promise<T>, onTimeout?: () => void): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      p,
+      new Promise<never>((_, rej) => {
+        timer = setTimeout(() => {
+          onTimeout?.();
+          rej(new ExtractError("Файл слишком сложный для разбора — вставьте текст вручную"));
+        }, TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
-export async function extractText(name: string, buf: Buffer): Promise<string> {
+/**
+ * Разбор файлов — по одному за раз: несколько одновременных загрузок не умножают расход памяти и CPU.
+ * Ограничения: 150 страниц PDF (проверка до извлечения текста), 20 с ожидания, 400 тыс. символов;
+ * для PDF документ освобождается (destroy) во всех ветках, включая ошибку и таймаут.
+ * Полную изоляцию (отдельный процесс с лимитом памяти) см. docs/HANDOFF.md — для прототипа достаточно очереди.
+ */
+let queue: Promise<unknown> = Promise.resolve();
+function serial<T>(fn: () => Promise<T>): Promise<T> {
+  const run = queue.then(fn, fn);
+  queue = run.catch(() => {});
+  return run;
+}
+
+export function extractText(name: string, buf: Buffer): Promise<string> {
+  return serial(() => extractNow(name, buf));
+}
+
+async function extractNow(name: string, buf: Buffer): Promise<string> {
   const ext = name.toLowerCase().split(".").pop();
   let text = "";
   if (ext === "pdf") {
     const { extractText: pdfText, getDocumentProxy } = await import("unpdf");
     const pdf = await withTimeout(getDocumentProxy(new Uint8Array(buf)));
-    // число страниц проверяем до разбора текста: размер сжатого файла не ограничивает объём работы
-    if (pdf.numPages > MAX_PAGES) throw new ExtractError(`В файле больше ${MAX_PAGES} страниц — разделите его на части`);
-    const r = await withTimeout(pdfText(pdf, { mergePages: false }));
-    text = (r.text as string[]).join("\n\n");
+    try {
+      // число страниц проверяем до разбора текста: размер сжатого файла не ограничивает объём работы
+      if (pdf.numPages > MAX_PAGES) throw new ExtractError(`В файле больше ${MAX_PAGES} страниц — разделите его на части`);
+      // при таймауте документ уничтожается — разбор прекращается, а не продолжает работать в фоне
+      const r = await withTimeout(pdfText(pdf, { mergePages: false }), () => void pdf.loadingTask.destroy());
+      text = (r.text as string[]).join("\n\n");
+    } finally {
+      await pdf.loadingTask.destroy().catch(() => {});
+    }
   } else if (ext === "docx") {
     const mammoth = await import("mammoth");
     text = (await withTimeout(mammoth.extractRawText({ buffer: buf }))).value;

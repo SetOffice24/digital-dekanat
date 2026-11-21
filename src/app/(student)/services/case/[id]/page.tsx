@@ -34,7 +34,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2 text-sm">
-            <span className="font-semibold">{c.status === "OPEN" ? (c.complete ? "Готово — можно завершить" : "Выполнено обязательных шагов") : c.status === "DONE" ? "Завершено" : "Отменено"}</span>
+            <span className="font-semibold">{c.status === "OPEN" ? (c.complete ? "Со своей стороны вы сделали всё" : "Выполнено обязательных шагов") : c.status === "DONE" ? "Завершено" : "Отменено"}</span>
             <span className="tabular-nums text-muted">
               {c.progress.done} из {c.progress.total} · начат {fmtDate(c.createdAt)}
             </span>

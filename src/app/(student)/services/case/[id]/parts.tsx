@@ -45,7 +45,7 @@ export function CaseFooter({ caseId, complete }: { caseId: string; complete: boo
     <div className="mt-6 flex flex-wrap gap-2">
       {complete && (
         <button type="button" disabled={pending} onClick={() => start(() => closeCaseAction(caseId, "DONE"))} className="inline-flex min-h-12 items-center rounded-full bg-ink px-6 font-semibold text-ink-fg disabled:opacity-50">
-          Всё сделано — завершить
+          Всё сделано — закрыть план
         </button>
       )}
       <button type="button" disabled={pending} onClick={() => confirm("Закрыть план? Поданные заявки останутся в работе.") && start(() => closeCaseAction(caseId, "CANCELLED"))} className="inline-flex min-h-12 items-center rounded-full px-5 text-sm font-semibold text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-50">

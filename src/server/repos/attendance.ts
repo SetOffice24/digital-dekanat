@@ -5,7 +5,7 @@ import "server-only";
  */
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../db";
-import type { SessionTeacher } from "./teacher";
+import { currentPeriod, type SessionTeacher } from "./teacher";
 import type { SessionStaff } from "./staff";
 import type { SessionStudent } from "./student";
 
@@ -65,12 +65,12 @@ const pct = (present: number, total: number) => (total ? Math.round((present / t
 /** Прошедшие пары преподавателя в группе по дисциплине (с отметками) + итог по студентам. */
 export async function courseAttendance(t: SessionTeacher, groupId: string, courseId: string, today: Date) {
   const lessons = await prisma.lesson.findMany({
-    where: { teacherId: t.id, groupId, courseId, date: { lte: today } },
+    where: { teacherId: t.id, groupId, courseId, date: { lte: today, gte: currentPeriod().date.gte } },
     orderBy: [{ date: "desc" }, { startTime: "desc" }],
     take: 40,
     select: { id: true, date: true, startTime: true, kind: true, status: true, subgroup: true, attendance: { select: { present: true, studentId: true } } },
   });
-  if (!lessons.length && !(await prisma.lesson.count({ where: { teacherId: t.id, groupId, courseId } }))) return null;
+  if (!lessons.length && !(await prisma.lesson.count({ where: { teacherId: t.id, groupId, courseId, ...currentPeriod() } }))) return null;
   const students = await prisma.student.findMany({ where: { groupId }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }], select: { id: true, lastName: true, firstName: true } });
   const byStudent = new Map(students.map((s) => [s.id, { ...s, total: 0, present: 0 }]));
   for (const l of lessons) for (const a of l.attendance) {

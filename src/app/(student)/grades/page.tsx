@@ -290,7 +290,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
       {sem === curSem ? (
         current.length ? (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
-            {current.map(({ enrollment: e, points, max, ratio }) => (
+            {current.map(({ enrollment: e, points, max, ratio, final }) => (
               <Card key={e.id}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -304,7 +304,13 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
                     </div>
                   </div>
                 </div>
-                <ThresholdBar points={points} max={max} ratio={ratio} credit={e.course.assessment === "CREDIT"} />
+                {final ? (
+                  <p className="mt-2 rounded-xl bg-success-soft px-3 py-2 text-sm font-medium text-success">
+                    {final.note?.startsWith("Перезачёт") ? "Перезачтено" : "Итог"}: {final.value === "PASS" ? "зачтено" : final.value}
+                  </p>
+                ) : (
+                  <ThresholdBar points={points} max={max} ratio={ratio} credit={e.course.assessment === "CREDIT"} />
+                )}
                 <Link href={`/courses/${e.course.id}`} className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-fg">
                   Материалы{matCount[e.course.id] ? ` (${matCount[e.course.id]})` : ""} и задания <ChevronRight size={15} />
                 </Link>

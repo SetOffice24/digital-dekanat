@@ -20,6 +20,8 @@ import { addDays, dueDate } from "@/lib/utils";
 const verifyCode = customAlphabet("23456789ABCDEFGHJKLMNPQRSTUVWXYZ", 12);
 
 export class ServiceError extends Error {}
+/** Внутренний сигнал отката транзакции, когда состояние изменилось параллельно. */
+class Rollback extends Error {}
 
 export type DocReq = { kind: DocKind; required: boolean };
 /** Шаг согласования до деканата: преподаватель дисциплины из поля «course». */
@@ -31,7 +33,7 @@ export const typeRoute = (t: Pick<RequestType, "route">): RouteStep[] => (Array.
 /** Подпись шага согласования. */
 export const stepLabel = (a: { teacher?: { fullName: string } | null }) => `Преподаватель${a.teacher ? ` ${a.teacher.fullName}` : ""}`;
 
-type SubmitStudent = Pick<Student, "id" | "userId" | "groupId" | "facultyId">;
+type SubmitStudent = Pick<Student, "id" | "userId" | "groupId" | "subgroup" | "facultyId">;
 export type SubmitOptions = { wantsPaper?: boolean; comment?: string; docIds?: string[]; caseId?: string | null };
 
 /** Сотрудники деканата, которые видят заявку студента: его факультета и деканат вуза. */
@@ -39,10 +41,33 @@ export async function deaneryUserIds(facultyId: string) {
   return (await prisma.staff.findMany({ where: { OR: [{ facultyId: null }, { facultyId }] }, select: { userId: true } })).map((s) => s.userId);
 }
 
-/** Преподаватель дисциплины для студента — по расписанию его группы в текущем периоде. */
+/** Занятия, которые студент действительно посещает: общие для группы и своей подгруппы, в текущем периоде. */
+const ownLessons = (s: Pick<Student, "groupId" | "subgroup">) => ({ groupId: s.groupId, OR: [{ subgroup: null }, { subgroup: s.subgroup }], ...currentPeriod() });
+
+/**
+ * Преподаватель дисциплины для студента — по его расписанию (группа + своя подгруппа) в текущем периоде.
+ * Если ведут несколько человек: сначала тот, кто ведёт занятия именно подгруппы студента (практика, лабораторные),
+ * затем — у кого больше занятий; при равенстве — по id, чтобы выбор был детерминированным.
+ */
 async function teacherFor(student: SubmitStudent, courseName: string) {
-  const l = await prisma.lesson.findFirst({ where: { groupId: student.groupId, course: { name: courseName }, ...currentPeriod() }, select: { teacherId: true, teacher: { select: { userId: true } } } });
-  return l ? { id: l.teacherId, userId: l.teacher.userId } : null;
+  const rows = await prisma.lesson.groupBy({ by: ["teacherId", "subgroup"], where: { ...ownLessons(student), course: { name: courseName } }, _count: { _all: true } });
+  if (!rows.length) return null;
+  const score = new Map<string, { own: number; total: number }>();
+  for (const r of rows) {
+    const v = score.get(r.teacherId) ?? { own: 0, total: 0 };
+    v.total += r._count._all;
+    if (r.subgroup !== null) v.own += r._count._all;
+    score.set(r.teacherId, v);
+  }
+  const [id] = [...score.entries()].sort(([a, x], [b, y]) => y.own - x.own || y.total - x.total || a.localeCompare(b))[0];
+  const t = await prisma.teacher.findUnique({ where: { id }, select: { id: true, userId: true } });
+  return t ? { id: t.id, userId: t.userId } : null;
+}
+
+/** Ведёт ли преподаватель эту дисциплину студенту сейчас — повторная проверка полномочий в момент решения. */
+async function stillTeaches(teacherId: string, student: Pick<Student, "groupId" | "subgroup">, courseName: string | undefined) {
+  if (!courseName) return false;
+  return (await prisma.lesson.count({ where: { ...ownLessons(student), teacherId, course: { name: courseName } } })) > 0;
 }
 
 /** Дисциплины студента для поля «course» (перезачёт): то, что стоит в расписании группы сейчас. */
@@ -138,21 +163,33 @@ export async function countApprovals(a: Approver) {
   return prisma.requestApproval.count({ where: { teacherId: a.teacherId, status: "PENDING", request: { status: { notIn: ["REJECTED", "DONE"] } } } });
 }
 
-/** Решение преподавателя. null — шаг не его или уже решён (повторный клик, параллельное решение). */
+/** Заявка, по которой ещё можно принимать решение о согласовании. */
+const OPEN_STATUSES = ["NEW", "IN_REVIEW", "NEED_INFO"] as const;
+
+/**
+ * Решение преподавателя. null — шаг не его, уже решён (повторный клик, параллельное решение), заявка уже закрыта
+ * или преподаватель больше не ведёт эту дисциплину студенту.
+ */
 export async function decideApproval(a: Approver, approvalId: string, decision: "APPROVED" | "REJECTED", comment: string | null) {
   const ap = await prisma.requestApproval.findFirst({
-    where: { id: approvalId, status: "PENDING", teacherId: a.teacherId },
-    select: { id: true, idx: true, requestId: true, request: { select: { number: true, status: true, student: { select: { userId: true, facultyId: true } }, type: { select: { title: true } } } } },
+    where: { id: approvalId, status: "PENDING", teacherId: a.teacherId, request: { status: { in: [...OPEN_STATUSES] } } },
+    select: { id: true, idx: true, requestId: true, request: { select: { number: true, status: true, payload: true, student: { select: { userId: true, facultyId: true, groupId: true, subgroup: true } }, type: { select: { title: true } } } } },
   });
   if (!ap) return null;
   if (decision === "REJECTED" && !comment?.trim()) throw new ServiceError("Напишите причину — студент её увидит");
+  const course = (ap.request.payload as Record<string, string> | null)?.course;
+  if (!(await stillTeaches(a.teacherId, ap.request.student, course))) return null;
   const msg = comment?.trim().slice(0, 500) || null;
 
   const result = await prisma.$transaction(async (tx) => {
+    // сначала — основная заявка: она должна быть открыта в момент решения (иначе откат всего)
+    const req = await tx.request.updateMany({ where: { id: ap.requestId, status: { in: [...OPEN_STATUSES] } }, data: decision === "REJECTED" ? { status: "REJECTED" } : { updatedAt: new Date() } });
+    if (!req.count) return null;
     const { count } = await tx.requestApproval.updateMany({ where: { id: ap.id, status: "PENDING" }, data: { status: decision, comment: msg, decidedByUserId: a.userId, decidedAt: new Date() } });
-    if (!count) return null;
+    if (!count) throw new Rollback();
     if (decision === "REJECTED") {
-      await tx.request.updateMany({ where: { id: ap.requestId, status: { in: ["NEW", "IN_REVIEW", "NEED_INFO"] } }, data: { status: "REJECTED" } });
+      // остальные шаги больше не нужны
+      await tx.requestApproval.updateMany({ where: { requestId: ap.requestId, status: { in: ["WAITING", "PENDING"] } }, data: { status: "REJECTED", comment: "Заявка отклонена на предыдущем шаге", decidedAt: new Date() } });
       await tx.requestEvent.create({ data: { requestId: ap.requestId, fromStatus: ap.request.status, toStatus: "REJECTED", authorUserId: a.userId, message: `Не согласовано преподавателем: ${msg}` } });
       return { next: null as null | { teacherUserId: string | null } };
     }
@@ -160,6 +197,9 @@ export async function decideApproval(a: Approver, approvalId: string, decision: 
     const next = await tx.requestApproval.findFirst({ where: { requestId: ap.requestId, status: "WAITING" }, orderBy: { idx: "asc" }, select: { id: true, teacher: { select: { userId: true } } } });
     if (next) await tx.requestApproval.update({ where: { id: next.id }, data: { status: "PENDING" } });
     return { next: next ? { teacherUserId: next.teacher?.userId ?? null } : null };
+  }).catch((e) => {
+    if (e instanceof Rollback) return null;
+    throw e;
   });
   if (!result) return null;
 
@@ -214,13 +254,19 @@ export async function escalateOverdue(now = new Date()) {
   for (const r of rows) {
     const { count } = await prisma.request.updateMany({ where: { id: r.id, escalatedAt: null }, data: { escalatedAt: now } });
     if (!count) continue;
-    await notify(await deaneryUserIds(r.student.facultyId), {
-      kind: "REQUEST_STATUS",
-      title: "Просрочена заявка",
-      body: `«${r.type.title}» № ${r.number} — срок по регламенту прошёл. Заявка на контроле у руководителя.`,
-      link: `/staff/requests/${r.id}`,
-      dedupeKey: `overdue:${r.id}`,
-    });
+    try {
+      // dedupeKey не даст задвоить уведомление, если повтор случится после частичного успеха
+      await notify(await deaneryUserIds(r.student.facultyId), {
+        kind: "REQUEST_STATUS",
+        title: "Просрочена заявка",
+        body: `«${r.type.title}» № ${r.number} — срок по регламенту прошёл. Заявка на контроле у руководителя.`,
+        link: `/staff/requests/${r.id}`,
+        dedupeKey: `overdue:${r.id}`,
+      });
+    } catch (e) {
+      await prisma.request.updateMany({ where: { id: r.id, escalatedAt: now }, data: { escalatedAt: null } }).catch(() => {});
+      console.error("[escalate]", e);
+    }
   }
   return rows.length;
 }

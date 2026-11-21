@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { prisma } from "./db";
+import { currentPeriod } from "./repos/teacher";
 
 /**
  * Файлы материалов и домашних заданий.
@@ -53,26 +54,35 @@ export function checkFile(f: { name: string; size: number }) {
   if (!ALLOWED[ext(f.name)]) throw new UploadError(`Формат «.${ext(f.name)}» не поддерживается`);
 }
 
+/** PDF целиком: начинается с «%PDF-» и заканчивается маркером «%%EOF» (обрезанный или поддельный файл не пройдёт). */
+export const isWholePdf = (buf: Buffer) => buf.subarray(0, 5).toString("latin1") === "%PDF-" && buf.subarray(Math.max(0, buf.length - 2048)).toString("latin1").includes("%%EOF");
+
 /**
- * Содержимое должно соответствовать расширению (не только имя): PDF — «%PDF-»; старые .doc/.xls/.ppt — контейнер OLE2;
- * .docx/.xlsx/.pptx — ZIP с [Content_Types].xml и папкой своего типа. Переименованный .exe или .html не пройдёт.
+ * Содержимое должно соответствовать расширению (не только имя). Это проверка структуры, а не антивирус:
+ * - PDF — «%PDF-» в начале и «%%EOF» в конце;
+ * - старые .doc/.xls/.ppt — контейнер OLE2 без макросов (потоки _VBA_PROJECT / Macros);
+ * - .docx/.xlsx/.pptx — настоящий ZIP (есть оглавление в конце) с [Content_Types].xml, папкой своего типа и без vbaProject.bin.
+ * Переименованный .exe или .html не пройдёт; файлы отдаются как attachment + nosniff и приложением не исполняются.
  */
 export function checkContent(name: string, buf: Buffer) {
   const e = ext(name);
   const head = buf.subarray(0, 8);
+  const latin = () => buf.toString("latin1");
   const ok =
     e === "pdf"
-      ? buf.subarray(0, 5).toString("latin1") === "%PDF-"
+      ? isWholePdf(buf)
       : e === "doc" || e === "xls" || e === "ppt"
-        ? head.equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]))
+        ? head.equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])) && !["_VBA_PROJECT", "Macros"].some((n) => buf.includes(Buffer.from(n, "utf16le")))
         : (() => {
             if (!(head[0] === 0x50 && head[1] === 0x4b && head[2] === 0x03 && head[3] === 0x04)) return false;
+            // конец центрального каталога ZIP — в последних 64 КБ (обрезанный/склеенный файл не пройдёт)
+            if (!buf.subarray(Math.max(0, buf.length - 65_557)).includes(Buffer.from([0x50, 0x4b, 0x05, 0x06]))) return false;
             // имена файлов внутри ZIP хранятся открытым текстом в заголовках
-            const text = buf.toString("latin1");
+            const text = latin();
             const folder = e === "docx" ? "word/" : e === "xlsx" ? "xl/" : "ppt/";
-            return text.includes("[Content_Types].xml") && text.includes(folder);
+            return text.includes("[Content_Types].xml") && text.includes(folder) && !text.includes("vbaProject.bin");
           })();
-  if (!ok) throw new UploadError(`Файл «${safeName(name)}» не похож на настоящий .${e} — проверьте, что он открывается в программе`);
+  if (!ok) throw new UploadError(`Файл «${safeName(name)}» не похож на настоящий .${e} без макросов — проверьте, что он открывается в программе`);
 }
 
 /** Проверить и сохранить файлы из формы. Ничего не сохраняет, если хоть один не подходит; при сбое записи — удаляет уже записанные. */
@@ -171,7 +181,8 @@ export async function canAccessAttachment(user: Viewer, attachmentId: string) {
     return null;
   }
   if (user.role === "TEACHER" && user.teacher) {
-    const teaches = await prisma.lesson.count({ where: { teacherId: user.teacher.id, groupId: scope.groupId, courseId: scope.courseId } });
+    // та же граница, что у журнала: текущая учебная связь (прежние пары доступа к файлам не дают)
+    const teaches = await prisma.lesson.count({ where: { teacherId: user.teacher.id, groupId: scope.groupId, courseId: scope.courseId, ...currentPeriod() } });
     return teaches > 0 ? a : null;
   }
   return null;

@@ -12,7 +12,13 @@ export type Latest = { id: string; kind: string; title: string; body: string; li
  * студент видит карточку поверх страницы, а расписание на экране обновляется само.
  * Когда приложение закрыто или свёрнуто — уведомление приходит как push (см. src/server/push.ts, public/sw.js).
  */
-export function LiveNotice({ latest, count }: { latest: Latest; count: number }) {
+/** Можно ли перерисовать страницу: человек не печатает в поле (иначе обновление сбило бы ввод). */
+function safeToRefresh() {
+  const el = document.activeElement as HTMLElement | null;
+  return !(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable));
+}
+
+export function LiveNotice({ latest, count, fallbackHref = "/notifications" }: { latest: Latest; count: number; fallbackHref?: string }) {
   const router = useRouter();
   const seen = useRef<string | null | undefined>(undefined); // undefined — ещё не знаем исходное состояние
   const prevCount = useRef(count);
@@ -29,8 +35,9 @@ export function LiveNotice({ latest, count }: { latest: Latest; count: number })
       const more = Math.max(0, count - prevCount.current - 1);
       seen.current = latest.id;
       setShown({ n: latest, more });
-      // изменения расписания — сразу перерисовать текущую страницу (главная, расписание)
-      if (latest.kind === "SCHEDULE_CHANGE") router.refresh();
+      // данные на экране — свежие: изменения расписания всегда, остальное (проверка ДЗ, статус заявки, новая сдача) —
+      // если человек сейчас ничего не вводит; иначе обновится при следующем переходе
+      if (latest.kind === "SCHEDULE_CHANGE" || safeToRefresh()) router.refresh();
     }
     prevCount.current = count;
   }, [latest, count, router]);
@@ -54,10 +61,10 @@ export function LiveNotice({ latest, count }: { latest: Latest; count: number })
           <div className="font-semibold leading-snug">{n.title}</div>
           <p className="mt-0.5 line-clamp-3 text-sm text-muted">{n.body}</p>
           <div className="mt-2.5 flex items-center gap-3">
-            <Link href={n.link ?? "/notifications"} onClick={() => setShown(null)} className="inline-flex min-h-9 items-center rounded-full bg-ink px-4 text-sm font-semibold text-ink-fg">
+            <Link href={n.link ?? fallbackHref} onClick={() => setShown(null)} className="inline-flex min-h-9 items-center rounded-full bg-ink px-4 text-sm font-semibold text-ink-fg">
               {schedule ? "Открыть расписание" : "Открыть"}
             </Link>
-            {more > 0 && (
+            {more > 0 && fallbackHref === "/notifications" && (
               <Link href="/notifications" onClick={() => setShown(null)} className="text-sm font-medium text-muted hover:text-fg">
                 и ещё {more}
               </Link>

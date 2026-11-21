@@ -11,6 +11,8 @@ import { DocReview } from "@/components/services/desk";
 import { RevokeButton } from "@/app/staff/services/parts";
 import { stepLabel } from "@/server/services/requests";
 import { docKinds } from "@/config/services";
+import { RESULT_VALUES, recreditOptions, retakeOptions } from "@/server/services/academic";
+import { RecreditForm, RetakeForm } from "./academic-forms";
 
 export const metadata = { title: "Заявка" };
 
@@ -39,6 +41,11 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
   const pendingStep = r.approvals.find((a) => a.status === "PENDING");
   const due = r.dueAt ?? dueDate(r.createdAt, r.type.slaDays);
   const backTab = { NEW: "new", IN_REVIEW: "work", NEED_INFO: "wait", READY: "ready", DONE: "done", REJECTED: "done" }[r.status];
+  // учебный результат: пересдача назначается, перезачёт вносится — только так такие заявки выполняются
+  const resultType = r.type.code === "APP_RETAKE" || r.type.code === "APP_RECREDIT";
+  const retake = r.type.code === "APP_RETAKE" && !routeOpen ? await retakeOptions(staff, r.id) : null;
+  const recredit = r.type.code === "APP_RECREDIT" && !routeOpen && !closed ? await recreditOptions(staff, r.id) : null;
+  const mskDate = (d: Date) => new Date(d.getTime() + 3 * 3600_000).toISOString();
 
   return (
     <div>
@@ -137,7 +144,7 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
           {r.documents.length > 0 && (
             <Card>
               <SectionTitle>Документы студента</SectionTitle>
-              <DocReview path={`/staff/requests/${r.id}`} docs={r.documents.map(({ document: d }) => ({ id: d.id, title: docKinds[d.kind].title, status: d.status, validUntil: d.validUntil ? fmtDate(d.validUntil) : null, note: d.reviewNote }))} />
+              <DocReview path={`/staff/requests/${r.id}`} docs={[...r.documents].sort((a, b) => Number(!!a.replacedAt) - Number(!!b.replacedAt)).map(({ document: d, replacedAt }) => ({ id: d.id, title: docKinds[d.kind].title, status: d.status, validUntil: d.validUntil ? fmtDate(d.validUntil) : null, note: d.reviewNote, replaced: replacedAt ? fmtDate(replacedAt) : null }))} />
             </Card>
           )}
 
@@ -187,9 +194,24 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
             ) : closed ? (
               <p className="text-sm text-muted">Заявка закрыта — статус «{requestStatusLabel[r.status]}».</p>
             ) : (
-              <DecisionForm id={r.id} status={r.status} isCertificate={r.type.isCertificate} next={next} />
+              <DecisionForm id={r.id} status={r.status} isCertificate={r.type.isCertificate} next={next} resultType={resultType} />
             )}
           </Card>
+          {retake && r.status !== "REJECTED" && (r.status !== "DONE" || retake.exam) && (
+            <Card>
+              <SectionTitle>{retake.exam ? "Пересдача" : "Назначить пересдачу"}</SectionTitle>
+              <RetakeForm
+                requestId={r.id}
+                o={{ ...retake, exam: retake.exam ? { id: retake.exam.id, canResult: !retake.exam.resultAt && retake.exam.date < new Date(), values: RESULT_VALUES[retake.exam.course.assessment] ?? RESULT_VALUES.EXAM, date: mskDate(retake.exam.date).slice(0, 10), time: mskDate(retake.exam.date).slice(11, 16), room: retake.exam.room, teacherId: retake.exam.teacherId, enrollmentId: retake.exam.enrollmentId, resultAt: retake.exam.resultAt ? fmtDateTime(retake.exam.resultAt) : null } : null }}
+              />
+            </Card>
+          )}
+          {recredit && (
+            <Card>
+              <SectionTitle>Внести перезачёт</SectionTitle>
+              <RecreditForm requestId={r.id} o={recredit} />
+            </Card>
+          )}
           {/* «Взять в работу» и так назначает исполнителя — отдельная кнопка нужна только для чужих заявок в работе */}
           {r.status !== "NEW" && r.assignee?.id !== staff.id && !closed && (
             <Card>
@@ -198,7 +220,7 @@ export default async function StaffRequestPage({ params }: { params: Promise<{ i
           )}
         </div>
       </div>
-      <MobileDecisionBar id={r.id} status={r.status} isCertificate={r.type.isCertificate} closed={closed || routeOpen} next={next} />
+      <MobileDecisionBar id={r.id} status={r.status} isCertificate={r.type.isCertificate} closed={closed || routeOpen} next={next} resultType={resultType} />
     </div>
   );
 }

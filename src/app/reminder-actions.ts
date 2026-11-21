@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { fromMoscow } from "@/server/reminders";
-import { getDraftMessage, markDraftDone } from "@/server/repos/assistant";
+import { claimDraft, getDraftMessage, markDraftDone, releaseDraft } from "@/server/repos/assistant";
 import { fmtDateTime } from "@/lib/utils";
 
 const schema = z.object({
@@ -26,9 +26,16 @@ export async function createReminderAction(messageId: string, values: { text: st
   if (Number.isNaN(dueAt.getTime()) || dueAt.getTime() < Date.now() - 60_000) return { error: "Это время уже прошло" };
   if (dueAt.getTime() > Date.now() + 366 * 86400_000) return { error: "Не дальше чем через год" };
   if ((await prisma.reminder.count({ where: { userId: user.id, sentAt: null } })) >= 50) return { error: "Слишком много активных напоминаний — удалите ненужные" };
-  await prisma.reminder.create({ data: { userId: user.id, text: p.data.text, dueAt } });
+  const owner = { userId: user.id };
+  if (!(await claimDraft(owner, messageId, "reminderWhen"))) return { error: "Напоминание уже ставится — обновите чат" };
   const when = fmtDateTime(dueAt);
-  await markDraftDone({ userId: user.id }, messageId, { reminderWhen: when });
+  try {
+    await prisma.reminder.create({ data: { userId: user.id, text: p.data.text, dueAt } });
+  } catch (e) {
+    await releaseDraft(owner, messageId);
+    throw e;
+  }
+  await markDraftDone(owner, messageId, { reminderWhen: when });
   return { ok: { when } };
 }
 

@@ -56,7 +56,8 @@ export async function getCase(s: CaseStudent, caseId: string) {
   if (!sit) return null;
   const [docs, appts, photo, push] = await Promise.all([
     prisma.studentDocument.findMany({ where: { studentId: s.id }, orderBy: { createdAt: "desc" }, select: { kind: true, status: true, validUntil: true } }),
-    prisma.appointment.findMany({ where: { studentId: s.id, status: { in: ["BOOKED", "DONE"] }, createdAt: { gte: c.createdAt } }, select: { startsAt: true, status: true } }),
+    // приём засчитывается шагу, только если он относится к этому делу: записан из заявки дела или по ссылке шага (та же цель)
+    prisma.appointment.findMany({ where: { studentId: s.id, status: { in: ["BOOKED", "DONE"] }, createdAt: { gte: c.createdAt } }, orderBy: { startsAt: "desc" }, select: { startsAt: true, status: true, purpose: true, requestId: true } }),
     prisma.studentPhoto.findFirst({ where: { studentId: s.id, status: { in: ["APPROVED", "PENDING"] } }, select: { status: true } }),
     prisma.pushSubscription.count({ where: { userId: s.userId } }),
   ]);
@@ -67,15 +68,20 @@ export async function getCase(s: CaseStudent, caseId: string) {
     switch (st.kind) {
       case "request": {
         const r = c.requests.find((x) => x.type.code === st.typeCode && DONE_STATUSES.includes(x.status));
-        return { ...base, done: Boolean(r), status: r ? `№${r.number} · ${requestStatusLabel[r.status].toLowerCase()}` : null, href: r ? `/requests/${r.id}` : `/requests/new?type=${st.typeCode}&case=${c.id}`, action: r ? "Открыть" : "Подать" };
+        // шаг студента выполнен, когда заявка подана; результат вуза — отдельно в подписи («подано» / «готово»)
+        return { ...base, done: Boolean(r), status: r ? `№${r.number} · ${r.status === "READY" || r.status === "DONE" ? "деканат выполнил" : `подано, ${requestStatusLabel[r.status].toLowerCase()}`}` : null, href: r ? `/requests/${r.id}` : `/requests/new?type=${st.typeCode}&case=${c.id}`, action: r ? "Открыть" : "Подать" };
       }
       case "doc": {
         const d = docs.find((x) => x.kind === st.docKind && isUsable(x));
         return { ...base, done: Boolean(d), status: d ? (d.status === "VERIFIED" ? "проверен" : "загружен") : null, href: `/services/documents?kind=${st.docKind}&back=/services/case/${c.id}`, action: d ? "Посмотреть" : "Загрузить" };
       }
       case "appointment": {
-        const a = appts[0];
-        return { ...base, done: Boolean(a), status: a ? `${deanery.name}, ${fmtDateTime(a.startsAt)}` : null, href: `/services/appointments?purpose=${encodeURIComponent(st.purpose)}`, action: a ? "Мои записи" : "Записаться" };
+        const caseRequests = new Set(c.requests.map((r) => r.id));
+        const a = appts.find((x) => (x.requestId && caseRequests.has(x.requestId)) || x.purpose === st.purpose);
+        // запись — это действие студента; «были на приёме» — отметка деканата. Получение документа запись не подтверждает.
+        const status = a ? (a.status === "DONE" ? `были на приёме ${fmtDateTime(a.startsAt)}` : `записаны: ${deanery.name}, ${fmtDateTime(a.startsAt)}`) : null;
+        const req = c.requests[0];
+        return { ...base, done: Boolean(a), status, href: `/services/appointments?purpose=${encodeURIComponent(st.purpose)}${req ? `&request=${req.id}` : ""}`, action: a ? "Мои записи" : "Записаться" };
       }
       case "check": {
         const ok = st.check === "photo" ? Boolean(photo) : push > 0;

@@ -185,7 +185,7 @@ deploy/
   docker-compose.yml   app (node:22-alpine, next start), postgres:16-alpine (volume pgdata), caddy:2 (volumes caddy_data, caddy_config)
   Caddyfile            7d965724e284.vps.myjino.ru { reverse_proxy app:3000 }   # автоматический Let's Encrypt
   .env.example         DATABASE_URL, SESSION_SECRET, AI_PROVIDER, AI_BASE_URL, AI_API_KEY, AI_MODEL, APP_URL
-  backup.sh            pg_dump в /opt/dekanat/backups/YYYY-MM-DD.sql.gz, хранить 14 дней; cron ежедневно 03:00
+  backup.sh            pg_dump + архив /app/data (uploads, documents, photos) в backups/, проверка и атомарная запись, хранить 14 дней; cron ежедневно 03:00
   deploy.sh            git pull → docker compose build → compose up -d → prisma migrate deploy → (первый раз) seed
 ```
 Dockerfile — multi-stage (`pnpm install --frozen-lockfile` → `next build` с `output: 'standalone'` → runtime-образ ~150 МБ). Сборка на VPS (8 ГБ хватает); при проблемах — сборка в GitHub Actions и `docker pull` с GHCR.

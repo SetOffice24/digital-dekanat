@@ -14,6 +14,8 @@ import { audienceUserIds, groupUserIds, notify } from "../notify";
 import { requestStatusLabel } from "@/lib/labels";
 
 export type SessionStaff = Pick<Staff, "id" | "userId" | "facultyId">;
+/** Заявления с учебным результатом: статусы «Готово/Выполнено» ставит только academic.ts. */
+export const RESULT_TYPE_CODES = ["APP_RETAKE", "APP_RECREDIT"];
 
 const verifyCode = customAlphabet("23456789ABCDEFGHJKLMNPQRSTUVWXYZ", 12);
 
@@ -158,6 +160,8 @@ export async function changeRequestStatus(staff: SessionStaff, id: string, statu
     include: { type: true, student: { select: { userId: true } }, certificate: true },
   });
   if (!r) return null;
+  // пересдача и перезачёт завершаются только записью учебного результата (src/server/services/academic.ts)
+  if ((status === "READY" || status === "DONE") && RESULT_TYPE_CODES.includes(r.type.code)) return "needs_result" as const;
   if (!REQUEST_TRANSITIONS[r.status].includes(status)) return "invalid" as const;
 
   const changed = await prisma.$transaction(async (tx) => {
@@ -237,7 +241,11 @@ export async function listLessons(staff: SessionStaff, groupId: string, date: Da
 }
 
 async function ownLesson(staff: SessionStaff, id: string) {
-  return prisma.lesson.findFirst({ where: { id, group: groupScope(staff) }, include: { course: true } });
+  return prisma.lesson.findFirst({ where: { id, group: groupScope(staff) }, include: { course: true, group: { select: { name: true } }, teacher: { select: { userId: true } } } });
+}
+/** Получатели изменения пары: студенты группы (подгруппы) и преподаватель, который её ведёт. */
+async function lessonAudience(l: { groupId: string; subgroup: number | null; teacher: { userId: string | null } }) {
+  return [...(await groupUserIds(l.groupId, l.subgroup)), ...(l.teacher.userId ? [l.teacher.userId] : [])];
 }
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
@@ -264,10 +272,10 @@ export async function moveLesson(
       changedAt: new Date(),
     },
   });
-  const ids = await groupUserIds(l.groupId, l.subgroup);
+  const ids = await lessonAudience(l);
   await notify(ids, {
     kind: "SCHEDULE_CHANGE",
-    title: `Перенос: ${l.course.name}`,
+    title: `Перенос: ${l.course.name} · ${l.group.name}`,
     body: `Пара ${dayShort(l.date)} в ${l.startTime} перенесена на ${dayShort(to.date)}, ${to.startTime}–${to.endTime}, ${roomLabel(to.room)}. Причина: ${to.reason}`,
     link: `/schedule?date=${ymd(to.date)}`,
   });
@@ -278,10 +286,10 @@ export async function cancelLesson(staff: SessionStaff, id: string, reason: stri
   const l = await ownLesson(staff, id);
   if (!l || l.status === "CANCELLED") return null;
   await prisma.lesson.update({ where: { id }, data: { status: "CANCELLED", changeNote: reason, changedAt: new Date() } });
-  const ids = await groupUserIds(l.groupId, l.subgroup);
+  const ids = await lessonAudience(l);
   await notify(ids, {
     kind: "SCHEDULE_CHANGE",
-    title: `Отмена: ${l.course.name}`,
+    title: `Отмена: ${l.course.name} · ${l.group.name}`,
     body: `Пара ${dayShort(l.date)} в ${l.startTime} отменена. Причина: ${reason}`,
     link: `/schedule?date=${ymd(l.date)}`,
   });

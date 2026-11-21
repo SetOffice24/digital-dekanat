@@ -54,7 +54,7 @@ export function DeskList({ items }: { items: DeskItem[] }) {
   );
 }
 
-export type ReviewDoc = { id: string; title: string; status: string; validUntil: string | null; note: string | null };
+export type ReviewDoc = { id: string; title: string; status: string; validUntil: string | null; note: string | null; replaced?: string | null };
 
 /** Документы заявки: открыть, принять или вернуть студенту с причиной. */
 export function DocReview({ docs, path }: { docs: ReviewDoc[]; path: string }) {
@@ -71,18 +71,18 @@ export function DocReview({ docs, path }: { docs: ReviewDoc[]; path: string }) {
   return (
     <ul className="space-y-2">
       {docs.map((d) => (
-        <li key={d.id} className="rounded-2xl border border-border/70 p-3 text-sm">
+        <li key={d.id} className={cn("rounded-2xl border border-border/70 p-3 text-sm", d.replaced && "opacity-60")}>
           <div className="flex flex-wrap items-center gap-2">
             <a href={`/api/documents/${d.id}`} target="_blank" rel="noopener" className="min-w-0 flex-1 font-semibold underline-offset-4 hover:underline">
               {d.title}
             </a>
-            <span className={cn("rounded-full px-2.5 py-0.5 text-[13px] font-semibold", d.status === "VERIFIED" ? "bg-success-soft text-success" : d.status === "REJECTED" ? "bg-danger-soft text-danger" : "bg-surface-2 text-muted")}>
-              {d.status === "VERIFIED" ? "проверен" : d.status === "REJECTED" ? "не принят" : "не проверен"}
+            <span className={cn("rounded-full px-2.5 py-0.5 text-[13px] font-semibold", d.replaced ? "bg-surface-2 text-muted" : d.status === "VERIFIED" ? "bg-success-soft text-success" : d.status === "REJECTED" ? "bg-danger-soft text-danger" : "bg-surface-2 text-muted")}>
+              {d.replaced ? `заменён ${d.replaced}` : d.status === "VERIFIED" ? "проверен" : d.status === "REJECTED" ? "не принят" : "не проверен"}
             </span>
           </div>
           {d.validUntil && <p className="mt-0.5 text-[13px] text-muted">действует до {d.validUntil}</p>}
           {d.note && <p className="mt-0.5 text-[13px] text-danger">{d.note}</p>}
-          {d.status !== "VERIFIED" && rejecting !== d.id && (
+          {!d.replaced && d.status !== "VERIFIED" && rejecting !== d.id && (
             <div className="mt-2 flex gap-2">
               <button type="button" disabled={pending} onClick={() => act(d.id, "VERIFIED")} className="min-h-9 rounded-full bg-ink px-3 text-[13px] font-semibold text-ink-fg disabled:opacity-50">
                 Принять
