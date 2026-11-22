@@ -54,7 +54,7 @@ export function StudentShell({ children, name, firstName, group, initials }: { c
     <AssistantProvider firstName={firstName}>
       <div className="min-h-dvh bg-bg">
         {/* ---------- Шапка ---------- */}
-        <header className="sticky top-0 z-30 bg-bg/80 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 [@media(max-height:500px)]:static bg-bg/80 backdrop-blur-xl">
           <div className="mx-auto flex w-full max-w-[90rem] items-center gap-1.5 px-4 py-3 sm:gap-2 sm:px-6 lg:gap-3 lg:px-10 lg:py-5">
             <Link href="/" className="flex items-center gap-2 sm:gap-3" aria-label="Главная">
               <Logo size={44} />

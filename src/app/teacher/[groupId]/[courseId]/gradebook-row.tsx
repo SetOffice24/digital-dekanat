@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
-import { Check, Plus, X } from "lucide-react";
+import { Check, Pencil, X } from "lucide-react";
 import { Button, Input, Select } from "@/components/ui";
 import { addGradeAction, deleteGradeAction, type GradeState } from "./actions";
 
@@ -14,12 +14,13 @@ const initial: GradeState = {};
 const SHORT: Record<string, string> = { "Лабораторная работа": "Лаб.", "Контрольная точка": "КТ", "Практическое задание": "Практика", "Контрольная работа": "Контр.", "Самостоятельная работа": "Самост." };
 const shortNote = (n: string | null) => (n ? (SHORT[n] ?? n) : "Оценка");
 
-function Chip({ g, max }: { g: RowGrade; max: number }) {
+/** Оценка в строке. Удалить можно только в режиме правки строки — не десятки крестиков на экране. */
+function Chip({ g, max, editing }: { g: RowGrade; max: number; editing: boolean }) {
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const label = `${g.note ?? "Оценка"} · ${g.date}`;
   return (
-    <span title={err ?? label} className={`inline-flex items-center gap-1 rounded-2xl bg-surface-2 py-1.5 pl-3 ${g.kind === "CURRENT" ? "pr-1" : "pr-3"} ${pending ? "opacity-50" : ""} ${err ? "ring-2 ring-danger/50" : ""}`}>
+    <span title={err ?? label} className={`inline-flex items-center gap-1 rounded-2xl bg-surface-2 py-1.5 pl-3 ${g.kind === "CURRENT" && editing ? "pr-1" : "pr-3"} ${pending ? "opacity-50" : ""} ${err ? "ring-2 ring-danger/50" : ""}`}>
       <span aria-label={`${g.points ?? g.value} из ${max}, ${label}`} className="leading-tight">
         <span className="block text-[11px] font-medium text-muted">
           {shortNote(g.note)} · {g.date}
@@ -29,7 +30,7 @@ function Chip({ g, max }: { g: RowGrade; max: number }) {
           {g.points != null && <span className="text-xs font-medium text-muted">/{max}</span>}
         </span>
       </span>
-      {g.kind === "CURRENT" && (
+      {g.kind === "CURRENT" && editing && (
         <button
           type="button"
           disabled={pending}
@@ -65,7 +66,7 @@ export function GradebookRow({ row, kinds, max }: { row: Row; kinds: readonly st
         <div className="mt-0.5 text-xs text-muted">подгруппа {row.subgroup}</div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5 md:mt-0">
-        {row.grades.length === 0 ? <span className="text-sm text-muted">Оценок пока нет</span> : row.grades.map((g) => <Chip key={g.id} g={g} max={max} />)}
+        {row.grades.length === 0 ? <span className="text-sm text-muted">Оценок пока нет</span> : row.grades.map((g) => <Chip key={g.id} g={g} max={max} editing={open} />)}
       </div>
       <div className="mt-3 flex items-center justify-between gap-3 md:contents">
         <div className="md:text-center" title="Сумма баллов за семестр">
@@ -75,10 +76,10 @@ export function GradebookRow({ row, kinds, max }: { row: Row; kinds: readonly st
         {/* действие строки — спокойное: сильный стиль только у главного действия страницы («Оценки группе») */}
         <Button variant="ghost" className="min-h-11 border border-border px-4 hover:border-ink" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           {open ? (
-            "Отмена"
+            "Готово"
           ) : (
             <>
-              <Plus size={18} /> Оценка
+              <Pencil size={16} /> Изменить
             </>
           )}
         </Button>

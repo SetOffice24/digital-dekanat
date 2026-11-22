@@ -29,7 +29,7 @@ export function CourseStatsPanel({ stats }: { stats: Stats }) {
           <>
             <div className="mt-2 flex h-2.5 overflow-hidden rounded-full bg-surface-2">
               {dist.map((k) => (
-                <div key={k} className={cn("h-full", k === "2" || k === "незачёт" ? "bg-danger" : k === "3" ? "bg-warning" : k === "4" ? "bg-primary" : "bg-success")} style={{ width: `${(stats.distribution[k] / total) * 100}%` }} title={`${LABEL[k]}: ${stats.distribution[k]}`} />
+                <div key={k} className={cn("h-full", k === "2" || k === "незачёт" ? "bg-danger" : k === "3" ? "bg-fg/25" : k === "4" ? "bg-primary/60" : "bg-primary")} style={{ width: `${(stats.distribution[k] / total) * 100}%` }} title={`${LABEL[k]}: ${stats.distribution[k]}`} />
               ))}
             </div>
             <div className="mt-1.5 flex flex-wrap gap-x-2 text-xs text-muted">

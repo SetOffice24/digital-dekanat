@@ -37,7 +37,7 @@ export default async function GradebookPage({ params, searchParams }: { params: 
       </Link>
       <PageHeader
         title={`${book.course.name} · ${book.group.name}`}
-        subtitle={`Журнал, ${book.semester}-й семестр. Под каждой цифрой — вид работы и дата. Одному студенту — «+ Оценка», всей группе за работу — «Оценки группе».`}
+        subtitle={`Журнал, ${book.semester}-й семестр. Под каждой цифрой — вид работы и дата. Одному студенту — «Изменить» (добавить или удалить оценку), всей группе за работу — «Оценки группе».`}
         action={
           <Link href={`/teacher/${groupId}/${courseId}/bulk`} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-ink-fg hover:opacity-90">
             <ClipboardList size={17} /> Оценки группе

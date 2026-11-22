@@ -3,7 +3,7 @@ import { requireStaff } from "@/server/auth";
 import { appointmentStats, autoIssued, lowRatings, servicesOverview, situationStats } from "@/server/services/analytics";
 import { Card, SectionTitle } from "@/components/ui";
 import { cn, fmtDate } from "@/lib/utils";
-import { RevokeButton, ServiceSettings } from "./parts";
+import { RevokeButton, ServiceRow } from "./parts";
 
 export const metadata = { title: "Услуги — сводка" };
 
@@ -33,54 +33,28 @@ export default async function ServicesOverview() {
         <Kpi label="Выполнено в срок" value={t.onTimePct != null ? `${t.onTimePct} %` : "—"} hint={t.avgDays != null ? `в среднем ${t.avgDays} дн.` : undefined} tone={t.onTimePct != null && t.onTimePct < 80 ? "bad" : "good"} />
         <Kpi label="Просрочено сейчас" value={String(t.overdueNow)} hint="ушли руководителю" tone={t.overdueNow ? "bad" : undefined} />
         <Kpi label="Оценка студентов" value={t.rating != null ? `${t.rating} / 5` : "—"} hint={t.ratedCount ? `${t.ratedCount} оценок` : "оценок пока нет"} />
-        <Kpi label="Выдано автоматически" value={String(t.auto)} hint={`≈ ${t.savedHours} ч работы сотрудников`} tone="good" />
+        <Kpi label="Выдано автоматически" value={String(t.auto)} hint={`≈ ${t.savedHours} ч работы сотрудников`} tone={t.auto > 0 ? "good" : undefined} />
       </div>
 
       <SectionTitle>Услуги деканата</SectionTitle>
       {!canEdit && <p className="-mt-1 mb-3 text-[13px] text-muted">Срок, автовыдачу и доступность услуг меняет деканат уровня вуза.</p>}
-      <div className="space-y-4">
-        {[...new Set(o.byType.map((x) => x.category))].map((cat) => {
-          const rows = o.byType.filter((x) => x.category === cat);
-          return (
-            <Card key={cat} className="overflow-x-auto p-0">
-              <div className="px-4 pt-4">
-                <h3 className="font-semibold">{cat}</h3>
-              </div>
-              <table className="mt-2 w-full min-w-[760px] text-sm">
-                <thead>
-                  <tr className="text-left text-[12px] uppercase tracking-wide text-muted">
-                    <th className="sticky left-0 z-10 bg-surface px-4 py-2 font-semibold">Услуга</th>
-                    <th className="px-2 py-2 text-right font-semibold">Заявок</th>
-                    <th className="px-2 py-2 text-right font-semibold">В срок</th>
-                    <th className="px-2 py-2 text-right font-semibold">Ср. дней</th>
-                    <th className="px-2 py-2 text-right font-semibold">Просрочено</th>
-                    <th className="px-2 py-2 text-right font-semibold">Оценка</th>
-                    <th className="px-4 py-2 font-semibold">Настройки</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {rows.map((r) => (
-                    <tr key={r.id} className={cn(!r.enabled && "opacity-60")}>
-                      <td className="sticky left-0 z-10 w-40 max-w-40 bg-surface px-4 py-2.5 font-medium shadow-[1px_0_0_var(--color-border)] sm:w-auto sm:max-w-none sm:shadow-none">
-                        {r.title}
-                        {r.auto > 0 && <span className="ml-1.5 rounded-full bg-success-soft px-2 py-0.5 text-[12px] font-semibold text-success">авто: {r.auto}</span>}
-                      </td>
-                      <td className="px-2 py-2.5 text-right tabular-nums">{r.total}</td>
-                      <td className={cn("px-2 py-2.5 text-right tabular-nums", r.onTimePct != null && r.onTimePct < 80 && "font-semibold text-danger")}>{r.onTimePct != null ? `${r.onTimePct} %` : "—"}</td>
-                      <td className="px-2 py-2.5 text-right tabular-nums">{r.avgDays ?? "—"}</td>
-                      <td className={cn("px-2 py-2.5 text-right tabular-nums", r.overdueNow > 0 && "font-semibold text-danger")}>{r.overdueNow}</td>
-                      <td className="px-2 py-2.5 text-right tabular-nums">{r.rating ?? "—"}</td>
-                      <td className="px-4 py-2.5">
-                        <ServiceSettings typeId={r.id} slaDays={r.slaDays} autoIssue={r.autoIssue} enabled={r.enabled} canAuto={r.isCertificate} canEdit={canEdit} />
-                      </td>
-                    </tr>
+      {/* одна структура для всех категорий: показатели — для просмотра, настройка — по кнопке в строке */}
+      <Card className="overflow-hidden p-0">
+        <ul className="divide-y divide-border/60">
+          {[...new Set(o.byType.map((x) => x.category))].map((cat) => (
+            <li key={cat}>
+              <div className="bg-surface-2/60 px-4 py-2 text-[12px] font-semibold uppercase tracking-wide text-muted sm:px-5">{cat}</div>
+              <ul className="divide-y divide-border/60">
+                {o.byType
+                  .filter((x) => x.category === cat)
+                  .map((r) => (
+                    <ServiceRow key={r.id} r={r} canEdit={canEdit} />
                   ))}
-                </tbody>
-              </table>
-            </Card>
-          );
-        })}
-      </div>
+              </ul>
+            </li>
+          ))}
+        </ul>
+      </Card>
 
       <div className="mt-2 grid gap-x-6 lg:grid-cols-2">
         <div>

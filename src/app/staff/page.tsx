@@ -53,7 +53,7 @@ export default async function StaffInbox({ searchParams }: { searchParams: Promi
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl">
+    <div className="mx-auto w-full max-w-6xl">
       <h1 className="font-head text-[34px] font-semibold leading-[1.05] tracking-[-0.02em] sm:text-5xl">Заявки студентов</h1>
       {/* Сводка дня — одной фразой: что важно сделать сегодня */}
       <p className="mt-2 text-lg text-muted">

@@ -31,7 +31,7 @@ export function StaffShell({ children, name, position }: { children: React.React
   return (
     <AssistantProvider firstName={name} role="STAFF">
     <div className="sky-glow flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-20 border-b border-border/60 bg-bg/75 backdrop-blur-md">
+      <header className="sticky top-0 z-20 [@media(max-height:500px)]:static border-b border-border/60 bg-bg/75 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[100rem] items-center gap-3 px-4 py-3 sm:px-6 md:px-8 lg:px-10">
           <Link href="/staff" className="flex items-center gap-3" aria-label="Кабинет сотрудника">
             <Wordmark className="text-[18px] sm:text-[20px]" />

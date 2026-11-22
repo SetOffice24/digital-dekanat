@@ -21,8 +21,8 @@ export function TeacherShell({ children, name, department }: { children: React.R
   return (
     <AssistantProvider firstName={name} role="TEACHER">
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-20 border-b border-border/60 bg-bg/75 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
+      <header className="sticky top-0 z-20 [@media(max-height:500px)]:static border-b border-border/60 bg-bg/75 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
           <Link href="/teacher" className="flex items-center gap-3" aria-label="Мои группы">
             <Wordmark className="text-[18px] sm:text-[20px]" />
             <span className="hidden rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold text-ink-fg md:inline">преподаватель</span>
@@ -48,7 +48,7 @@ export function TeacherShell({ children, name, department }: { children: React.R
           </form>
         </div>
         {/* телефон и узкий планшет (до 768 px): разделы с подписями под шапкой — всё доступно без прокрутки вбок */}
-        <nav className="mx-auto grid w-full max-w-5xl grid-cols-3 gap-1 px-3 pb-2.5 sm:px-5 md:hidden" aria-label="Разделы кабинета">
+        <nav className="mx-auto grid w-full max-w-6xl grid-cols-3 gap-1 px-3 pb-2.5 sm:px-5 md:hidden" aria-label="Разделы кабинета">
           {extra.map((x) => (
             <Link key={x.href} href={x.href} className="flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-2xl px-1 text-[13px] font-semibold text-muted hover:bg-surface/70 hover:text-fg">
               <x.icon size={16} className="shrink-0 max-[400px]:hidden" />
@@ -58,10 +58,10 @@ export function TeacherShell({ children, name, department }: { children: React.R
         </nav>
       </header>
       <main tabIndex={-1} className="flex-1 px-4 pb-10 pt-6 outline-none sm:px-6">
-        <div className="mx-auto w-full max-w-5xl">{children}</div>
+        <div className="mx-auto w-full max-w-6xl">{children}</div>
       </main>
       <footer className="px-4 pb-6 text-xs text-muted sm:px-6">
-        <div className="mx-auto max-w-5xl">{university.disclaimer}</div>
+        <div className="mx-auto max-w-6xl">{university.disclaimer}</div>
       </footer>
     </div>
     <ReminderNotice />
