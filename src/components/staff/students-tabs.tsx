@@ -16,9 +16,9 @@ export async function StudentsTabs({ active, groupId }: { active: "gradebook" | 
     { key: "accounts", label: "Аккаунты", href: "/staff/students/accounts" },
   ] as const;
   return (
-    <nav className="mb-5 flex flex-wrap gap-2" aria-label="Разделы «Студенты»">
+    <nav className="mb-4 flex flex-wrap gap-1.5 sm:mb-5 sm:gap-2" aria-label="Разделы «Студенты»">
       {tabs.map((t) => (
-        <Link key={t.key} href={t.href} aria-current={active === t.key ? "page" : undefined} className={cn("inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition", active === t.key ? "border-ink bg-ink text-ink-fg" : "border-transparent bg-surface hover:border-border")}>
+        <Link key={t.key} href={t.href} aria-current={active === t.key ? "page" : undefined} className={cn("inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition sm:min-h-10 sm:px-4", active === t.key ? "border-ink bg-ink text-ink-fg" : "border-transparent bg-surface hover:border-border")}>
           {t.label}
           {"badge" in t && t.badge > 0 && <span className="rounded-full bg-p-yellow px-1.5 text-xs font-semibold text-[#0e0e10]" aria-label={`на проверке: ${t.badge}`}>{t.badge}</span>}
         </Link>

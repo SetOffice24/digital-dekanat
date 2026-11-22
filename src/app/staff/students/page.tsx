@@ -66,16 +66,20 @@ export default async function GradebookPage({ searchParams }: { searchParams: Pr
       <StudentsTabs active="gradebook" groupId={group.id} />
       <PageHeader
         title="Ведомость"
-        subtitle={`${gb.group.name} · ${gb.group.course} курс · ${gb.group.program.name} · ${gb.rows.length} ${plural(gb.rows.length, "студент", "студента", "студентов")}`}
-        action={
-          <a href={`/api/staff/gradebook?group=${group.id}&sem=${gb.semester}`} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-semibold hover:border-ink">
-            <FileSpreadsheet size={17} /> Скачать Excel
-          </a>
+        subtitle={
+          <>
+            {gb.group.name} · {gb.group.course} курс<span className="max-sm:hidden"> · {gb.group.program.name}</span> · {gb.rows.length} {plural(gb.rows.length, "студент", "студента", "студентов")}
+          </>
         }
       />
 
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <GroupSelect groups={groups.map((g) => ({ id: g.id, name: g.name }))} value={group.id} path="/staff/students" />
+      {/* группа и семестр — одной строкой и на телефоне */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <GroupSelect groups={groups.map((g) => ({ id: g.id, name: g.name }))} value={group.id} path="/staff/students" className="w-36 sm:w-48" />
+        {/* выгрузка — во вторичных действиях строки управления, а не отдельным блоком */}
+        <a href={`/api/staff/gradebook?group=${group.id}&sem=${gb.semester}`} className="ml-auto inline-flex min-h-10 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-semibold hover:border-ink sm:order-last sm:ml-0">
+          <FileSpreadsheet size={17} /> <span className="max-sm:sr-only">Скачать </span>Excel
+        </a>
         <div className="flex flex-wrap gap-1.5">
           {Array.from({ length: gb.curSem }, (_, i) => gb.curSem - i).map((s) => (
             <Link key={s} href={href({ sem: s === gb.curSem ? undefined : String(s), f: undefined })} className={cn("rounded-full border px-3 py-1.5 text-sm font-medium", s === gb.semester ? "border-ink bg-ink text-ink-fg" : "border-border bg-surface hover:border-ink")}>

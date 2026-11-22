@@ -14,7 +14,7 @@ function Metric({ value, label, bad, title }: { value: string; label: string; ba
   return (
     <div className="min-w-0 text-right" title={title}>
       <div className={cn("tabular-nums", value === "—" ? "text-muted" : "font-semibold", bad && "text-danger")}>{value}</div>
-      <div className="truncate text-[11px] text-muted">{label}</div>
+      <div className="text-[11px] leading-tight text-muted">{label}</div>
     </div>
   );
 }
@@ -34,10 +34,10 @@ export function ServiceRow({ r, canEdit }: { r: ServiceRowData; canEdit: boolean
           </div>
         </div>
         {/* телефон: показатели — второй строкой на всю ширину; компьютер — в ряд с названием */}
-        <div className="order-3 grid basis-full grid-cols-4 gap-3 sm:order-2 sm:w-80 sm:basis-auto">
+        <div className="order-3 grid basis-full grid-cols-4 gap-2 sm:order-2 sm:w-80 sm:basis-auto sm:gap-3">
           <Metric value={String(r.total)} label="заявок" />
           <Metric value={r.onTimePct != null ? `${r.onTimePct} %` : "—"} label="в срок" title={r.avgDays != null ? `В среднем ${r.avgDays} дн.` : undefined} bad={r.onTimePct != null && r.onTimePct < 80} />
-          <Metric value={String(r.overdueNow || "—")} label="просрочено" bad={r.overdueNow > 0} />
+          <Metric value={String(r.overdueNow || "—")} label="просрочка" bad={r.overdueNow > 0} />
           <Metric value={r.rating != null ? String(r.rating) : "—"} label="оценка" />
         </div>
         {canEdit && (
