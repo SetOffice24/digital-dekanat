@@ -28,6 +28,9 @@ COPY --from=build /app/public ./public
 # prisma CLI + сид для миграций и первичного заполнения
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
+# сид импортирует общий код из src/lib и src/server (без них --seed падает с MODULE_NOT_FOUND)
+COPY --from=build /app/src/lib ./src/lib
+COPY --from=build /app/src/server ./src/server
 COPY --from=build /app/package.json ./package.json
 # файлы материалов и домашних заданий (том uploads в docker-compose)
 RUN mkdir -p /app/data/uploads && chown -R app:app /app/data
