@@ -17,3 +17,6 @@ next-env.d.ts
 Thumbs.db
 /data/
 .devdb/
+# сертификаты для GigaChat — скачиваются на месте (docs/GIGACHAT.md)
+/certs/
+/deploy/certs/

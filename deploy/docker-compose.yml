@@ -27,6 +27,8 @@ services:
       DATA_DIR: /app/data
     volumes:
       - uploads:/app/data
+      # сертификат НУЦ Минцифры для GigaChat (docs/GIGACHAT.md); только чтение
+      - ./certs:/app/certs:ro
     depends_on:
       db:
         condition: service_healthy

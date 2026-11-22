@@ -1,5 +1,6 @@
 import "server-only";
 import { addDays, moscowToday } from "@/lib/utils";
+import { chatComplete } from "./llm";
 
 /** Ссылка-подсказка под ответом помощника («Открыть заявки»). */
 export type AiLink = { href: string; label: string };
@@ -74,35 +75,18 @@ export function parseDue(text: string) {
 }
 
 /**
- * Модель через шлюз (OpenAI-совместимый). Без ключа — null, и работает режим правил.
+ * Модель (шлюз или GigaChat — см. llm.ts). Без ключа или при сбое — null, и работает режим правил.
  * Модель возвращает JSON {text, draft}; черновик дальше проверяется на сервере и выполняется только по кнопке.
  */
 export async function gatewayJson(system: string, history: ChatMsg[]): Promise<{ text: string; draft?: unknown } | null> {
-  const base = process.env.AI_BASE_URL, key = process.env.AI_API_KEY, model = process.env.AI_MODEL;
-  if (process.env.AI_PROVIDER !== "gateway" || !base || !key || !model) return null;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 30000);
+  const content = await chatComplete([{ role: "system", content: system }, ...history], { temperature: 0.2, maxTokens: 900 });
+  if (!content) return null;
   try {
-    const res = await fetch(`${base.replace(/\/$/, "")}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, temperature: 0.2, max_tokens: 900, messages: [{ role: "system", content: system }, ...history] }),
-      signal: ctrl.signal,
-    });
-    if (!res.ok) {
-      console.error("AI gateway HTTP", res.status);
-      return null;
-    }
-    const data = await res.json();
-    const content: string = data?.choices?.[0]?.message?.content ?? "";
     const json = content.match(/\{[\s\S]*\}/)?.[0];
-    if (!json) return content ? { text: content.slice(0, 3000) } : null;
+    if (!json) return { text: content.slice(0, 3000) };
     const parsed = JSON.parse(json) as { text?: unknown; draft?: unknown };
     return typeof parsed.text === "string" ? { text: parsed.text.slice(0, 3000), draft: parsed.draft ?? undefined } : { text: content.slice(0, 3000) };
-  } catch (e) {
-    console.error("AI gateway error", (e as Error).name);
-    return null;
-  } finally {
-    clearTimeout(timer);
+  } catch {
+    return { text: content.slice(0, 3000) };
   }
 }
