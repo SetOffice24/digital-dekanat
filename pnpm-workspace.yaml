@@ -6,3 +6,5 @@ allowBuilds:
   prisma: true
   esbuild: true
   "@embedded-postgres/windows-x64": true
+  # Linux-сборка (Docker на сервере): встроенный Postgres там не нужен — база в отдельном контейнере
+  "@embedded-postgres/linux-x64": false

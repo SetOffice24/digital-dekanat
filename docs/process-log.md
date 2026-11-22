@@ -495,3 +495,9 @@
 - **Доступ:** отдельный ключ univer_deploy (создан на компьютере пользователя по его просьбе), открытая часть добавлена пользователем через веб-консоль Jino.
 - **Осмотр (без изменений):** Ubuntu 24.04, 2 CPU, свободно 5,9 ГБ RAM и 22 ГБ диска; Docker 29.1.5, Compose v5.0.2, git; порт 3210 свободен; рядом — setsearch.ai, setoffice.tech, set-backend, setai (не трогаем). nginx 1.28 слушает только :80 — TLS терминирует прокси Jino (81.177.6.131), как описано в setsearch.ai.conf. Порты 3000/3100/3346/5433/6432/8080/8123/21 снаружи недоступны (проверено с компьютера пользователя).
 - **Правка:** deploy/nginx/service.setoffice.ru.conf — только :80, realip от 81.177.6.131, условный редирект по X-Forwarded-Proto, X-Forwarded-For = посетитель, без ssl; docs/DEPLOY.md.
+
+## 22.11.2026 · Код на сервере (Claude Code, Opus)
+- Deploy key только для чтения (/root/.ssh/univer_github, Host github-univer в /root/.ssh/config) добавлен пользователем на GitHub; клон в /var/www/service.setoffice.ru/app (a52fd35).
+- **Найдено и сразу закрыто:** старый vhost раздавал /var/www/service.setoffice.ru статикой — клон был доступен по ссылке (проверено: /app/deploy/.env.example → 200). До создания deploy/.env добавлен location ^~ /app/ { return 404; } (копия vhost — /root/nginx-backups/, nginx -t, reload): /app/... и /app/.git/... → 404, cover.jpg → 200.
+- Пароль БД — генерировать openssl rand -hex 24 (без / + =, которые ломают DATABASE_URL).
+- Сертификат Минцифры (с согласия пользователя): https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt (ссылка со страницы gosuslugi.ru/crt) → deploy/certs/russian_trusted_root_ca.pem (2088 байт, до 27.02.2032). SHA-1 8F:F9:15:CC:…:EC:2F совпадает с сертификатом в хранилище Windows пользователя; openssl s_client с ним — api.giga.chat и ngw.devices.sberbank.ru:9443 «Verify return code: 0». Папка в .gitignore.
