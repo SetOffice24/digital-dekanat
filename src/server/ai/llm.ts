@@ -4,7 +4,7 @@
  * Провайдеры (AI_PROVIDER в .env):
  *  - "gateway"  — OpenAI-совместимый шлюз: AI_BASE_URL, AI_API_KEY, AI_MODEL;
  *  - "gigachat" — GigaChat (Сбер): GIGACHAT_AUTH_KEY (ключ авторизации из личного кабинета),
- *                 GIGACHAT_SCOPE, AI_MODEL; при необходимости GIGACHAT_CA_FILE — сертификат НУЦ Минцифры;
+ *                 GIGACHAT_SCOPE, AI_MODEL; сертификат НУЦ Минцифры берётся из системы (Windows), на сервере — GIGACHAT_CA_FILE;
  *  - иначе (или без ключа, или при любой ошибке) — null, и вызывающий код работает по правилам.
  *
  * Ключи читаются только на сервере и никогда не попадают в браузер, логи и ответы.
@@ -12,13 +12,13 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { request as httpsRequest } from "node:https";
-import { rootCertificates } from "node:tls";
+import * as tls from "node:tls";
 
 export type LlmMessage = { role: "system" | "user" | "assistant"; content: string };
 export type LlmOptions = { temperature?: number; maxTokens?: number; timeoutMs?: number };
 
 const GIGACHAT_OAUTH_URL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth";
-const GIGACHAT_API_URL = "https://gigachat.devices.sberbank.ru/api/v1";
+const GIGACHAT_API_URL = "https://api.giga.chat/v1";
 
 /** Какой провайдер включён и настроен; null — режим правил. */
 export function aiProvider(env: NodeJS.ProcessEnv = process.env): "gateway" | "gigachat" | null {
@@ -31,16 +31,35 @@ export function aiProvider(env: NodeJS.ProcessEnv = process.env): "gateway" | "g
 
 type HttpResult = { status: number; json: () => unknown };
 
-let caCache: { file: string; ca: string[] } | null = null;
-function extraCa(file: string | undefined) {
-  if (!file) return null;
-  if (caCache?.file !== file) caCache = { file, ca: [...rootCertificates, readFileSync(file, "utf8")] };
-  return caCache.ca;
+/**
+ * Корневые сертификаты для адресов GigaChat (подписаны НУЦ Минцифры, которого нет во встроенном наборе Node):
+ *  - GIGACHAT_CA_FILE — файл сертификата (сервер/Docker);
+ *  - иначе — системное хранилище ОС (в Windows сертификат Минцифры обычно уже установлен).
+ * null — сертификатов нет, идём обычным fetch.
+ */
+let caCache: { key: string; ca: string[] | null } | null = null;
+function gigachatCa(file: string | undefined): string[] | null {
+  const key = file || "system";
+  if (caCache?.key === key) return caCache.ca;
+  let ca: string[] | null = null;
+  if (file) ca = [...tls.rootCertificates, readFileSync(file, "utf8")];
+  else if (process.env.NODE_ENV !== "test") {
+    // getCACertificates есть в Node ≥ 22.15/23.5; в тестах сеть подменена — системное хранилище не трогаем
+    const get = (tls as unknown as { getCACertificates?: (t: "default" | "system") => string[] }).getCACertificates;
+    try {
+      const system = get?.("system") ?? [];
+      if (system.length) ca = [...new Set([...(get?.("default") ?? tls.rootCertificates), ...system])];
+    } catch {
+      ca = null;
+    }
+  }
+  caCache = { key, ca };
+  return ca;
 }
 
 async function post(url: string, headers: Record<string, string>, body: string, timeoutMs: number): Promise<HttpResult> {
-  const ca = extraCa(process.env.GIGACHAT_CA_FILE);
-  if (!ca || !url.includes("sberbank.ru")) {
+  const ca = /sberbank\.ru|giga\.chat/.test(url) ? gigachatCa(process.env.GIGACHAT_CA_FILE) : null;
+  if (!ca) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
@@ -51,7 +70,7 @@ async function post(url: string, headers: Record<string, string>, body: string, 
       clearTimeout(timer);
     }
   }
-  // fetch в Node не принимает свой список корневых сертификатов — для GigaChat с сертификатом идём через https
+  // fetch в Node не принимает свой список корневых сертификатов — для GigaChat идём через https с нужными сертификатами
   return new Promise((resolve, reject) => {
     const req = httpsRequest(url, { method: "POST", headers: { ...headers, "Content-Length": Buffer.byteLength(body) }, ca, timeout: timeoutMs }, (res) => {
       const chunks: Buffer[] = [];
@@ -122,7 +141,7 @@ export async function chatComplete(messages: LlmMessage[], o: LlmOptions = {}): 
   const provider = aiProvider();
   if (!provider) return null;
   const timeoutMs = o.timeoutMs ?? 30000;
-  const body = (temperature: number | undefined) => JSON.stringify({ model: process.env.AI_MODEL, temperature, max_tokens: o.maxTokens ?? 800, messages });
+  const body = (temperature: number | undefined) => JSON.stringify({ model: process.env.AI_MODEL, temperature, max_tokens: o.maxTokens ?? 800, messages, stream: false });
   try {
     if (provider === "gateway") {
       const res = await post(`${process.env.AI_BASE_URL!.replace(/\/$/, "")}/chat/completions`, { "Content-Type": "application/json", Authorization: `Bearer ${process.env.AI_API_KEY}` }, body(o.temperature ?? 0.3), timeoutMs);
@@ -132,13 +151,12 @@ export async function chatComplete(messages: LlmMessage[], o: LlmOptions = {}): 
       }
       return contentOf(res.json());
     }
-    // GigaChat: температура должна быть > 0 — для «строгих» задач берём минимальную
-    const t = Math.max(o.temperature ?? 0.3, 0.01);
+    // GigaChat: по документации для сбалансированного ответа temperature не передаём — модель берёт значения по умолчанию
     const url = `${(process.env.GIGACHAT_API_URL || GIGACHAT_API_URL).replace(/\/$/, "")}/chat/completions`;
     for (const force of [false, true]) {
       const access = await gigachatToken(force);
       if (!access) return null;
-      const res = await post(url, { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${access}` }, body(t), timeoutMs);
+      const res = await post(url, { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${access}` }, body(undefined), timeoutMs);
       if (res.status === 401 && !force) continue; // токен отозван/истёк раньше срока — один повтор с новым
       if (res.status !== 200) {
         console.error("GigaChat HTTP", res.status);
@@ -148,7 +166,9 @@ export async function chatComplete(messages: LlmMessage[], o: LlmOptions = {}): 
     }
     return null;
   } catch (e) {
-    console.error(provider === "gigachat" ? "GigaChat error" : "AI gateway error", (e as Error).name, (e as Error).message?.slice(0, 120));
+    // причина сетевой ошибки (код TLS/DNS) — без заголовков и ключей
+    const cause = (e as { cause?: { code?: string; message?: string } }).cause;
+    console.error(provider === "gigachat" ? "GigaChat error" : "AI gateway error", (e as Error).name, (e as Error).message?.slice(0, 120), cause?.code ?? cause?.message?.slice(0, 120) ?? "");
     return null;
   }
 }

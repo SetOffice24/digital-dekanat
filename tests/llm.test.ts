@@ -73,7 +73,8 @@ describe("GigaChat", () => {
     expect((chat.init.headers as Record<string, string>).Authorization).toBe("Bearer tok-1");
     const body = JSON.parse(String(chat.init.body));
     expect(body.model).toBe("GigaChat");
-    expect(body.temperature).toBeGreaterThan(0); // GigaChat не принимает 0
+    expect(body.temperature).toBeUndefined(); // по документации — значения модели по умолчанию
+    expect(chat.url).toBe("https://api.giga.chat/v1/chat/completions");
   });
 
   it("при 401 берёт новый токен и повторяет один раз", async () => {
