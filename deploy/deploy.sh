@@ -17,7 +17,7 @@ fi
 if [ "$1" = "--seed" ]; then
   docker compose exec -T app node node_modules/tsx/dist/cli.mjs prisma/seed.ts
 fi
-# Демо-вход без пароля (кнопки для жюри) — в боевой сборке только при явном DEMO_LOGIN=1. Для настоящего запуска — убрать.
+# Быстрый вход без пароля — в боевой сборке только при явном DEMO_LOGIN=1 (для публикации он выключен).
 if grep -q '^DEMO_LOGIN=1' .env 2>/dev/null; then
   echo "ВНИМАНИЕ: включён демо-вход без пароля (DEMO_LOGIN=1). Для настоящих данных уберите эту строку из deploy/.env и перезапустите."
 fi

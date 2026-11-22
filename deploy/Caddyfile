@@ -1,9 +1,11 @@
 {$SITE_HOST} {
 	encode zstd gzip
 	header Strict-Transport-Security "max-age=31536000"
-	# жёсткий предел тела запроса: больше 13 МБ отклоняется до приложения (файлы — до 10 МБ, Server Actions — до 12 МБ)
+	# жёсткий предел тела запроса — как proxyClientMaxBodySize в next.config.ts (26 МБ):
+	# сдача ДЗ и материалы — несколько файлов до 25 МБ вместе (по 10 МБ каждый), Server Actions — до 12 МБ.
+	# Меньший предел здесь отклонял бы законные сдачи ещё до приложения, без понятного сообщения.
 	request_body {
-		max_size 13MB
+		max_size 26MB
 	}
 	reverse_proxy app:3000
 }

@@ -27,12 +27,12 @@ AI_MODEL="GigaChat-2"
 
 ### На сервере (VPS)
 
-1. Те же строки запишите в `/opt/univer/deploy/.env`, права `600`.
+1. Те же строки запишите в `/var/www/service.setoffice.ru/app/deploy/.env`, права `600`.
 2. Внутри Docker (Linux) сертификата Минцифры нет, поэтому один раз нужно:
    - скачать с https://www.gosuslugi.ru/crt корневой сертификат «Russian Trusted Root CA» в формате PEM (текст начинается с `-----BEGIN CERTIFICATE-----`);
-   - положить его в `/opt/univer/deploy/certs/russian_trusted_root_ca.pem`;
+   - положить его в `/var/www/service.setoffice.ru/app/deploy/certs/russian_trusted_root_ca.pem`;
    - добавить в `deploy/.env` строку `GIGACHAT_CA_FILE=/app/certs/russian_trusted_root_ca.pem`.
-3. Перезапустите приложение: `cd /opt/univer/deploy && docker compose up -d app`.
+3. Перезапустите приложение: `cd /var/www/service.setoffice.ru/app/deploy && docker compose up -d app`.
 
 Ключ нельзя писать в `.env.example`, код, коммиты и переписку.
 

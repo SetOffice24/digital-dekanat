@@ -1,5 +1,7 @@
-# Продакшен на VPS: cd /opt/univer/deploy && docker compose up -d --build
-# Все сервисы изолированы в собственной сети; наружу открыт только caddy (80/443).
+# Продакшен на VPS: cd <папка проекта>/deploy && docker compose up -d --build
+# Схема по умолчанию: на сервере уже есть nginx (80/443, HTTPS) — приложение слушает только 127.0.0.1:APP_PORT,
+# nginx проксирует на него (deploy/nginx/service.setoffice.ru.conf). БД наружу не открыта.
+# Свой Caddy с HTTPS — только если на сервере нет веб-сервера: docker compose --profile caddy up -d (нужен SITE_HOST).
 name: univer
 
 services:
@@ -25,6 +27,9 @@ services:
       DATABASE_URL: postgresql://univer:${DB_PASSWORD}@db:5432/univer
       NODE_ENV: production
       DATA_DIR: /app/data
+    # только локальный интерфейс: снаружи сайт доступен лишь через nginx
+    ports:
+      - "127.0.0.1:${APP_PORT:-3210}:3000"
     volumes:
       - uploads:/app/data
       # сертификат НУЦ Минцифры для GigaChat (docs/GIGACHAT.md); только чтение
@@ -35,12 +40,13 @@ services:
 
   caddy:
     image: caddy:2-alpine
+    profiles: ["caddy"]
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
     environment:
-      SITE_HOST: ${SITE_HOST:?set SITE_HOST in deploy/.env}
+      SITE_HOST: ${SITE_HOST:-localhost}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
