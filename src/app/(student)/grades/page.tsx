@@ -129,7 +129,7 @@ const finalOf = (e: Enr) => [...e.grades].reverse().find((g) => g.kind === "FINA
  * Прошлый семестр: спокойный список в одну колонку. Цвет — только у проблем (долг),
  * обычные оценки — просто цифрой, без цветных плашек. Долги — наверху.
  */
-function PastSemester({ rows }: { rows: Enr[] }) {
+function PastSemester({ rows, sem }: { rows: Enr[]; sem: number }) {
   const items = rows
     .map((e) => ({ e, v: finalOf(e)?.value ?? null }))
     .sort((a, b) => Number(b.v === "2" || b.v === "FAIL") - Number(a.v === "2" || a.v === "FAIL") || a.e.course.name.localeCompare(b.e.course.name, "ru"));
@@ -139,9 +139,11 @@ function PastSemester({ rows }: { rows: Enr[] }) {
   return (
     <div className="max-w-3xl">
       <p className="mb-3 text-sm text-muted">
+        {/* период — видимой подписью: верхняя сводка — за всё время, здесь — только выбранный семестр */}
+        <span className="font-semibold text-fg">Итоги {sem}-го семестра</span>
         {avg && (
           <>
-            Средний балл <b className="font-semibold text-fg">{avg}</b>
+            {" "}· средний балл <b className="font-semibold text-fg">{avg}</b>
           </>
         )}
         {debts > 0 && <span className="font-semibold text-danger"> · {debts} {plural(debts, "долг", "долга", "долгов")}</span>}
@@ -215,7 +217,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
         <div className={cn("grid grid-cols-3 gap-2 text-center", status === "success" ? "mt-3" : "mt-4")}>
           <div className={cn("rounded-2xl bg-surface", status === "success" ? "p-2.5" : "p-3")} title="Средний балл итоговых оценок за всё время учёбы">
             <div className="text-2xl font-extrabold tabular-nums">{avg ? avg.toFixed(2).replace(".", ",") : "—"}</div>
-            <div className="text-[11px] font-semibold text-muted">средний балл</div>
+            <div className="text-[11px] font-semibold text-muted">средний за всё время</div>
           </div>
           <div className={cn("rounded-2xl bg-surface", status === "success" ? "p-2.5" : "p-3")}>
             <div className={cn("text-2xl font-extrabold tabular-nums", debts.length && "text-danger")}>{debts.length}</div>
@@ -264,7 +266,8 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
 
       {/* Оценки — сразу после сводки */}
       <SectionTitle>Дисциплины</SectionTitle>
-      <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] pb-1" role="tablist">
+      {/* семестров немного — переносим строкой, а не прячем за краем ленты */}
+      <div className="mb-3 flex flex-wrap gap-2" role="tablist">
         {semesters.map((s) => (
           <Link key={s} href={`/grades?sem=${s}`} role="tab" aria-selected={s === sem} className={cn("shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition", s === sem ? "border-ink bg-ink text-ink-fg" : "border-border bg-surface text-muted hover:text-fg")}>
             {s} семестр{s === curSem ? " · сейчас" : ""}
@@ -283,7 +286,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
           <EmptyState icon={<BookOpen size={22} />} title="Оценок пока нет" text="Баллы появятся после первых контрольных точек." />
         )
       ) : (
-        <PastSemester rows={enrollments.filter((e) => e.semester === sem)} />
+        <PastSemester rows={enrollments.filter((e) => e.semester === sem)} sem={sem} />
       )}
 
       {/* Второстепенное — после оценок; на широком экране в две колонки */}

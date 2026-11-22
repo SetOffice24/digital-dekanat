@@ -71,7 +71,7 @@ export function StaffShell({ children, name, position }: { children: React.React
           ))}
         </nav>
       </header>
-      <main className="flex-1 px-4 pb-10 pt-6 sm:px-6 md:px-8 lg:px-10">
+      <main tabIndex={-1} className="flex-1 px-4 pb-10 pt-6 outline-none sm:px-6 md:px-8 lg:px-10">
         <div className="mx-auto w-full max-w-[100rem]">{children}</div>
       </main>
       <footer className="px-4 pb-6 text-xs text-muted sm:px-6 md:px-8 lg:px-10">

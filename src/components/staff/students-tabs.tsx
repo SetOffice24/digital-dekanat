@@ -16,7 +16,7 @@ export async function StudentsTabs({ active, groupId }: { active: "gradebook" | 
     { key: "accounts", label: "Аккаунты", href: "/staff/students/accounts" },
   ] as const;
   return (
-    <nav className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0" aria-label="Разделы «Студенты»">
+    <nav className="mb-5 flex flex-wrap gap-2" aria-label="Разделы «Студенты»">
       {tabs.map((t) => (
         <Link key={t.key} href={t.href} aria-current={active === t.key ? "page" : undefined} className={cn("inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition", active === t.key ? "border-ink bg-ink text-ink-fg" : "border-transparent bg-surface hover:border-border")}>
           {t.label}

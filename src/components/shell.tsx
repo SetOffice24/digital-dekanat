@@ -55,10 +55,11 @@ export function StudentShell({ children, name, firstName, group, initials }: { c
       <div className="min-h-dvh bg-bg">
         {/* ---------- Шапка ---------- */}
         <header className="sticky top-0 z-30 bg-bg/80 backdrop-blur-xl">
-          <div className="mx-auto flex w-full max-w-[90rem] items-center gap-2 px-4 py-3 sm:px-6 lg:gap-3 lg:px-10 lg:py-5">
-            <Link href="/" className="flex items-center gap-3" aria-label="Главная">
+          <div className="mx-auto flex w-full max-w-[90rem] items-center gap-1.5 px-4 py-3 sm:gap-2 sm:px-6 lg:gap-3 lg:px-10 lg:py-5">
+            <Link href="/" className="flex items-center gap-2 sm:gap-3" aria-label="Главная">
               <Logo size={44} />
-              <Wordmark className="text-[16px] lg:hidden xl:inline-flex xl:text-[17px]" />
+              {/* на самых узких экранах (до 360 px) — только значок: кнопки справа сохраняют полный размер нажатия */}
+              <Wordmark className="text-[16px] max-[359px]:hidden lg:hidden xl:inline-flex xl:text-[17px]" />
             </Link>
 
             <nav className="ml-4 hidden items-center gap-2 lg:flex" aria-label="Разделы">
@@ -99,7 +100,7 @@ export function StudentShell({ children, name, firstName, group, initials }: { c
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[90rem] px-4 pb-32 pt-2 sm:px-6 lg:px-10 lg:pb-16 lg:pt-4">{children}</main>
+        <main tabIndex={-1} className="mx-auto w-full max-w-[90rem] outline-none px-4 pb-32 pt-2 sm:px-6 lg:px-10 lg:pb-16 lg:pt-4">{children}</main>
 
         <footer className="mx-auto hidden max-w-[90rem] px-10 pb-8 text-xs text-muted lg:block">{university.disclaimer}</footer>
 

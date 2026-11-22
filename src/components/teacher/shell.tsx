@@ -25,18 +25,18 @@ export function TeacherShell({ children, name, department }: { children: React.R
         <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
           <Link href="/teacher" className="flex items-center gap-3" aria-label="Мои группы">
             <Wordmark className="text-[18px] sm:text-[20px]" />
-            <span className="hidden rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold text-ink-fg sm:inline">преподаватель</span>
+            <span className="hidden rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold text-ink-fg md:inline">преподаватель</span>
           </Link>
-          <div className="min-w-0 flex-1 text-right leading-tight max-sm:invisible">
+          <div className="min-w-0 flex-1 text-right leading-tight max-md:invisible">
             <div className="truncate text-sm font-bold">{name}</div>
-            <div className="hidden truncate text-xs text-muted sm:block">{department}</div>
+            <div className="hidden truncate text-xs text-muted md:block">{department}</div>
           </div>
-          <OpenAssistant className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-border bg-surface p-1 text-sm font-semibold transition hover:border-ink sm:pr-4">
+          <OpenAssistant className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-border bg-surface p-1 text-sm font-semibold transition hover:border-ink md:pr-4">
             <Mascot size={32} />
-            <span className="max-sm:sr-only">Помощник</span>
+            <span className="max-md:sr-only">Помощник</span>
           </OpenAssistant>
           {extra.map((x) => (
-            <Link key={x.href} href={x.href} className="hidden size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg sm:flex" aria-label={x.label} title={x.title}>
+            <Link key={x.href} href={x.href} className="hidden size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg md:flex" aria-label={x.label} title={x.title}>
               <x.icon size={20} />
             </Link>
           ))}
@@ -47,8 +47,8 @@ export function TeacherShell({ children, name, department }: { children: React.R
             </button>
           </form>
         </div>
-        {/* телефон: разделы с подписями под шапкой — всё доступно без прокрутки вбок */}
-        <nav className="grid grid-cols-3 gap-1 px-3 pb-2.5 sm:hidden" aria-label="Разделы кабинета">
+        {/* телефон и узкий планшет (до 768 px): разделы с подписями под шапкой — всё доступно без прокрутки вбок */}
+        <nav className="mx-auto grid w-full max-w-5xl grid-cols-3 gap-1 px-3 pb-2.5 sm:px-5 md:hidden" aria-label="Разделы кабинета">
           {extra.map((x) => (
             <Link key={x.href} href={x.href} className="flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-2xl px-1 text-[13px] font-semibold text-muted hover:bg-surface/70 hover:text-fg">
               <x.icon size={16} className="shrink-0 max-[400px]:hidden" />
@@ -57,7 +57,7 @@ export function TeacherShell({ children, name, department }: { children: React.R
           ))}
         </nav>
       </header>
-      <main className="flex-1 px-4 pb-10 pt-6 sm:px-6">
+      <main tabIndex={-1} className="flex-1 px-4 pb-10 pt-6 outline-none sm:px-6">
         <div className="mx-auto w-full max-w-5xl">{children}</div>
       </main>
       <footer className="px-4 pb-6 text-xs text-muted sm:px-6">
