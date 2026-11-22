@@ -103,11 +103,14 @@ describe("S03: граница подгруппы", () => {
         break;
       }
     }
-    if (!found) return; // в сиде нет такой пары — нечего проверять
+    // сид обязан содержать такую пару: без неё сценарий S03 не проверяется — тест должен упасть, а не пройти молча
+    expect(found, "в сиде нет преподавателя, который ведёт только одну подгруппу").toBeTruthy();
+    if (!found) return;
     const scope = await teachingScope({ id: found.teacherId }, found.groupId, found.courseId);
     expect(scope).toEqual({ all: false, subgroups: [found.subgroup] });
     const group = await db.group.findUniqueOrThrow({ where: { id: found.groupId }, select: { course: true } });
     const other = await db.enrollment.findFirst({ where: { courseId: found.courseId, semester: group.course * 2 - 1, student: { groupId: found.groupId, subgroup: { not: found.subgroup! } } }, select: { id: true } });
+    expect(other, "в сиде нет зачисления студента другой подгруппы").toBeTruthy();
     if (!other) return;
     await expect(addGrade({ id: found.teacherId }, other.id, 10, "Проверка")).rejects.toBeInstanceOf(TeacherAccessError);
   });
