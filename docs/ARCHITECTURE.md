@@ -183,7 +183,7 @@ src/server/ai/
 ```
 deploy/
   docker-compose.yml   app (node:22-alpine, next start), postgres:16-alpine (volume pgdata), caddy:2 (volumes caddy_data, caddy_config)
-  Caddyfile            7d965724e284.vps.myjino.ru { reverse_proxy app:3000 }   # автоматический Let's Encrypt
+  Caddyfile            <поддомен>.vps.myjino.ru { reverse_proxy app:3000 }   # автоматический Let's Encrypt
   .env.example         DATABASE_URL, SESSION_SECRET, AI_PROVIDER, AI_BASE_URL, AI_API_KEY, AI_MODEL, APP_URL
   backup.sh            pg_dump + архив /app/data (uploads, documents, photos) в backups/, проверка и атомарная запись, хранить 14 дней; cron ежедневно 03:00
   deploy.sh            git pull → docker compose build → compose up -d → prisma migrate deploy → (первый раз) seed
