@@ -78,7 +78,7 @@ export default async function StaffSchedule({ searchParams }: { searchParams: Pr
                   )}
                 </div>
                 {!cancelled && l.date.getTime() <= today.getTime() && (
-                  <Link href={`/staff/attendance/lesson/${l.id}`} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full bg-ink px-3.5 text-sm font-semibold text-ink-fg hover:opacity-90">
+                  <Link href={`/staff/attendance/lesson/${l.id}`} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-border px-3.5 text-sm font-semibold hover:border-ink">
                     <UserCheck size={15} /> Посещаемость
                   </Link>
                 )}

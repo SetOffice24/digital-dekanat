@@ -10,7 +10,7 @@ export function QuickAction({ id, to, label }: { id: string; to: "IN_REVIEW" | "
       type="button"
       disabled={pending}
       onClick={() => start(() => quickStatusAction(id, to))}
-      className="ml-auto inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-ink px-4 text-sm font-semibold text-ink-fg transition hover:opacity-90 disabled:opacity-50"
+      className="ml-auto inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-surface px-4 text-sm font-semibold text-fg transition hover:border-ink disabled:opacity-50"
     >
       {pending && <LoaderCircle size={15} className="animate-spin" />}
       {label}

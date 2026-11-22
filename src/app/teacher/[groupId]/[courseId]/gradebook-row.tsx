@@ -72,7 +72,8 @@ export function GradebookRow({ row, kinds, max }: { row: Row; kinds: readonly st
           <span className="text-xs text-muted md:hidden">Сумма баллов: </span>
           <span className="font-head text-xl font-semibold">{row.total}</span>
         </div>
-        <Button variant={open ? "secondary" : "primary"} className="min-h-11 px-4" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {/* действие строки — спокойное: сильный стиль только у главного действия страницы («Оценки группе») */}
+        <Button variant="ghost" className="min-h-11 border border-border px-4 hover:border-ink" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           {open ? (
             "Отмена"
           ) : (
