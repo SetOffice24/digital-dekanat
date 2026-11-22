@@ -18,3 +18,6 @@ deploy/.env
 deploy/certs
 certs
 docs/audits
+
+# конкурсный отчёт и скриншоты к нему — не часть сервиса
+docs/report
