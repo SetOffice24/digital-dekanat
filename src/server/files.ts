@@ -183,7 +183,14 @@ export async function canAccessAttachment(user: Viewer, attachmentId: string) {
   if (user.role === "TEACHER" && user.teacher) {
     // та же граница, что у журнала: текущая учебная связь (прежние пары доступа к файлам не дают)
     const teaches = await prisma.lesson.count({ where: { teacherId: user.teacher.id, groupId: scope.groupId, courseId: scope.courseId, ...currentPeriod() } });
-    return teaches > 0 ? a : null;
+    if (!teaches) return null;
+    // файл сдачи конкретного студента — только если преподаватель ведёт его подгруппу (или занятия для всей группы)
+    if (a.submission) {
+      const st = await prisma.student.findUnique({ where: { id: a.submission.studentId }, select: { subgroup: true } });
+      const { teachesStudent } = await import("./repos/teacher");
+      return st && (await teachesStudent({ id: user.teacher.id }, { groupId: scope.groupId, subgroup: st.subgroup }, scope.courseId)) ? a : null;
+    }
+    return a;
   }
   return null;
 }

@@ -1,7 +1,7 @@
 import "server-only";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { hash, verify } from "@node-rs/argon2";
 import { cache } from "react";
 import { prisma } from "./db";
@@ -60,14 +60,20 @@ export function clearAttemptsForLogin(login: string) {
 }
 
 /* ---------- сессии ---------- */
+/**
+ * В cookie — случайный 256-битный токен, в БД (Session.id) — только его SHA-256.
+ * Утечка таблицы или дампа не даёт готовых ключей входа. Медленный хеш не нужен: токен случайный, подбор невозможен.
+ */
+export const sessionKey = (token: string) => createHash("sha256").update(token).digest("base64url");
+
 export async function createSession(userId: string) {
-  const id = randomBytes(32).toString("base64url");
+  const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 3600 * 1000);
   const ua = (await headers()).get("user-agent")?.slice(0, 200) ?? null;
-  await prisma.session.create({ data: { id, userId, expiresAt, userAgent: ua } });
+  await prisma.session.create({ data: { id: sessionKey(token), userId, expiresAt, userAgent: ua } });
   await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
   const secure = (process.env.APP_URL ?? "").startsWith("https://");
-  (await cookies()).set(COOKIE, id, {
+  (await cookies()).set(COOKIE, token, {
     httpOnly: true,
     secure,
     sameSite: "lax",
@@ -78,8 +84,8 @@ export async function createSession(userId: string) {
 
 export async function destroySession() {
   const jar = await cookies();
-  const id = jar.get(COOKIE)?.value;
-  if (id) await prisma.session.deleteMany({ where: { id } });
+  const token = jar.get(COOKIE)?.value;
+  if (token) await prisma.session.deleteMany({ where: { id: sessionKey(token) } });
   jar.delete(COOKIE);
 }
 
@@ -88,10 +94,10 @@ export async function destroySession() {
  * Заблокированный — null: доступ прекращается сразу, даже если сессия где-то осталась.
  */
 const sessionUser = cache(async () => {
-  const id = (await cookies()).get(COOKIE)?.value;
-  if (!id) return null;
+  const token = (await cookies()).get(COOKIE)?.value;
+  if (!token) return null;
   const session = await prisma.session.findUnique({
-    where: { id },
+    where: { id: sessionKey(token) },
     include: { user: { include: { student: true, staff: true, teacher: true } } },
   });
   if (!session || session.expiresAt < new Date() || session.user.blockedAt) return null;
@@ -106,6 +112,11 @@ export const getCurrentUser = cache(async () => {
   const user = await sessionUser();
   return user && !user.mustChangePassword ? user : null;
 });
+
+/** Демо-вход без пароля (кнопки для жюри): в боевой сборке — только при явном DEMO_LOGIN=1, при разработке — пока не выключен DEMO_LOGIN=0. */
+export function demoLoginEnabled() {
+  return process.env.DEMO_LOGIN === "1" || (process.env.NODE_ENV !== "production" && process.env.DEMO_LOGIN !== "0");
+}
 
 /** Для страницы «Задайте свой пароль». */
 export async function userForPasswordChange() {

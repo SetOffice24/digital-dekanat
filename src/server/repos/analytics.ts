@@ -10,7 +10,7 @@ import { prisma } from "../db";
 import { forecast, isBelow, type Forecast } from "@/lib/grading";
 import { homeworkState } from "./homework";
 import type { SessionStaff } from "./staff";
-import { teachesPair, type SessionTeacher } from "./teacher";
+import { teachingScope, subgroupWhere, type SessionTeacher } from "./teacher";
 
 const groupScope = (s: SessionStaff): Prisma.GroupWhereInput => (s.facultyId ? { program: { facultyId: s.facultyId } } : {});
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : null);
@@ -241,13 +241,14 @@ export async function studentFile(staff: SessionStaff, studentId: string) {
 
 /** Статистика дисциплины в группе + строки по студентам. Чужая пара → null. */
 export async function courseStats(teacher: SessionTeacher, groupId: string, courseId: string) {
-  if (!(await teachesPair(teacher, groupId, courseId))) return null;
+  const scope = await teachingScope(teacher, groupId, courseId);
+  if (!scope) return null;
   const group = await prisma.group.findUnique({ where: { id: groupId }, select: { course: true } });
   if (!group) return null;
   const semester = semesterOf(group.course);
   const [students, att, hw] = await Promise.all([
     prisma.student.findMany({
-      where: { groupId, enrollments: { some: { courseId, semester } } },
+      where: { groupId, ...subgroupWhere(scope), enrollments: { some: { courseId, semester } } },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: { id: true, lastName: true, firstName: true, enrollments: { where: { courseId, semester }, select: { id: true, semester: true, courseId: true, course: { select: { id: true, name: true, assessment: true } }, grades: { select: { kind: true, value: true, points: true, date: true } } } } },
     }),
@@ -283,9 +284,10 @@ export async function courseStats(teacher: SessionTeacher, groupId: string, cour
 
 /** Карточка студента в разрезе одной дисциплины преподавателя. Студент не из этой группы или чужая пара → null. */
 export async function teacherStudentCard(teacher: SessionTeacher, groupId: string, courseId: string, studentId: string) {
-  if (!(await teachesPair(teacher, groupId, courseId))) return null;
+  const scope = await teachingScope(teacher, groupId, courseId);
+  if (!scope) return null;
   const s = await prisma.student.findFirst({
-    where: { id: studentId, groupId },
+    where: { id: studentId, groupId, ...subgroupWhere(scope) },
     select: {
       id: true, userId: true, lastName: true, firstName: true, middleName: true, subgroup: true, group: { select: { name: true, course: true } },
       enrollments: { where: { courseId }, orderBy: { semester: "desc" }, take: 1, select: { id: true, semester: true, courseId: true, course: { select: { id: true, name: true, assessment: true } }, grades: { orderBy: { date: "asc" }, select: { kind: true, value: true, points: true, date: true, note: true } } } },

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { CircleHelp, Info } from "lucide-react";
-import { getCurrentUser, homeFor } from "@/server/auth";
+import { getCurrentUser, homeFor, demoLoginEnabled } from "@/server/auth";
 import { university } from "@/config/university";
 import { Wordmark } from "@/components/logo";
 import { LoginForm } from "./login-form";
@@ -32,7 +32,7 @@ export default async function LoginPage() {
             </div>
           </div>
 
-          {process.env.DEMO_LOGIN !== "0" && (
+          {demoLoginEnabled() && (
             <div className="mt-3">
               <DemoLogin />
             </div>

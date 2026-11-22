@@ -11,3 +11,10 @@ coverage
 test-results
 playwright-report
 *.log
+# данные приложения, бэкапы и материалы аудитов не должны попадать в контекст сборки
+data
+deploy/backups
+deploy/.env
+deploy/certs
+certs
+docs/audits

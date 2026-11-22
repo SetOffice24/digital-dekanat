@@ -10,21 +10,27 @@ mkdir -p backups
 day="$(date +%F)"
 
 # pipefail: если pg_dump упал, скрипт упадёт, а не сохранит пустой gzip
+rm -f "backups/${day}.complete"
 docker compose exec -T db pg_dump -U univer univer | gzip > "backups/.${day}.sql.gz.tmp"
 gzip -t "backups/.${day}.sql.gz.tmp"
 test "$(gzip -dc "backups/.${day}.sql.gz.tmp" | head -c 1000 | wc -c)" -gt 0
-mv "backups/.${day}.sql.gz.tmp" "backups/${day}.sql.gz"
 
-# файлы приложения — каталоги, которые есть в томе (photos/documents могут ещё не существовать)
-dirs="$(docker compose exec -T app sh -c 'cd /app/data && for d in uploads documents photos; do [ -d "$d" ] && printf "%s " "$d"; done')"
+# файлы приложения — каталоги, которые есть в томе (photos/documents могут ещё не существовать).
+# «exit 0» в конце: иначе код последней проверки [ -d photos ] (1, если каталога нет) оборвал бы скрипт через set -e
+dirs="$(docker compose exec -T app sh -c 'cd /app/data && for d in uploads documents photos; do if [ -d "$d" ]; then printf "%s " "$d"; fi; done; exit 0')"
 if [ -n "$dirs" ]; then
   # shellcheck disable=SC2086
   docker compose exec -T app tar -czf - -C /app/data $dirs > "backups/.${day}-data.tar.gz.tmp"
   tar -tzf "backups/.${day}-data.tar.gz.tmp" > /dev/null
-  mv "backups/.${day}-data.tar.gz.tmp" "backups/${day}-data.tar.gz"
 fi
+
+# публикуем комплект только когда готовы обе части; маркер .complete — признак полного бэкапа (БД + файлы)
+mv "backups/.${day}.sql.gz.tmp" "backups/${day}.sql.gz"
+if [ -n "$dirs" ]; then mv "backups/.${day}-data.tar.gz.tmp" "backups/${day}-data.tar.gz"; fi
+date -Is > "backups/${day}.complete"
 
 find backups -name '*.sql.gz' -mtime +14 -delete
 find backups -name '*-data.tar.gz' -mtime +14 -delete
 find backups -name '*-uploads.tar.gz' -mtime +14 -delete
+find backups -name '*.complete' -mtime +14 -delete
 find backups -name '.*.tmp' -mtime +1 -delete

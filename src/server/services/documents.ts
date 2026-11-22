@@ -59,6 +59,7 @@ export async function uploadDocument(s: DocStudent, kind: DocKind, file: File, v
   if (!(kind in docKinds)) throw new DocumentError("Неизвестный вид документа");
   if (!file || !file.size) throw new DocumentError("Выберите файл");
   if (file.size > MAX_DOC_MB * 1024 * 1024) throw new DocumentError(`Файл больше ${MAX_DOC_MB} МБ`);
+  // быстрая предварительная проверка (до обработки файла); окончательная — в транзакции ниже
   const used = await prisma.studentDocument.aggregate({ where: { studentId: s.id }, _count: { _all: true }, _sum: { size: true } });
   if (used._count._all >= MAX_DOCS) throw new DocumentError(`Загружено уже ${MAX_DOCS} документов — удалите старые, чтобы добавить новый`);
   if ((used._sum.size ?? 0) + file.size > MAX_TOTAL_MB * 1024 * 1024) throw new DocumentError(`Документы занимают больше ${MAX_TOTAL_MB} МБ — удалите старые`);
@@ -84,7 +85,14 @@ export async function uploadDocument(s: DocStudent, kind: DocKind, file: File, v
   const storageKey = randomBytes(18).toString("hex");
   await fs.writeFile(path.join(dir(), storageKey), buf);
   try {
-    return await prisma.studentDocument.create({ data: { studentId: s.id, kind, fileName: `${docKinds[kind].title}.${ext}`, mime, size: buf.length, storageKey, validUntil: until } });
+    // квота проверяется ещё раз под блокировкой студента: параллельные загрузки не могут вместе её превысить
+    return await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"docs:" + s.id}))`;
+      const now = await tx.studentDocument.aggregate({ where: { studentId: s.id }, _count: { _all: true }, _sum: { size: true } });
+      if (now._count._all >= MAX_DOCS) throw new DocumentError(`Загружено уже ${MAX_DOCS} документов — удалите старые, чтобы добавить новый`);
+      if ((now._sum.size ?? 0) + buf.length > MAX_TOTAL_MB * 1024 * 1024) throw new DocumentError(`Документы занимают больше ${MAX_TOTAL_MB} МБ — удалите старые`);
+      return tx.studentDocument.create({ data: { studentId: s.id, kind, fileName: `${docKinds[kind].title}.${ext}`, mime, size: buf.length, storageKey, validUntil: until } });
+    });
   } catch (e) {
     await fs.unlink(path.join(dir(), storageKey)).catch(() => {});
     throw e;

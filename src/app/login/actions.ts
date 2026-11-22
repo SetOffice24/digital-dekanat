@@ -1,9 +1,9 @@
 "use server";
 import { z } from "zod";
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/server/db";
-import { clearAttempts, createSession, destroySession, dummyHash, hashPassword, homeFor, isRateLimited, registerFailedAttempt, userForPasswordChange, verifyPassword } from "@/server/auth";
+import { clearAttempts, createSession, demoLoginEnabled, destroySession, dummyHash, hashPassword, homeFor, isRateLimited, registerFailedAttempt, userForPasswordChange, verifyPassword } from "@/server/auth";
 
 const schema = z.object({
   login: z.string().trim().min(1, "Введите логин").max(64),
@@ -40,11 +40,11 @@ export async function loginAction(_: LoginState, form: FormData): Promise<LoginS
 }
 
 /** Демо-доступ для жюри: вход в один из четырёх вымышленных аккаунтов без ввода пароля.
- *  Список логинов жёстко ограничен; на сервере можно выключить через DEMO_LOGIN=0. */
+ *  Список логинов жёстко ограничен. В боевой сборке работает только при явном DEMO_LOGIN=1 (см. demoLoginEnabled). */
 const DEMO_LOGINS = ["anna.lesnova", "petr.ozerov", "dekanat", "teacher"] as const;
 
 export async function demoLoginAction(form: FormData) {
-  if (process.env.DEMO_LOGIN === "0") redirect("/login");
+  if (!demoLoginEnabled()) redirect("/login");
   const login = String(form.get("login") ?? "");
   if (!(DEMO_LOGINS as readonly string[]).includes(login)) redirect("/login");
   const user = await prisma.user.findUnique({ where: { login } });
@@ -60,19 +60,28 @@ const newPassword = z
   })
   .refine((d) => d.password === d.repeat, { message: "Пароли не совпадают", path: ["repeat"] });
 
-/** Свой пароль вместо временного: сохраняем, закрываем все прочие сессии, пускаем в кабинет. */
+/**
+ * Свой пароль вместо ВРЕМЕННОГО — только пока он действительно временный (mustChangePassword), проверка и при записи.
+ * Иначе любая чужая действующая сессия могла бы без старого пароля закрепить захват аккаунта.
+ * После смены — все сессии закрываются и выпускается новая (токен меняется).
+ */
 export async function changePasswordAction(_: LoginState, form: FormData): Promise<LoginState> {
   const user = await userForPasswordChange();
+  if (!user.mustChangePassword) redirect(homeFor(user.role));
   const p = newPassword.safeParse({ password: form.get("password"), repeat: form.get("repeat") });
   if (!p.success) return { error: p.error.issues[0].message };
   if (await verifyPassword(user.passwordHash, p.data.password)) return { error: "Новый пароль должен отличаться от временного" };
   const hash = await hashPassword(p.data.password);
-  const sid = (await cookies()).get("sid")?.value;
-  await prisma.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: user.id }, data: { passwordHash: hash, mustChangePassword: false } });
-    await tx.session.deleteMany({ where: { userId: user.id, ...(sid ? { id: { not: sid } } : {}) } });
+  const changed = await prisma.$transaction(async (tx) => {
+    // условие повторяется при записи: если деканат параллельно сбросил/изменил состояние — ничего не меняем
+    const { count } = await tx.user.updateMany({ where: { id: user.id, mustChangePassword: true }, data: { passwordHash: hash, mustChangePassword: false } });
+    if (!count) return false;
+    await tx.session.deleteMany({ where: { userId: user.id } });
     if (user.student) await tx.accountEvent.create({ data: { studentId: user.student.id, actorUserId: user.id, action: "PASSWORD_CHANGED" } });
+    return true;
   });
+  if (!changed) redirect("/login");
+  await createSession(user.id);
   redirect(homeFor(user.role));
 }
 

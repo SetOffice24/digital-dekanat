@@ -8,7 +8,7 @@ import { Prisma, type SubmissionStatus } from "@prisma/client";
 import { prisma } from "../db";
 import { notify } from "../notify";
 import { removeStored, storeFiles } from "../files";
-import { MAX_POINTS, teachesPair, TeacherAccessError, type SessionTeacher } from "./teacher";
+import { MAX_POINTS, teachesPair, teachingScope, teachesStudent, inScope, subgroupWhere, type TeachingScope, TeacherAccessError, type SessionTeacher } from "./teacher";
 import type { SessionStudent } from "./student";
 
 const fileSel = { select: { id: true, name: true, size: true } } as const;
@@ -93,10 +93,11 @@ export async function getAssignmentForTeacher(teacher: SessionTeacher, id: strin
     where: { id },
     include: { files: fileSel, group: { select: { id: true, name: true } }, course: { select: { id: true, name: true } } },
   });
-  if (!a || !(await teachesPair(teacher, a.groupId, a.courseId))) return null;
-  // группа + те, кто сдал и потом был переведён: их работы остаются у преподавателя на проверке
+  const scope = a ? await teachingScope(teacher, a.groupId, a.courseId) : null;
+  if (!a || !scope) return null;
+  // группа + те, кто сдал и потом был переведён: их работы остаются у преподавателя на проверке; только свои подгруппы
   const students = await prisma.student.findMany({
-    where: { OR: [{ groupId: a.groupId }, { submissions: { some: { assignmentId: id } } }] },
+    where: { OR: [{ groupId: a.groupId }, { submissions: { some: { assignmentId: id } } }], ...subgroupWhere(scope) },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     select: { id: true, lastName: true, firstName: true, groupId: true, group: { select: { name: true } }, submissions: { where: { assignmentId: id }, include: { files: fileSel, grade: { select: { points: true } } } } },
   });
@@ -125,11 +126,11 @@ export async function reviewSubmission(
     where: { id: submissionId },
     include: {
       assignment: { select: { id: true, title: true, groupId: true, courseId: true, course: { select: { name: true } } } },
-      student: { select: { userId: true, course: true } },
+      student: { select: { userId: true, course: true, subgroup: true } },
       grade: { select: { id: true, points: true } },
     },
   });
-  if (!s || !(await teachesPair(teacher, s.assignment.groupId, s.assignment.courseId))) return null;
+  if (!s || !(await teachesStudent(teacher, { groupId: s.assignment.groupId, subgroup: s.student.subgroup }, s.assignment.courseId))) return null;
   if (s.version !== version) return "stale";
   const pts = status === "ACCEPTED" ? points : null;
   if (s.status === status && s.teacherComment === comment && (s.grade?.points ?? null) === pts) return true;
@@ -168,15 +169,15 @@ export async function reviewQueue(teacher: SessionTeacher) {
     where: { status: "SUBMITTED", assignment: { teacherId: teacher.id } },
     orderBy: { submittedAt: "asc" },
     take: 300,
-    select: { id: true, submittedAt: true, version: true, student: { select: { lastName: true, firstName: true } }, assignment: { select: { id: true, title: true, dueAt: true, groupId: true, courseId: true, group: { select: { name: true } }, course: { select: { name: true } } } } },
+    select: { id: true, submittedAt: true, version: true, student: { select: { lastName: true, firstName: true, subgroup: true } }, assignment: { select: { id: true, title: true, dueAt: true, groupId: true, courseId: true, group: { select: { name: true } }, course: { select: { name: true } } } } },
   });
-  const allowed = new Map<string, boolean>();
+  const allowed = new Map<string, TeachingScope>();
   const groups = new Map<string, { assignment: (typeof rows)[number]["assignment"]; items: { id: string; name: string; submittedAt: Date; late: boolean; resubmitted: boolean; waitDays: number }[] }>();
   const now = Date.now();
   for (const r of rows) {
     const pair = r.assignment.groupId + "|" + r.assignment.courseId;
-    if (!allowed.has(pair)) allowed.set(pair, await teachesPair(teacher, r.assignment.groupId, r.assignment.courseId));
-    if (!allowed.get(pair)) continue;
+    if (!allowed.has(pair)) allowed.set(pair, await teachingScope(teacher, r.assignment.groupId, r.assignment.courseId));
+    if (!inScope(allowed.get(pair) ?? null, r.student.subgroup)) continue;
     const g = groups.get(r.assignment.id) ?? { assignment: r.assignment, items: [] };
     g.items.push({ id: r.id, name: `${r.student.lastName} ${r.student.firstName}`, submittedAt: r.submittedAt, late: r.submittedAt > r.assignment.dueAt, resubmitted: r.version > 1, waitDays: Math.floor((now - r.submittedAt.getTime()) / 86400_000) });
     groups.set(r.assignment.id, g);

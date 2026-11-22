@@ -35,8 +35,27 @@ export async function teachesPair(teacher: SessionTeacher, groupId: string, cour
   return (await prisma.lesson.count({ where: { teacherId: teacher.id, groupId, courseId, ...currentPeriod() } })) > 0;
 }
 
+/**
+ * Каких студентов группы преподаватель ведёт по дисциплине сейчас: all — есть занятия для всей группы (лекции),
+ * иначе — только перечисленные подгруппы. null — учебной связи нет.
+ * Используется для всего, что касается конкретного студента: журнал, оценки, сдачи, файлы сдач.
+ */
+export type TeachingScope = { all: boolean; subgroups: number[] } | null;
+export async function teachingScope(teacher: SessionTeacher, groupId: string, courseId: string): Promise<TeachingScope> {
+  const ls = await prisma.lesson.findMany({ where: { teacherId: teacher.id, groupId, courseId, ...currentPeriod() }, distinct: ["subgroup"], select: { subgroup: true } });
+  if (!ls.length) return null;
+  return ls.some((l) => l.subgroup == null) ? { all: true, subgroups: [] } : { all: false, subgroups: ls.map((l) => l.subgroup!) };
+}
+export const inScope = (scope: TeachingScope, subgroup: number) => !!scope && (scope.all || scope.subgroups.includes(subgroup));
+/** Фильтр студентов для запросов Prisma по границе подгруппы. */
+export const subgroupWhere = (scope: TeachingScope) => (!scope || scope.all ? {} : { subgroup: { in: scope.subgroups } });
+export async function teachesStudent(teacher: SessionTeacher, student: { groupId: string; subgroup: number }, courseId: string) {
+  return inScope(await teachingScope(teacher, student.groupId, courseId), student.subgroup);
+}
+
 export async function getGradebook(teacher: SessionTeacher, groupId: string, courseId: string) {
-  if (!(await teachesPair(teacher, groupId, courseId))) return null;
+  const scope = await teachingScope(teacher, groupId, courseId);
+  if (!scope) return null;
   const [group, course] = await Promise.all([
     prisma.group.findUnique({ where: { id: groupId }, select: { id: true, name: true, course: true } }),
     prisma.course.findUnique({ where: { id: courseId }, select: { id: true, name: true } }),
@@ -44,7 +63,7 @@ export async function getGradebook(teacher: SessionTeacher, groupId: string, cou
   if (!group || !course) return null;
   const semester = semesterOf(group.course);
   const students = await prisma.student.findMany({
-    where: { groupId, enrollments: { some: { courseId, semester } } },
+    where: { groupId, ...subgroupWhere(scope), enrollments: { some: { courseId, semester } } },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     select: {
       id: true,
@@ -79,10 +98,10 @@ export async function getGradebook(teacher: SessionTeacher, groupId: string, cou
 export async function addGrade(teacher: SessionTeacher, enrollmentId: string, points: number, note: string) {
   const enr = await prisma.enrollment.findUnique({
     where: { id: enrollmentId },
-    select: { courseId: true, semester: true, course: { select: { name: true } }, student: { select: { userId: true, groupId: true, course: true } } },
+    select: { courseId: true, semester: true, course: { select: { name: true } }, student: { select: { userId: true, groupId: true, course: true, subgroup: true } } },
   });
-  // только текущий семестр: прошлые зачисления (другой период, возможно другой преподаватель) не меняем
-  if (!enr || enr.semester !== semesterOf(enr.student.course) || !(await teachesPair(teacher, enr.student.groupId, enr.courseId))) throw new TeacherAccessError("Нет доступа к этому студенту");
+  // только текущий семестр (прошлые зачисления не меняем) и только студент своей подгруппы или занятия для всей группы
+  if (!enr || enr.semester !== semesterOf(enr.student.course) || !(await teachesStudent(teacher, enr.student, enr.courseId))) throw new TeacherAccessError("Нет доступа к этому студенту");
   const grade = await prisma.grade.create({ data: { enrollmentId, kind: "CURRENT", value: String(points), points, date: new Date(), note } });
   await notify([enr.student.userId], { kind: "GRADE", title: "Новая оценка", body: `${enr.course.name}: ${points} баллов — ${note}`, link: "/grades" });
   return grade;
@@ -91,9 +110,9 @@ export async function addGrade(teacher: SessionTeacher, enrollmentId: string, po
 export async function deleteGrade(teacher: SessionTeacher, gradeId: string) {
   const g = await prisma.grade.findUnique({
     where: { id: gradeId },
-    select: { kind: true, enrollment: { select: { courseId: true, semester: true, student: { select: { groupId: true, course: true } } } } },
+    select: { kind: true, enrollment: { select: { courseId: true, semester: true, student: { select: { groupId: true, course: true, subgroup: true } } } } },
   });
-  if (!g || g.kind !== "CURRENT" || g.enrollment.semester !== semesterOf(g.enrollment.student.course) || !(await teachesPair(teacher, g.enrollment.student.groupId, g.enrollment.courseId))) return false;
+  if (!g || g.kind !== "CURRENT" || g.enrollment.semester !== semesterOf(g.enrollment.student.course) || !(await teachesStudent(teacher, g.enrollment.student, g.enrollment.courseId))) return false;
   await prisma.grade.delete({ where: { id: gradeId } });
   return true;
 }
@@ -131,10 +150,11 @@ export async function teachingDay(teacher: SessionTeacher, today: Date) {
 
 /** Оценки всей группе за одну работу. Пустые поля пропускаются. Доступ проверяется для каждой записи. */
 export async function addGradesBulk(teacher: SessionTeacher, groupId: string, courseId: string, note: string, items: { enrollmentId: string; points: number }[]) {
-  if (!(await teachesPair(teacher, groupId, courseId))) throw new TeacherAccessError("Нет доступа к этой группе");
+  const scope = await teachingScope(teacher, groupId, courseId);
+  if (!scope) throw new TeacherAccessError("Нет доступа к этой группе");
   const course = await prisma.course.findUnique({ where: { id: courseId }, select: { name: true } });
   const enrs = await prisma.enrollment.findMany({
-    where: { id: { in: items.map((i) => i.enrollmentId) }, courseId, student: { groupId } },
+    where: { id: { in: items.map((i) => i.enrollmentId) }, courseId, student: { groupId, ...subgroupWhere(scope) } },
     select: { id: true, semester: true, student: { select: { userId: true, course: true } } },
   });
   const allowed = new Map(enrs.filter((e) => e.semester === semesterOf(e.student.course)).map((e) => [e.id, e.student.userId]));
